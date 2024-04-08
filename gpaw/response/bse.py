@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
+from functools import cached_property
 from time import time, ctime
 
 from ase.units import Hartree, Bohr
@@ -129,7 +130,6 @@ class BSEBackend:
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
         # Chi0 object
-        self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
 
     @property
@@ -483,11 +483,9 @@ class BSEBackend:
         else:
             self.calculate_screened_potential()
 
-    def initialize_chi0_calculator(self):
-        """Initialize the Chi0 object to compute the static
-        susceptibility."""
-
-        self._chi0calc = Chi0Calculator(
+    @cached_property
+    def _chi0calc(self):
+        return Chi0Calculator(
             self.gs, self.context.with_txt('chi0.txt'),
             wd=FrequencyDescriptor([0.0]),
             eta=0.001,
@@ -496,7 +494,9 @@ class BSEBackend:
             hilbert=False,
             nbands=self.nbands)
 
-        self.blockcomm = self._chi0calc.chi0_body_calc.blockcomm
+    @cached_property
+    def blockcomm(self):
+        return self._chi0calc.chi0_body_calc.blockcomm
 
     @timer('calculate_screened_potential')
     def calculate_screened_potential(self):
@@ -506,9 +506,6 @@ class BSEBackend:
         self.W_qGG = []
         self.qpd_q = []
 
-        # F.N: Moved this here. chi0 will be calculated by WCalculator
-        if self._chi0calc is None:
-            self.initialize_chi0_calculator()
         if self._wcalc is None:
             wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
