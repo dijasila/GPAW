@@ -199,7 +199,7 @@ def pack_hermitian(M2, tolerance=1e-10):
        (a00, [a01 + a10*]/2, [a02 + a20*]/2, a11, [a12 + a21*]/2, a22)
     """
     if M2.ndim == 3:
-        return np.array([pack2(m2) for m2 in M2])
+        return np.array([pack_hermitian(m2) for m2 in M2])
     n = len(M2)
     M = np.zeros(n * (n + 1) // 2, M2.dtype)
     p = 0
