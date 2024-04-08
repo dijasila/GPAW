@@ -1,24 +1,26 @@
-from time import time, ctime
+from dataclasses import dataclass
 from datetime import timedelta
+from time import time, ctime
 
-import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft import monkhorst_pack
+import numpy as np
 from scipy.linalg import eigh
 
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import world, serial_comm
 from gpaw.response import ResponseContext
-from gpaw.response.df import write_response_function
-from gpaw.response.coulomb_kernels import CoulombKernel
-from gpaw.response.screened_interaction import initialize_w_calculator
-from gpaw.response.paw import PWPAWCorrectionData
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import KPointPairFactory, get_gs_and_context
-from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import timer
+from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response.df import write_response_function
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.paw import PWPAWCorrectionData
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
+from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.screened_interaction import initialize_w_calculator
 
 
 class BSEBackend:
@@ -682,97 +684,15 @@ class BSEBackend:
 
         return vchi_w
 
-    def get_dielectric_function(self, w_w=None, eta=0.1,
-                                filename='df_bse.csv', readfile=None,
-                                write_eig='eig.dat'):
-        """Returns and writes real and imaginary part of the dielectric
-        function.
+    def get_dielectric_function(self, *args, filename='df_bse.csv', **kwargs):
+        vchi = self.vchi(*args, optical=True, **kwargs)
+        return vchi.dielectric_function(filename=filename)
 
-        w_w: list of frequencies (eV)
-            Dielectric function is calculated at these frequencies
-        eta: float
-            Lorentzian broadening of the spectrum (eV)
-        filename: str
-            data file on which frequencies, real and imaginary part of
-            dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
-        write_eig: str
-            File on which the BSE eigenvalues are written
-        """
+    def get_eels_spectrum(self, *args, filename='df_bse.csv', **kwargs):
+        vchi = self.vchi(*args, optical=False, **kwargs)
+        return vchi.eels_spectrum(filename=filename)
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta,
-                                   readfile=readfile, optical=True,
-                                   write_eig=write_eig)
-        epsilon_w += 1.0
-
-        if world.rank == 0 and filename is not None:
-            write_response_function(filename, w_w,
-                                    epsilon_w.real, epsilon_w.imag)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, epsilon_w
-
-    def get_eels_spectrum(self, w_w=None, eta=0.1,
-                          filename='df_bse.csv', readfile=None,
-                          write_eig='eig.dat'):
-        """Returns and writes real and imaginary part of the dielectric
-        function.
-
-        w_w: list of frequencies (eV)
-            Dielectric function is calculated at these frequencies
-        eta: float
-            Lorentzian broadening of the spectrum (eV)
-        filename: str
-            data file on which frequencies, real and imaginary part of
-            dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
-        write_eig: str
-            File on which the BSE eigenvalues are written
-        """
-
-        eels_w = -self.get_vchi(w_w=w_w, eta=eta,
-                                readfile=readfile, optical=False,
-                                write_eig=write_eig).imag
-
-        if world.rank == 0 and filename is not None:
-            write_spectrum(filename, w_w, eels_w)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, eels_w
-
-    def get_polarizability(self, w_w=None, eta=0.1,
-                           filename='pol_bse.csv', readfile=None,
-                           write_eig='eig.dat'):
-        r"""Calculate the polarizability alpha.
-        In 3D the imaginary part of the polarizability is related to the
-        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
-        with reduced dimensionality the converged value of alpha is
-        independent of the cell volume. This is not the case for eps_M,
-        which is ill defined. A truncated Coulomb kernel will always give
-        eps_M = 1.0, whereas the polarizability maintains its structure.
-        pbs should be a list of booleans giving the periodic directions.
-
-        By default, generate a file 'pol_bse.csv'. The three colomns are:
-        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
-        is \AA to the power of non-periodic directions.
-        """
-
-        pbc_c = self.gs.pbc
-
-        V = self.gs.nonpbc_cell_product()
-
+    def get_polarizability(self, *args, filename='pol_bse.csv', **kwargs):
         # Previously it was
         # optical = (self.coulomb.truncation is None)
         # I.e. if a truncated kernel is used optical = False.
@@ -784,21 +704,15 @@ class BSEBackend:
         # calculated with the previous code was only correct for q=0.
         # See Issue #1055, the related MR and comments therein
         # For simplicity we set it to true for all cases here.
-        optical = True
+        vchi = self.vchi(*args, optical=True, **kwargs)
+        return vchi.polarizability(filename=filename)
 
+    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
+             optical=True):
         vchi_w = self.get_vchi(w_w=w_w, eta=eta,
                                readfile=readfile, optical=optical,
                                write_eig=write_eig)
-        alpha_w = -V * vchi_w / (4 * np.pi)
-        alpha_w *= Bohr**(sum(~pbc_c))
-
-        if world.rank == 0 and filename is not None:
-            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, alpha_w
+        return VChi(self.gs, self.context, w_w, vchi_w, optical=optical)
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
@@ -1032,3 +946,103 @@ def read_spectrum(filename):
     w_w, A_w = np.loadtxt(filename, delimiter=',',
                           unpack=True)
     return w_w, A_w
+
+
+@dataclass
+class VChi:
+    gs: ResponseGroundStateAdapter
+    context: ResponseContext
+    w_w: np.ndarray
+    vchi_w: np.ndarray
+    optical: bool
+
+    def epsilon(self):
+        assert self.optical
+        return -self.vchi_w + 1.0
+
+    def eels(self):
+        assert not self.optical
+        return -self.vchi_w.imag
+
+    def alpha(self):
+        assert self.optical
+        pbc_c = self.gs.pbc
+        V = self.gs.nonpbc_cell_product()
+
+        alpha_w = -V * self.vchi_w / (4 * np.pi)
+        alpha_w *= Bohr**(sum(~pbc_c))
+        return alpha_w
+
+    def dielectric_function(self, filename='df_bse.csv'):
+        """Returns and writes real and imaginary part of the dielectric
+        function.
+
+        w_w: list of frequencies (eV)
+            Dielectric function is calculated at these frequencies
+        eta: float
+            Lorentzian broadening of the spectrum (eV)
+        filename: str
+            data file on which frequencies, real and imaginary part of
+            dielectric function is written
+        readfile: str
+            If H_SS is given, the method will load the BSE Hamiltonian
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
+        write_eig: str
+            File on which the BSE eigenvalues are written
+        """
+
+        return self._hackywrite(self.epsilon(), filename)
+
+    # XXX The default filename clashes with that of dielectric function!
+    def eels_spectrum(self, filename='df_bse.csv'):
+        """Returns and writes real and imaginary part of the dielectric
+        function.
+
+        w_w: list of frequencies (eV)
+            Dielectric function is calculated at these frequencies
+        eta: float
+            Lorentzian broadening of the spectrum (eV)
+        filename: str
+            data file on which frequencies, real and imaginary part of
+            dielectric function is written
+        readfile: str
+            If H_SS is given, the method will load the BSE Hamiltonian
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
+        write_eig: str
+            File on which the BSE eigenvalues are written
+        """
+        return self._hackywrite(self.eels(), filename)
+
+    def polarizability(self, filename='pol_bse.csv'):
+        r"""Calculate the polarizability alpha.
+        In 3D the imaginary part of the polarizability is related to the
+        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
+        with reduced dimensionality the converged value of alpha is
+        independent of the cell volume. This is not the case for eps_M,
+        which is ill defined. A truncated Coulomb kernel will always give
+        eps_M = 1.0, whereas the polarizability maintains its structure.
+        pbs should be a list of booleans giving the periodic directions.
+
+        By default, generate a file 'pol_bse.csv'. The three colomns are:
+        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
+        is \AA to the power of non-periodic directions.
+        """
+        return self._hackywrite(self.alpha(), filename)
+
+    def _hackywrite(self, array, filename):
+        if world.rank == 0 and filename is not None:
+            if array.dtype == complex:
+                write_response_function(filename, self.w_w, array.real,
+                                        array.imag)
+            else:
+                assert array.dtype == float
+                write_spectrum(filename, self.w_w, array)
+
+        world.barrier()
+
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
+
+        return self.w_w, array
