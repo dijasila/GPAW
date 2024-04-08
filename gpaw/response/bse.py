@@ -562,10 +562,10 @@ class BSEBackend:
                 H_SS = np.delete(H_SS, self.excludef_S, axis=1)
                 w_T, v_ST = np.linalg.eig(H_SS)
             world.broadcast(w_T, 0)
-            self.df_S = np.delete(self.df_S, self.excludef_S)
-            self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+            df_S = np.delete(self.df_S, self.excludef_S)
+            rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
             # Here the eigenvectors are returned as complex conjugated rows
-            diag = DiagonalizedBSE(w_T, v_ST, self.df_S, self.rhoG0_S)
+            diag = DiagonalizedBSE(w_T, v_ST, df_S, rhoG0_S)
         else:
             if world.size == 1:
                 self.context.print('  Using lapack...')
