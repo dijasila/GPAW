@@ -16,7 +16,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
     expressed in terms of GPAW LCAO orbitals.
 
     This module is not maintained and possibly broken.
-    Use gpaw/elph/electronphonon instead.
+    Use gpaw/elph/* instead.
     """
 
 
