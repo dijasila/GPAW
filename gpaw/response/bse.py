@@ -1,4 +1,5 @@
 from time import time, ctime
+from dataclasses import dataclass
 from datetime import timedelta
 
 import numpy as np
@@ -752,27 +753,12 @@ class BSEBackend:
 
         return w_w, eels_w
 
-    def get_polarizability(self, w_w=None, eta=0.1,
-                           filename='pol_bse.csv', readfile=None,
-                           write_eig='eig.dat'):
-        r"""Calculate the polarizability alpha.
-        In 3D the imaginary part of the polarizability is related to the
-        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
-        with reduced dimensionality the converged value of alpha is
-        independent of the cell volume. This is not the case for eps_M,
-        which is ill defined. A truncated Coulomb kernel will always give
-        eps_M = 1.0, whereas the polarizability maintains its structure.
-        pbs should be a list of booleans giving the periodic directions.
+    def get_polarizability(self, *args, filename='pol_bse.csv', **kwargs):
+        vchi = self.vchi(*args, optical=True, **kwargs)
+        return vchi.polarizability(filename)
 
-        By default, generate a file 'pol_bse.csv'. The three colomns are:
-        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
-        is \AA to the power of non-periodic directions.
-        """
-
-        pbc_c = self.gs.pbc
-
-        V = self.gs.nonpbc_cell_product()
-
+    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
+             optical=True):
         # Previously it was
         # optical = (self.coulomb.truncation is None)
         # I.e. if a truncated kernel is used optical = False.
@@ -784,21 +770,10 @@ class BSEBackend:
         # calculated with the previous code was only correct for q=0.
         # See Issue #1055, the related MR and comments therein
         # For simplicity we set it to true for all cases here.
-        optical = True
-
         vchi_w = self.get_vchi(w_w=w_w, eta=eta,
                                readfile=readfile, optical=optical,
                                write_eig=write_eig)
-        alpha_w = -V * vchi_w / (4 * np.pi)
-        alpha_w *= Bohr**(sum(~pbc_c))
-
-        if world.rank == 0 and filename is not None:
-            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, alpha_w
+        return VChi(self, w_w, vchi_w)
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
@@ -1032,3 +1007,41 @@ def read_spectrum(filename):
     w_w, A_w = np.loadtxt(filename, delimiter=',',
                           unpack=True)
     return w_w, A_w
+
+
+@dataclass
+class VChi:
+    bse: BSEBackend
+    w_w: np.ndarray
+    vchi_w: np.ndarray
+
+    def polarizability(self, filename='pol_bse.csv'):
+        r"""Calculate the polarizability alpha.
+        In 3D the imaginary part of the polarizability is related to the
+        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
+        with reduced dimensionality the converged value of alpha is
+        independent of the cell volume. This is not the case for eps_M,
+        which is ill defined. A truncated Coulomb kernel will always give
+        eps_M = 1.0, whereas the polarizability maintains its structure.
+        pbs should be a list of booleans giving the periodic directions.
+
+        By default, generate a file 'pol_bse.csv'. The three colomns are:
+        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
+        is \AA to the power of non-periodic directions.
+        """
+
+        bse = self.bse
+        pbc_c = bse.gs.pbc
+        V = bse.gs.nonpbc_cell_product()
+
+        alpha_w = -V * self.vchi_w / (4 * np.pi)
+        alpha_w *= Bohr**(sum(~pbc_c))
+
+        if world.rank == 0 and filename is not None:
+            write_response_function(filename, self.w_w, alpha_w.real,
+                                    alpha_w.imag)
+
+        bse.context.print('Calculation completed at:', ctime(), flush=False)
+        bse.context.print('')
+
+        return self.w_w, alpha_w
