@@ -23,6 +23,11 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.screened_interaction import initialize_w_calculator
 
 
+@dataclass
+class DiagonalizedBSE:
+    w_T: np.ndarray
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -531,7 +536,9 @@ class BSEBackend:
 
     @timer('diagonalize')
     def diagonalize(self):
+        self._diag = self._diagonalize()
 
+    def _diagonalize(self):
         self.context.print('Diagonalizing Hamiltonian')
         """The t and T represent local and global
            eigenstates indices respectively
@@ -585,7 +592,7 @@ class BSEBackend:
             # Cannot use par_save without td
             self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
 
-        return
+        return DiagonalizedBSE(self.w_T)
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, readfile=None, optical=True):
