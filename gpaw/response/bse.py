@@ -129,9 +129,6 @@ class BSEBackend:
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
-        # Chi0 object
-        self._wcalc = None  # Initialized later
-
     @property
     def pair_calc(self):
         return self.kptpair_factory.pair_calculator()
@@ -498,6 +495,17 @@ class BSEBackend:
     def blockcomm(self):
         return self._chi0calc.chi0_body_calc.blockcomm
 
+    @cached_property
+    def wcontext(self):
+        return ResponseContext(txt='w.txt', comm=world)
+
+    @cached_property
+    def _wcalc(self):
+        return initialize_w_calculator(
+            self._chi0calc, self.wcontext,
+            coulomb=self.coulomb,
+            integrate_gamma=self.integrate_gamma)
+
     @timer('calculate_screened_potential')
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
@@ -506,12 +514,6 @@ class BSEBackend:
         self.W_qGG = []
         self.qpd_q = []
 
-        if self._wcalc is None:
-            wcontext = ResponseContext(txt='w.txt', comm=world)
-            self._wcalc = initialize_w_calculator(
-                self._chi0calc, wcontext,
-                coulomb=self.coulomb,
-                integrate_gamma=self.integrate_gamma)
         t0 = time()
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
