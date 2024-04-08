@@ -37,8 +37,7 @@ class BSEBackend:
                  mode='BSE',
                  q_c=[0.0, 0.0, 0.0],
                  direction=0,
-                 wfile=None,
-                 write_v=False):
+                 wfile=None):
         self.gs = gs
         self.q_c = q_c
         self.direction = direction
@@ -59,7 +58,6 @@ class BSEBackend:
                                'truncation. Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
         self.wfile = wfile
-        self.write_v = write_v
 
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
@@ -576,10 +574,6 @@ class BSEBackend:
                 r.redistribute(v_tmp, self.v_St)
                 self.v_St = self.v_St.conj().T
 
-        if self.write_v and self.td:
-            # Cannot use par_save without td
-            self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
-
         return
 
     @timer('get_bse_matrix')
@@ -693,25 +687,6 @@ class BSEBackend:
         vchi_w = self.get_vchi(w_w=w_w, eta=eta, optical=optical,
                                write_eig=write_eig)
         return VChi(self.gs, self.context, w_w, vchi_w, optical=optical)
-
-    def par_save(self, filename, name, A_sS):
-        import ase.io.ulm as ulm
-
-        if world.size == 1:
-            A_XS = A_sS
-        else:
-            A_XS = self.collect_A_SS(A_sS)
-
-        if world.rank == 0:
-            w = ulm.open(filename, 'w')
-            if name == 'v_TS':
-                w.write(w_T=self.w_T)
-            # w.write(nS=self.nS)
-            w.write(rhoG0_S=self.rhoG0_S)
-            w.write(df_S=self.df_S)
-            w.write(A_XS=A_XS)
-            w.close()
-        world.barrier()
 
     def collect_A_SS(self, A_sS):
         if world.rank == 0:
@@ -844,8 +819,6 @@ class BSE(BSEBackend):
         wfile: str
             File for saving screened interaction and some other stuff
             needed later
-        write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.ulm
         """
         gs, context = get_gs_and_context(
             calc, txt, world=world, timer=timer)
