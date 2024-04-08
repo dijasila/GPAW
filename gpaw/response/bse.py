@@ -956,6 +956,20 @@ class VChi:
     vchi_w: np.ndarray
     optical: bool
 
+    def epsilon(self):
+        return -self.vchi_w + 1.0
+
+    def eels(self):
+        return -self.vchi_w.imag
+
+    def alpha(self):
+        pbc_c = self.gs.pbc
+        V = self.gs.nonpbc_cell_product()
+
+        alpha_w = -V * self.vchi_w / (4 * np.pi)
+        alpha_w *= Bohr**(sum(~pbc_c))
+        return alpha_w
+
     def dielectric_function(self, filename='df_bse.csv'):
         """Returns and writes real and imaginary part of the dielectric
         function.
@@ -977,8 +991,7 @@ class VChi:
 
         assert self.optical
 
-        epsilon_w = -self.vchi_w
-        epsilon_w += 1.0
+        epsilon_w = self.epsilon()
 
         if world.rank == 0 and filename is not None:
             write_response_function(filename, self.w_w,
@@ -1012,14 +1025,13 @@ class VChi:
 
         assert not self.optical
 
-        eels_w = -self.vchi_w.imag
+        eels_w = self.eels()
 
         if world.rank == 0 and filename is not None:
             write_spectrum(filename, self.w_w, eels_w)
         world.barrier()
 
-        self.context.print('Calculation completed at:', ctime(),
-                               flush=False)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
         self.context.print('')
 
         return self.w_w, eels_w
@@ -1041,11 +1053,7 @@ class VChi:
 
         assert self.optical
 
-        pbc_c = self.gs.pbc
-        V = self.gs.nonpbc_cell_product()
-
-        alpha_w = -V * self.vchi_w / (4 * np.pi)
-        alpha_w *= Bohr**(sum(~pbc_c))
+        alpha_w = self.alpha()
 
         if world.rank == 0 and filename is not None:
             write_response_function(filename, self.w_w, alpha_w.real,
