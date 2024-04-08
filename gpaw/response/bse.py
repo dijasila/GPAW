@@ -719,43 +719,13 @@ class BSEBackend:
 
         return w_w, epsilon_w
 
-    def get_eels_spectrum(self, w_w=None, eta=0.1,
-                          filename='df_bse.csv', readfile=None,
-                          write_eig='eig.dat'):
-        """Returns and writes real and imaginary part of the dielectric
-        function.
-
-        w_w: list of frequencies (eV)
-            Dielectric function is calculated at these frequencies
-        eta: float
-            Lorentzian broadening of the spectrum (eV)
-        filename: str
-            data file on which frequencies, real and imaginary part of
-            dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
-        write_eig: str
-            File on which the BSE eigenvalues are written
-        """
-
-        eels_w = -self.get_vchi(w_w=w_w, eta=eta,
-                                readfile=readfile, optical=False,
-                                write_eig=write_eig).imag
-
-        if world.rank == 0 and filename is not None:
-            write_spectrum(filename, w_w, eels_w)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, eels_w
+    def get_eels_spectrum(self, *args, filename='df_bse.csv', **kwargs):
+        vchi = self.vchi(*args, optical=False, **kwargs)
+        return vchi.eels_spectrum(filename=filename)
 
     def get_polarizability(self, *args, filename='pol_bse.csv', **kwargs):
         vchi = self.vchi(*args, optical=True, **kwargs)
-        return vchi.polarizability(filename)
+        return vchi.polarizability(filename=filename)
 
     def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
              optical=True):
@@ -1014,6 +984,38 @@ class VChi:
     bse: BSEBackend
     w_w: np.ndarray
     vchi_w: np.ndarray
+
+    # XXX The default filename clashes with that of dielectric function!
+    def eels_spectrum(self, filename='df_bse.csv'):
+        """Returns and writes real and imaginary part of the dielectric
+        function.
+
+        w_w: list of frequencies (eV)
+            Dielectric function is calculated at these frequencies
+        eta: float
+            Lorentzian broadening of the spectrum (eV)
+        filename: str
+            data file on which frequencies, real and imaginary part of
+            dielectric function is written
+        readfile: str
+            If H_SS is given, the method will load the BSE Hamiltonian
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
+        write_eig: str
+            File on which the BSE eigenvalues are written
+        """
+
+        eels_w = -self.vchi_w.imag
+
+        if world.rank == 0 and filename is not None:
+            write_spectrum(filename, self.w_w, eels_w)
+        world.barrier()
+
+        self.bse.context.print('Calculation completed at:', ctime(),
+                               flush=False)
+        self.bse.context.print('')
+
+        return self.w_w, eels_w
 
     def polarizability(self, filename='pol_bse.csv'):
         r"""Calculate the polarizability alpha.
