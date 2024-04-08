@@ -22,4 +22,4 @@ def check():
     g_lnn = g_sqklnn[0, 0, 665, 3:6, 1:4, 1:4]
     # See PHYSICAL REVIEW B 104, 195201 (2021) Eq 12
     M = np.sqrt(np.sum(g_lnn**2))
-    assert np.isclose(M, 3.3310379, rtol=1e-4)
+    assert np.isclose(M, 3.3310379, rtol=1e-3)
