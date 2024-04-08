@@ -109,9 +109,9 @@ class SelfTestingKSpline(Spline):
         self.rgd = rgd
         self.f_g = f_g
         # Set attributes of parent Spline object
-        self.spline = spline.spline
-        self.l = spline.l
-        self._npoints = spline._npoints
+        if hasattr(spline, 'spline'):
+            spline = spline.spline
+        super().__init__(spline)
 
     def map(self, k_G):
         self.test_spline_representation(k_G)

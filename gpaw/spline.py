@@ -10,10 +10,14 @@ import gpaw.cgpaw as cgpaw
 
 
 class Spline:
-    def __init__(self, l, rmax, f_g):
-        """Spline object
+    """Spline object"""
+    def __init__(self, spline):
+        self.spline = spline
+        self.l = self.get_angular_momentum_number()
 
-        The integer l gives the angular momentum quantum number and
+    @classmethod
+    def from_data(cls, l, rmax, f_g):
+        """The integer l gives the angular momentum quantum number and
         the list contains the spline values from r=0 to r=rcut.
 
         The array f_g gives the radial part of the function on the grid.
@@ -24,9 +28,7 @@ class Spline:
         f_g = np.array(f_g, float)
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
-        self.spline = cgpaw.Spline(l, rmax, f_g)
-        self.l = l
-        self._npoints = len(f_g)
+        return cls(cgpaw.Spline(l, rmax, f_g))
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -35,6 +37,9 @@ class Spline:
     def get_angular_momentum_number(self):
         """Return the angular momentum quantum number."""
         return self.spline.get_angular_momentum_number()
+
+    def get_npoints(self):
+        return self.spline.get_npoints()
 
     def __repr__(self):
         return ('Spline(l={}, rmax={:.2f}, ...)'
@@ -59,8 +64,9 @@ class Spline:
     def __getstate__(self):
         state = self.__dict__.copy()
         rmax = self.get_cutoff()
-        state['spline'] = (rmax,
-                           self.map(np.linspace(0.0, rmax, self._npoints)))
+        state['spline'] = (
+            rmax,
+            self.map(np.linspace(0.0, rmax, self.get_npoints())))
         return state
 
     def __setstate__(self, state):

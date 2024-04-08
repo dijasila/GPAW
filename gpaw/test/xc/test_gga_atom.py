@@ -26,7 +26,7 @@ def test_xc_gga_atom():
             data = [wt0(r) for r in np.arange(121) * rcut / 100]
             data[-1] = 0.0
             l = wt0.get_angular_momentum_number()
-            wt_j.append(Spline(l, 1.2 * rcut, data))
+            wt_j.append(Spline.from_data(l, 1.2 * rcut, data))
 
         a = rcut * 1.2 * 2 + 1.0
         n = 70
