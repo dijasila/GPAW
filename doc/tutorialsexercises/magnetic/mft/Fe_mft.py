@@ -6,7 +6,7 @@ import numpy as np
 
 # Script modules
 from gpaw.mpi import rank
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response import ResponseContext, read_ground_state
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.chiks import ChiKSCalculator
@@ -47,7 +47,7 @@ rc_r = np.linspace(0.5, 1.75, 51)
 # responsible for output file handling and ground state data extraction in the
 # response code respectively
 context = ResponseContext(txt='Fe_mft.txt')
-gs = ResponseGroundStateAdapter.from_gpw_file(gpw, context=context)
+gs = read_ground_state(gpw, context=context)
 # We extract the atoms directly from the ground state adapter
 atoms = gs.atoms
 
