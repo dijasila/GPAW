@@ -1,16 +1,11 @@
 """GPAW Response core functionality."""
 from __future__ import annotations
-from typing import Union
-from pathlib import Path
 
-from .groundstate import ResponseGroundStateAdapter  # noqa
-from .context import ResponseContext, timer  # noqa
+from .groundstate import ResponseGroundStateAdapter, GPWFilename  # noqa
+from .context import ResponseContext, TXTFilename, timer  # noqa
 
-__all__ = ['ResponseGroundStateAdapter', 'ResponseContext', 'timer']
-
-
-GPWFilename = Union[Path, str]
-TXTFilename = Union[Path, str]
+__all__ = ['ResponseGroundStateAdapter', 'GPWFilename',
+           'ResponseContext', 'TXTFilename', 'timer']
 
 
 def ensure_gs_and_context(gs: ResponseGroundStateAdapter | GPWFilename,
