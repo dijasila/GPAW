@@ -683,9 +683,7 @@ class BSEBackend:
 
         return vchi_w
 
-    def get_dielectric_function(self, w_w=None, eta=0.1,
-                                filename='df_bse.csv', readfile=None,
-                                write_eig='eig.dat'):
+    def get_dielectric_function(self, *args, filename='df_bse.csv', **kwargs):
         """Returns and writes real and imaginary part of the dielectric
         function.
 
@@ -703,21 +701,8 @@ class BSEBackend:
         write_eig: str
             File on which the BSE eigenvalues are written
         """
-
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta,
-                                   readfile=readfile, optical=True,
-                                   write_eig=write_eig)
-        epsilon_w += 1.0
-
-        if world.rank == 0 and filename is not None:
-            write_response_function(filename, w_w,
-                                    epsilon_w.real, epsilon_w.imag)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, epsilon_w
+        vchi = self.vchi(*args, optical=True, **kwargs)
+        return vchi.dielectric_function(filename=filename)
 
     def get_eels_spectrum(self, *args, filename='df_bse.csv', **kwargs):
         vchi = self.vchi(*args, optical=False, **kwargs)
@@ -985,6 +970,22 @@ class VChi:
     w_w: np.ndarray
     vchi_w: np.ndarray
 
+    def dielectric_function(self, filename='df_bse.csv'):
+        # XXX require optical
+        epsilon_w = -self.vchi_w
+        epsilon_w += 1.0
+
+        if world.rank == 0 and filename is not None:
+            write_response_function(filename, self.w_w,
+                                    epsilon_w.real, epsilon_w.imag)
+        world.barrier()
+
+        self.bse.context.print('Calculation completed at:', ctime(),
+                               flush=False)
+        self.bse.context.print('')
+
+        return self.w_w, epsilon_w
+
     # XXX The default filename clashes with that of dielectric function!
     def eels_spectrum(self, filename='df_bse.csv'):
         """Returns and writes real and imaginary part of the dielectric
@@ -1005,6 +1006,7 @@ class VChi:
             File on which the BSE eigenvalues are written
         """
 
+        # XXX require *not* optical
         eels_w = -self.vchi_w.imag
 
         if world.rank == 0 and filename is not None:
@@ -1032,6 +1034,7 @@ class VChi:
         is \AA to the power of non-periodic directions.
         """
 
+        # XXX require optical
         bse = self.bse
         pbc_c = bse.gs.pbc
         V = bse.gs.nonpbc_cell_product()
