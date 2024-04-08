@@ -1,6 +1,4 @@
 import numpy as np
-from pathlib import Path
-from gpaw.mpi import world
 from gpaw.response.bse import BSE
 from gpaw.response.df import DielectricFunction
 
