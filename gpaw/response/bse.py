@@ -127,6 +127,8 @@ class BSEBackend:
         self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
 
+        self._diag = None  # Initialized later
+
     @property
     def pair_calc(self):
         return self.kptpair_factory.pair_calculator()
@@ -536,6 +538,7 @@ class BSEBackend:
 
     @timer('diagonalize')
     def diagonalize(self):
+        assert self._diag is None
         self._diag = self._diagonalize()
 
     def _diagonalize(self):
@@ -600,9 +603,9 @@ class BSEBackend:
 
         if readfile is None:
             self.calculate(optical=optical)
-            if hasattr(self, '_diag'):
-                return
-            self.diagonalize()
+            if self._diag is None:
+                self.diagonalize()
+                assert self._diag is not None
         elif readfile == 'H_SS':
             self.context.print('Reading Hamiltonian from file')
             self.par_load('H_SS.ulm', 'H_SS')
