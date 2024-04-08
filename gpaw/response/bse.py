@@ -588,33 +588,19 @@ class BSEBackend:
         return
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, readfile=None, optical=True):
+    def get_bse_matrix(self, optical=True):
         """Calculate and diagonalize BSE matrix"""
 
-        if readfile is None:
-            self.calculate(optical=optical)
-            if hasattr(self, 'w_T'):
-                return
-            self.diagonalize()
-        elif readfile == 'H_SS':
-            self.context.print('Reading Hamiltonian from file')
-            self.par_load('H_SS.ulm', 'H_SS')
-            self.diagonalize()
-        elif readfile == 'v_TS':
-            self.context.print('Reading eigenstates from file')
-            self.par_load('v_TS.ulm', 'v_TS')
-        else:
-            raise ValueError('%s array not recognized' % readfile)
-
-        return
+        self.calculate(optical=optical)
+        if hasattr(self, 'w_T'):
+            return
+        self.diagonalize()
 
     @timer('get_vchi')
-    def get_vchi(self, w_w=None, eta=0.1,
-                 readfile=None, optical=True,
-                 write_eig=None):
+    def get_vchi(self, w_w=None, eta=0.1, optical=True, write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(readfile=readfile, optical=optical)
+        self.get_bse_matrix(optical=optical)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
@@ -707,10 +693,9 @@ class BSEBackend:
         vchi = self.vchi(*args, optical=True, **kwargs)
         return vchi.polarizability(filename=filename)
 
-    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
+    def vchi(self, w_w=None, eta=0.1, write_eig='eig.dat',
              optical=True):
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta,
-                               readfile=readfile, optical=optical,
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta, optical=optical,
                                write_eig=write_eig)
         return VChi(self.gs, self.context, w_w, vchi_w, optical=optical)
 
@@ -984,10 +969,6 @@ class VChi:
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -1006,10 +987,6 @@ class VChi:
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
