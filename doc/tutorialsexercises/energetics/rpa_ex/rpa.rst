@@ -166,7 +166,7 @@ As before, we also need the energy of the isolated atom.  Look at (but don't
 run!) the script :download:`atom/si.atom.pbe+exx.py`, which returns the
 following output in ``pbe_and_exx_energies.txt``::
 
-  #Box_side_length(A) PBE_total_energy(eV) PBE+EXX_total_energy(eV)
+  #Box_side_length(A) PBE_total_energy(eV) EXX@PBE_total_energy(eV)
   6.0 -0.665810338359 9.88551793188
   7.0 -0.779861449204 9.79892076652
   8.0 -0.825944184466 9.76642864072
