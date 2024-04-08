@@ -38,6 +38,13 @@ class DiagonalizedTDBSE:
     v_St: np.ndarray  # note distinction from v_ST in non-Tamm–Dancoff case
 
 
+@dataclass
+class ScreenedPotential:
+    pawcorr_q: list
+    W_qGG: list
+    qpd_q: list
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -225,11 +232,11 @@ class BSEBackend:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             pawcorr = pairden_paw_corr(qpd0)
         else:
-            self.get_screened_potential()
+            # self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
+                pawcorr = self.screened_potential.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
                 pairden_paw_corr = self.gs.pair_density_paw_corrections
                 pawcorr = pairden_paw_corr(qpd0)
@@ -386,11 +393,12 @@ class BSEBackend:
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
                             self.context.timer.start('Screened exchange')
-                            W_mnmn = np.einsum('ijk,km,pqm->ipjq',
-                                               rho3_mmG.conj(),
-                                               self.W_qGG[iq],
-                                               rho4_nnG,
-                                               optimize='optimal')
+                            W_mnmn = np.einsum(
+                                'ijk,km,pqm->ipjq',
+                                rho3_mmG.conj(),
+                                self.screened_potential.W_qGG[iq],
+                                rho4_nnG,
+                                optimize='optimal')
                             W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
                             self.context.timer.stop('Screened exchange')
@@ -435,9 +443,10 @@ class BSEBackend:
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
                                                      kpt1, kpt2)
-        qpd = self.qpd_q[iq]
+        qpd = self.screened_potential.qpd_q[iq]
         nG = qpd.ngmax
-        pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
+        pawcorr0 = self.screened_potential.pawcorr_q[iq]
+        pawcorr, I_G = symop.apply_symop_q(qpd, pawcorr0, kpt1, kpt2)
         self.context.timer.stop('Symop')
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
@@ -447,38 +456,9 @@ class BSEBackend:
                                  self.pair_calc, timer=self.context.timer)
         return rho_mnG, iq
 
-    @timer('get_screened_potential')
-    def get_screened_potential(self):
-
-        if hasattr(self, 'W_qGG'):
-            return
-
-        if self.wfile is not None:
-            # Read screened potential from file
-            try:
-                data = np.load(self.wfile + '.npz')
-                self.qpd_q = data['pd']
-                assert len(data['pd']) == len(data['Q'])
-                self.pawcorr_q = [
-                    PWPAWCorrectionData(
-                        Q_aGii, qpd=qpd,
-                        pawdatasets=self.gs.pawdataset_by_species,
-                        pos_av=self.gs.get_pos_av(),
-                        atomrotations=self.gs.atomrotations)
-                    for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
-                self.W_qGG = data['W']
-                self.context.print('Reading screened potential from % s' %
-                                   self.wfile)
-            except FileNotFoundError:
-                self.calculate_screened_potential()
-                self.context.print('Saving screened potential to % s' %
-                                   self.wfile)
-                if world.rank == 0:
-                    np.savez(self.wfile,
-                             Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
-                             pd=self.qpd_q, W=self.W_qGG)
-        else:
-            self.calculate_screened_potential()
+    @cached_property
+    def screened_potential(self):
+        return self.calculate_screened_potential()
 
     @cached_property
     def _chi0calc(self):
@@ -508,11 +488,11 @@ class BSEBackend:
 
     @timer('calculate_screened_potential')
     def calculate_screened_potential(self):
-        """Calculate W_GG(q)"""
+        """Calculate W_GG(q)."""
 
-        self.pawcorr_q = []
-        self.W_qGG = []
-        self.qpd_q = []
+        pawcorr_q = []
+        W_qGG = []
+        qpd_q = []
 
         t0 = time()
         self.context.print('Calculating screened potential')
@@ -523,9 +503,9 @@ class BSEBackend:
             # This is such a terrible way to access the paw
             # corrections. Attributes should not be groped like
             # this... Change in the future! XXX
-            self.pawcorr_q.append(self._chi0calc.chi0_body_calc.pawcorr)
-            self.qpd_q.append(chi0.qpd)
-            self.W_qGG.append(W_GG)
+            pawcorr_q.append(self._chi0calc.chi0_body_calc.pawcorr)
+            qpd_q.append(chi0.qpd)
+            W_qGG.append(W_GG)
 
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:
                 dt = time() - t0
@@ -534,6 +514,8 @@ class BSEBackend:
                     '  Finished {} q-points in {} - Estimated {} left'.format(
                         iq + 1, timedelta(seconds=round(dt)), timedelta(
                             seconds=round(tleft))))
+
+        return ScreenedPotential(pawcorr_q, W_qGG, qpd_q)
 
     @timer('diagonalize')
     def diagonalize(self):
