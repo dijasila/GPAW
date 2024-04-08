@@ -578,11 +578,8 @@ class BSEBackend:
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, optical=True):
-        """Calculate and diagonalize BSE matrix"""
-
+        """Calculate and diagonalize BSE matrix."""
         self.calculate(optical=optical)
-        if hasattr(self, 'w_T'):
-            return
         self.diagonalize()
 
     @timer('get_vchi')
