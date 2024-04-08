@@ -551,19 +551,19 @@ class BSEBackend:
                 self.excludef_S))
 
             self.H_SS = self.collect_A_SS(self.H_sS)
-            self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
+            w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
                 self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
                 self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
-                self.w_T, self.v_ST = np.linalg.eig(self.H_SS)
-            world.broadcast(self.w_T, 0)
+                w_T, self.v_ST = np.linalg.eig(self.H_SS)
+            world.broadcast(w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
                 self.context.print('  Using lapack...')
-                self.w_T, self.v_St = eigh(self.H_sS)
+                w_T, self.v_St = eigh(self.H_sS)
             else:
                 self.context.print('  Using scalapack...')
                 nS = self.nS
@@ -579,9 +579,9 @@ class BSEBackend:
                 r = Redistributor(world, desc, desc2)
                 r.redistribute(self.H_sS, H_tmp)
 
-                self.w_T = np.empty(nS)
+                w_T = np.empty(nS)
                 v_tmp = desc2.empty(dtype=complex)
-                desc2.diagonalize_dc(H_tmp, v_tmp, self.w_T)
+                desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
 
                 r = Redistributor(grid.comm, desc2, desc)
                 self.v_St = desc.zeros(dtype=complex)
@@ -592,7 +592,7 @@ class BSEBackend:
             # Cannot use par_save without td
             self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
 
-        return DiagonalizedBSE(self.w_T)
+        return DiagonalizedBSE(w_T)
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, readfile=None, optical=True):
@@ -600,7 +600,7 @@ class BSEBackend:
 
         if readfile is None:
             self.calculate(optical=optical)
-            if hasattr(self, 'w_T'):
+            if hasattr(self, '_diag'):
                 return
             self.diagonalize()
         elif readfile == 'H_SS':
@@ -623,7 +623,7 @@ class BSEBackend:
 
         self.get_bse_matrix(readfile=readfile, optical=optical)
 
-        w_T = self.w_T
+        w_T = self._diag.w_T
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
 
@@ -687,7 +687,7 @@ class BSEBackend:
             filename = write_eig
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
-                                      self.w_T * Hartree, C_T)
+                                      self._diag.w_T * Hartree, C_T)
 
         return vchi_w
 
@@ -732,7 +732,7 @@ class BSEBackend:
         if world.rank == 0:
             w = ulm.open(filename, 'w')
             if name == 'v_TS':
-                w.write(w_T=self.w_T)
+                w.write(w_T=self._diag.w_T)
             # w.write(nS=self.nS)
             w.write(rhoG0_S=self.rhoG0_S)
             w.write(df_S=self.df_S)
@@ -746,14 +746,14 @@ class BSEBackend:
         if world.rank == 0:
             r = ulm.open(filename, 'r')
             if name == 'v_TS':
-                self.w_T = r.w_T
+                w_T = r.w_T
             self.rhoG0_S = r.rhoG0_S
             self.df_S = r.df_S
             A_XS = r.A_XS
             r.close()
         else:
             if name == 'v_TS':
-                self.w_T = np.zeros((self.nS), dtype=float)
+                w_T = np.zeros((self.nS), dtype=float)
             self.rhoG0_S = np.zeros((self.nS), dtype=complex)
             self.df_S = np.zeros((self.nS), dtype=float)
             A_XS = None
@@ -765,7 +765,8 @@ class BSEBackend:
             self.H_sS = self.distribute_A_SS(A_XS)
 
         if name == 'v_TS':
-            world.broadcast(self.w_T, 0)
+            world.broadcast(w_T, 0)
+            self._diag.w_T = w_T
             self.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
     def collect_A_SS(self, A_sS):

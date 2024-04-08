@@ -31,4 +31,4 @@ def test_bse_spinpol(in_tmp_dir):
               conduction_bands=[[1], [1]])
 
     bse.get_bse_matrix()
-    assert bse.w_T[0] == pytest.approx(0.013, abs=0.001)
+    assert bse._diag.w_T[0] == pytest.approx(0.013, abs=0.001)
