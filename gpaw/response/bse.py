@@ -957,12 +957,15 @@ class VChi:
     optical: bool
 
     def epsilon(self):
+        assert self.optical
         return -self.vchi_w + 1.0
 
     def eels(self):
+        assert not self.optical
         return -self.vchi_w.imag
 
     def alpha(self):
+        assert self.optical
         pbc_c = self.gs.pbc
         V = self.gs.nonpbc_cell_product()
 
@@ -989,19 +992,7 @@ class VChi:
             File on which the BSE eigenvalues are written
         """
 
-        assert self.optical
-
-        epsilon_w = self.epsilon()
-
-        if world.rank == 0 and filename is not None:
-            write_response_function(filename, self.w_w,
-                                    epsilon_w.real, epsilon_w.imag)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return self.w_w, epsilon_w
+        return self._hackywrite(self.epsilon(), filename)
 
     # XXX The default filename clashes with that of dielectric function!
     def eels_spectrum(self, filename='df_bse.csv'):
@@ -1022,19 +1013,7 @@ class VChi:
         write_eig: str
             File on which the BSE eigenvalues are written
         """
-
-        assert not self.optical
-
-        eels_w = self.eels()
-
-        if world.rank == 0 and filename is not None:
-            write_spectrum(filename, self.w_w, eels_w)
-        world.barrier()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return self.w_w, eels_w
+        return self._hackywrite(self.eels(), filename)
 
     def polarizability(self, filename='pol_bse.csv'):
         r"""Calculate the polarizability alpha.
@@ -1050,16 +1029,20 @@ class VChi:
         frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
         is \AA to the power of non-periodic directions.
         """
+        return self._hackywrite(self.alpha(), filename)
 
-        assert self.optical
-
-        alpha_w = self.alpha()
-
+    def _hackywrite(self, array, filename):
         if world.rank == 0 and filename is not None:
-            write_response_function(filename, self.w_w, alpha_w.real,
-                                    alpha_w.imag)
+            if array.dtype == complex:
+                write_response_function(filename, self.w_w, array.real,
+                                        array.imag)
+            else:
+                assert array.dtype == float
+                write_spectrum(filename, self.w_w, array)
+
+        world.barrier()
 
         self.context.print('Calculation completed at:', ctime(), flush=False)
         self.context.print('')
 
-        return self.w_w, alpha_w
+        return self.w_w, array
