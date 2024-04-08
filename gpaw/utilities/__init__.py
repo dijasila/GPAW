@@ -182,22 +182,6 @@ Hamiltonian, are constructed according to (un)pack_hermitian.
 """
 
 
-def pack2(M):
-    return pack_hermitian(M)
-
-
-def unpack(M):
-    return unpack_hermitian(M)
-
-
-def pack(M: np.ndarray) -> np.ndarray:
-    return pack_density(M)
-
-
-def unpack2(M):
-    return unpack_density(M)
-
-
 def pack_hermitian(M2, tolerance=1e-10):
     r"""Pack Hermitian
 
