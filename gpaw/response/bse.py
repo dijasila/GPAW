@@ -27,6 +27,8 @@ from gpaw.response.screened_interaction import initialize_w_calculator
 class DiagonalizedBSE:
     w_T: np.ndarray
     v_ST: np.ndarray
+    subset_df_S: np.ndarray
+    subset_rhoG0_S: np.ndarray
 
 
 @dataclass
@@ -563,7 +565,7 @@ class BSEBackend:
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
             # Here the eigenvectors are returned as complex conjugated rows
-            diag = DiagonalizedBSE(w_T, v_ST)
+            diag = DiagonalizedBSE(w_T, v_ST, self.df_S, self.rhoG0_S)
         else:
             if world.size == 1:
                 self.context.print('  Using lapack...')
@@ -608,8 +610,6 @@ class BSEBackend:
         self.get_bse_matrix(optical=optical)
 
         w_T = self._diag.w_T
-        rhoG0_S = self.rhoG0_S
-        df_S = self.df_S
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
@@ -619,16 +619,17 @@ class BSEBackend:
             C_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
                 v_ST = self._diag.v_ST
-                A_T = np.dot(rhoG0_S, v_ST)
-                B_T = np.dot(rhoG0_S * df_S, v_ST)
+                A_T = np.dot(self._diag.subset_rhoG0_S, v_ST)
+                B_T = np.dot(
+                    self._diag.subset_rhoG0_S * self._diag.subset_df_S, v_ST)
                 tmp = np.dot(v_ST.conj().T, v_ST)
                 overlap_tt = np.linalg.inv(tmp)
                 C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
             world.broadcast(C_T, 0)
         else:
             v_St = self._diag.v_St
-            A_t = np.dot(rhoG0_S, v_St)
-            B_t = np.dot(rhoG0_S * df_S, v_St)
+            A_t = np.dot(self.rhoG0_S, v_St)
+            B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
             if world.size == 1:
                 C_T = B_t.conj() * A_t
             else:
