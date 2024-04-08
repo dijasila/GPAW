@@ -410,8 +410,6 @@ class BSEBackend:
         # world.sum(rhoG0_Ksmn)
         # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
-        if not self.use_tammdancoff:
-            self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         # multiply by 2 when spin-paired and no SOC
         self.df_S *= 2.0 / nK / Ns / so
         self.deps_s = np.reshape(deps_ksmn, -1)
@@ -528,28 +526,26 @@ class BSEBackend:
                         iq + 1, timedelta(seconds=round(dt)), timedelta(
                             seconds=round(tleft))))
 
-    def nontamdancoff_step1(self):
+    def diagonalize_bse_matrix_nontamdancoff(self):
+        excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         self.context.print('  Using numpy.linalg.eig...')
         self.context.print('  Eliminated %s pair orbitals' % len(
-            self.excludef_S))
+            excludef_S))
 
         H_SS = self.collect_A_SS(self.H_sS)
-        w_T = np.zeros(self.nS - len(self.excludef_S), complex)
+        w_T = np.zeros(self.nS - len(excludef_S), complex)
         if world.rank == 0:
-            H_SS = np.delete(H_SS, self.excludef_S, axis=0)
-            H_SS = np.delete(H_SS, self.excludef_S, axis=1)
+            H_SS = np.delete(H_SS, excludef_S, axis=0)
+            H_SS = np.delete(H_SS, excludef_S, axis=1)
             w_T, v_ST = np.linalg.eig(H_SS)
         world.broadcast(w_T, 0)
 
-        # Here the eigenvectors are returned as complex conjugated rows
-        return w_T, v_ST
+        # Here the eigenvectors are represented as complex conjugated rows
 
-    def diagonalize_bse_matrix_nontamdancoff(self):
-        df_S = np.delete(self.df_S, self.excludef_S)
-        rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+        df_S = np.delete(self.df_S, excludef_S)
+        rhoG0_S = np.delete(self.rhoG0_S, excludef_S)
 
-        w_T, v_ST = self.nontamdancoff_step1()
-        C_T = np.zeros(self.nS - len(self.excludef_S), complex)
+        C_T = np.zeros(self.nS - len(excludef_S), complex)
         if world.rank == 0:
             A_T = np.dot(rhoG0_S, v_ST)
             B_T = np.dot(rhoG0_S * df_S, v_ST)
@@ -559,7 +555,7 @@ class BSEBackend:
         world.broadcast(C_T, 0)
         return w_T, C_T
 
-    def tamdancoff_step1(self):
+    def diagonalize_bse_matrix_tamdancoff(self):
         if world.size == 1:
             self.context.print('  Using lapack...')
             w_T, v_St = eigh(self.H_sS)
@@ -570,6 +566,9 @@ class BSEBackend:
                 self.nv * self.nc *
                 self.spins *
                 (self.spinors + 1)**2)
+
+            # XXX We don't need to create new BLACS grids all the time
+            # (also: remove the one further down)
             grid = BlacsGrid(world, world.size, 1)
             desc = grid.new_descriptor(nS, nS, ns, nS)
 
@@ -587,12 +586,9 @@ class BSEBackend:
             r.redistribute(v_tmp, v_St)
             v_St = v_St.conj().T
 
-        return w_T, v_St
-
-    def diagonalize_bse_matrix_tamdancoff(self):
-        w_T, v_St = self.tamdancoff_step1()
         A_t = np.dot(self.rhoG0_S, v_St)
         B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
+
         if world.size == 1:
             C_T = B_t.conj() * A_t
         else:
