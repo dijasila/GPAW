@@ -7,7 +7,8 @@ from gpaw import BadParallelization
 from gpaw.mpi import world
 from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.sphere.lebedev import weight_n
-from gpaw.utilities import pack, pack_atomic_matrices, unpack_atomic_matrices
+from gpaw.utilities import (pack_atomic_matrices, pack_density,
+                            unpack_atomic_matrices)
 from gpaw.xc.gllb import safe_sqr
 from gpaw.xc.gllb.contribution import Contribution
 
@@ -483,8 +484,8 @@ class C_Response(Contribution):
                     D_sp = dxc_pot.D_asp[a]
                     Dresp_sp = dxc_pot.Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
-                    Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
-                                          P_ni[lumo_n]).real)
+                    Dwf_p = pack_density(
+                        np.outer(P_ni[lumo_n].T.conj(), P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
                                                spin=spin)
                 E = self.gd.comm.sum_scalar(E)
@@ -643,12 +644,12 @@ class C_Response(Contribution):
                            self.vt_sG)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-        def unpack(D_sP):
+        def unpack_density(D_sP):
             return unpack_atomic_matrices(D_sP, wfs.setups)
 
         # Read atomic density matrices and non-local part of hamiltonian:
-        D_asp = unpack(r.gllb_atomic_density_matrices)
-        Dresp_asp = unpack(r.gllb_atomic_response_matrices)
+        D_asp = unpack_density(r.gllb_atomic_density_matrices)
+        Dresp_asp = unpack_density(r.gllb_atomic_response_matrices)
 
         # All density matrices are loaded to all cores
         # First distribute them to match density.D_asp

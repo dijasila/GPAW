@@ -49,9 +49,7 @@ class BSEBackend:
                  mode='BSE',
                  q_c=[0.0, 0.0, 0.0],
                  direction=0,
-                 wfile=None,
-                 write_h=False,
-                 write_v=False):
+                 wfile=None):
         self.gs = gs
         self.q_c = q_c
         self.direction = direction
@@ -72,8 +70,6 @@ class BSEBackend:
                                'truncation. Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
         self.wfile = wfile
-        self.write_h = write_h
-        self.write_v = write_v
 
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
@@ -436,9 +432,6 @@ class BSEBackend:
 
         self.H_sS = H_sS
 
-        if self.write_h:
-            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
-
     @timer('get_density_matrix')
     def get_density_matrix(self, kpt1, kpt2):
         self.context.timer.start('Symop')
@@ -600,41 +593,19 @@ class BSEBackend:
                 v_St = v_St.conj().T
 
             diag = DiagonalizedTDBSE(w_T, v_St)
-
-            if self.write_v:
-                # Cannot use par_save without td
-                self.par_save('v_TS.ulm', 'v_TS', v_St.T)
-
         return diag
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, readfile=None, optical=True):
-        """Calculate and diagonalize BSE matrix"""
-
-        if readfile is None:
-            self.calculate(optical=optical)
-            if self._diag is None:
-                self.diagonalize()
-                assert self._diag is not None
-        elif readfile == 'H_SS':
-            self.context.print('Reading Hamiltonian from file')
-            self.par_load('H_SS.ulm', 'H_SS')
-            self.diagonalize()
-        elif readfile == 'v_TS':
-            self.context.print('Reading eigenstates from file')
-            self.par_load('v_TS.ulm', 'v_TS')
-        else:
-            raise ValueError('%s array not recognized' % readfile)
-
-        return
+    def get_bse_matrix(self, optical=True):
+        """Calculate and diagonalize BSE matrix."""
+        self.calculate(optical=optical)
+        self.diagonalize()
 
     @timer('get_vchi')
-    def get_vchi(self, w_w=None, eta=0.1,
-                 readfile=None, optical=True,
-                 write_eig=None):
+    def get_vchi(self, w_w=None, eta=0.1, optical=True, write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(readfile=readfile, optical=optical)
+        self.get_bse_matrix(optical=optical)
 
         w_T = self._diag.w_T
         rhoG0_S = self.rhoG0_S
@@ -729,60 +700,11 @@ class BSEBackend:
         vchi = self.vchi(*args, optical=True, **kwargs)
         return vchi.polarizability(filename=filename)
 
-    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
+    def vchi(self, w_w=None, eta=0.1, write_eig='eig.dat',
              optical=True):
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta,
-                               readfile=readfile, optical=optical,
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta, optical=optical,
                                write_eig=write_eig)
         return VChi(self.gs, self.context, w_w, vchi_w, optical=optical)
-
-    def par_save(self, filename, name, A_sS):
-        import ase.io.ulm as ulm
-
-        if world.size == 1:
-            A_XS = A_sS
-        else:
-            A_XS = self.collect_A_SS(A_sS)
-
-        if world.rank == 0:
-            w = ulm.open(filename, 'w')
-            if name == 'v_TS':
-                w.write(w_T=self._diag.w_T)
-            # w.write(nS=self.nS)
-            w.write(rhoG0_S=self.rhoG0_S)
-            w.write(df_S=self.df_S)
-            w.write(A_XS=A_XS)
-            w.close()
-        world.barrier()
-
-    def par_load(self, filename, name):
-        import ase.io.ulm as ulm
-
-        if world.rank == 0:
-            r = ulm.open(filename, 'r')
-            if name == 'v_TS':
-                w_T = r.w_T
-            self.rhoG0_S = r.rhoG0_S
-            self.df_S = r.df_S
-            A_XS = r.A_XS
-            r.close()
-        else:
-            if name == 'v_TS':
-                w_T = np.zeros((self.nS), dtype=float)
-            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
-            self.df_S = np.zeros((self.nS), dtype=float)
-            A_XS = None
-
-        world.broadcast(self.rhoG0_S, 0)
-        world.broadcast(self.df_S, 0)
-
-        if name == 'H_SS':
-            self.H_sS = self.distribute_A_SS(A_XS)
-
-        if name == 'v_TS':
-            world.broadcast(w_T, 0)
-            self._diag.w_T = w_T
-            self._diag.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
     def collect_A_SS(self, A_sS):
         if world.rank == 0:
@@ -800,25 +722,6 @@ class BSEBackend:
         world.barrier()
         if world.rank == 0:
             return A_SS
-
-    def distribute_A_SS(self, A_SS, transpose=False):
-        if world.rank == 0:
-            for rank in range(0, world.size):
-                nkr, nk, ns = self.parallelisation_sizes(rank)
-                if rank == 0:
-                    A_sS = A_SS[0:ns]
-                    Ntot = ns
-                else:
-                    world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
-                    Ntot += ns
-        else:
-            nkr, nk, ns = self.parallelisation_sizes()
-            A_sS = np.empty((ns, self.nS), dtype=complex)
-            world.receive(A_sS, 0, tag=123)
-        world.barrier()
-        if transpose:
-            A_sS = A_sS.T
-        return A_sS
 
     def parallelisation_sizes(self, rank=None):
         if rank is None:
@@ -934,10 +837,6 @@ class BSE(BSEBackend):
         wfile: str
             File for saving screened interaction and some other stuff
             needed later
-        write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.ulm.
-        write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.ulm
         """
         gs, context = get_gs_and_context(
             calc, txt, world=world, timer=timer)
@@ -1007,10 +906,6 @@ class VChi:
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -1029,10 +924,6 @@ class VChi:
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
