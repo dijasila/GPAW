@@ -553,12 +553,12 @@ class BSEBackend:
             self.context.print('  Eliminated %s pair orbitals' % len(
                 self.excludef_S))
 
-            self.H_SS = self.collect_A_SS(self.H_sS)
+            H_SS = self.collect_A_SS(self.H_sS)
             w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
-                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
-                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
-                w_T, v_ST = np.linalg.eig(self.H_SS)
+                H_SS = np.delete(H_SS, self.excludef_S, axis=0)
+                H_SS = np.delete(H_SS, self.excludef_S, axis=1)
+                w_T, v_ST = np.linalg.eig(H_SS)
             world.broadcast(w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
