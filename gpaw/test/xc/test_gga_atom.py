@@ -6,7 +6,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
 from gpaw.xc import XC
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 from gpaw.mpi import serial_comm
 
 
@@ -48,7 +48,7 @@ def test_xc_gga_atom():
         P_ni = 0.2 * rng.random((20, ni))
         P_ni[:, nao:] = 0.0
         D_ii = np.dot(np.transpose(P_ni), P_ni)
-        D_p = pack(D_ii)
+        D_p = pack_density(D_ii)
         p = 0
         for i1 in range(nao):
             for i2 in range(i1, nao):

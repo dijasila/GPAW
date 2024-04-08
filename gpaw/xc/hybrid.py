@@ -347,7 +347,8 @@ class HybridXC(HybridXCBase):
                     v_aL = self.ghat.dict()
                     self.ghat.integrate(vt_g, v_aL)
                     for a, v_L in v_aL.items():
-                        v_ii = unpack_hermitian(np.dot(setups[a].Delta_pL, v_L))
+                        v_ii = unpack_hermitian(
+                            np.dot(setups[a].Delta_pL, v_L))
                         v_ni = kpt.vxx_ani[a]
                         v_nii = kpt.vxx_anii[a]
                         P_ni = P_ani[a]

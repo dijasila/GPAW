@@ -317,7 +317,8 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.hubbard_u is not None:
-                eU, dHU_sii = setup.hubbard_u.calculate(setup, unpack_density(D_sp))
+                eU, dHU_sii = setup.hubbard_u.calculate(setup,
+                                                        unpack_density(D_sp))
                 e_xc += eU
                 dH_sp += pack_hermitian(dHU_sii)
 
