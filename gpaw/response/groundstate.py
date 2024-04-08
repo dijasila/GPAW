@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from gpaw.new.ase_interface import ASECalculator
     from gpaw.calculator import GPAW
     from gpaw.setup import Setups, LeanSetup
-    from gpaw.response.context import ResponseContext
 
 
 class PAWDatasetCollection:
@@ -81,15 +80,8 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw: GPWFilename,
-                      context: ResponseContext) -> ResponseGroundStateAdapter:
-        context.print('Reading ground state calculation:\n  %s' % gpw)
-        with context.timer('Read ground state'):
-            return cls.new_from_gpw_file(gpw)
-
-    @classmethod
-    def new_from_gpw_file(cls,
-                          gpw: GPWFilename) -> ResponseGroundStateAdapter:
+    def from_gpw_file(cls,
+                      gpw: GPWFilename) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()

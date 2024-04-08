@@ -27,7 +27,7 @@ def read_ground_state(gpw: GPWFilename,
         context = NoContext()
     context.print('Reading ground state calculation:\n  %s' % gpw)
     with context.timer('Read ground state'):
-        return ResponseGroundStateAdapter.new_from_gpw_file(gpw)
+        return ResponseGroundStateAdapter.from_gpw_file(gpw)
 
 
 def ensure_gs_and_context(gs: ResponseGroundStateAdapter | GPWFilename,

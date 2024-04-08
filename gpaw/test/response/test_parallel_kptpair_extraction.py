@@ -40,8 +40,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
     # ---------- Script ---------- #
 
     # Initialize serial ground state adapter
-    serial_gs = ResponseGroundStateAdapter.new_from_gpw_file(
-        gpw_files[wfs])
+    serial_gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs])
 
     # Initialize parallel ground state adapter
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
