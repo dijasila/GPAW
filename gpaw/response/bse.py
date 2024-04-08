@@ -58,8 +58,7 @@ class BSEBackend:
                  integrate_gamma=1,
                  mode='BSE',
                  q_c=[0.0, 0.0, 0.0],
-                 direction=0,
-                 wfile=None):
+                 direction=0):
         self.gs = gs
         self.q_c = q_c
         self.direction = direction
@@ -79,7 +78,6 @@ class BSEBackend:
                                ' is not expected to work with Coulomb ' +
                                'truncation. Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
-        self.wfile = wfile
 
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
@@ -808,9 +806,6 @@ class BSE(BSEBackend):
             txt output
         mode: str
             Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
-        wfile: str
-            File for saving screened interaction and some other stuff
-            needed later
         """
         gs, context = get_gs_and_context(
             calc, txt, world=world, timer=timer)
