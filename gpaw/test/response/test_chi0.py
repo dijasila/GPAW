@@ -5,7 +5,9 @@ from ase.dft.kpoints import monkhorst_pack
 # from ase.units import Bohr
 
 from gpaw import GPAW, FermiDirac, PW
-from gpaw.response.chi0 import Chi0
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.mpi import serial_comm
 from itertools import product
 
@@ -39,10 +41,13 @@ def test_response_chi0(in_tmp_dir):
         calc.write(name, 'all')
 
         calc = GPAW(name, txt=None, communicator=serial_comm)
+        gs = ResponseGroundStateAdapter(calc)
 
-        chi = Chi0(calc, frequencies=np.array([0, 1.0, 2.0]), hilbert=False,
-                   ecut=100, txt=name + '.log')
-        chi0 = chi.calculate(q_c)
+        chi0_calc = Chi0Calculator(
+            gs, ResponseContext(name + '.log'),
+            wd=FrequencyDescriptor(np.array([0, 1.0, 2.0])),
+            hilbert=False, ecut=100)
+        chi0 = chi0_calc.calculate(q_c)
         assert chi0.body.blockdist.blockcomm.size == 1
         chi0_wGG = chi0.chi0_WgG  # no block distribution
 
@@ -57,7 +62,7 @@ def test_response_chi0(in_tmp_dir):
         elif -1 not in calc.wfs.kd.bz2bz_ks:
             assert abs(chi0_wGG - chi00_wGG).max() < 2e-5
 
-        chi0 = chi.calculate([0, 0, 0])
+        chi0 = chi0_calc.calculate([0, 0, 0])
         assert chi0.body.blockdist.blockcomm.size == 1
         chi0_wGG = chi0.chi0_WgG  # no block distribution
 
