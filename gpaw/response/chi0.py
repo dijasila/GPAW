@@ -30,25 +30,6 @@ if TYPE_CHECKING:
     from gpaw.response.pair import ActualPairDensityCalculator
 
 
-def find_maximum_frequency(kpt_u: list,
-                           context: ResponseContext,
-                           nbands=0) -> float:
-    """Determine the maximum electron-hole pair transition energy."""
-    epsmin = 10000.0
-    epsmax = -10000.0
-
-    # kpt_u: list of KPoint from gpaw.kpoint
-    for kpt in kpt_u:
-        epsmin = min(epsmin, kpt.eps_n[0])
-        epsmax = max(epsmax, kpt.eps_n[nbands - 1])
-
-    context.print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
-                  flush=False)
-    context.print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha))
-
-    return epsmax - epsmin
-
-
 class Chi0Calculator:
     def __init__(self,
                  gs: ResponseGroundStateAdapter,
@@ -540,7 +521,7 @@ class Chi0(Chi0Calculator):
 
 def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
                              context: ResponseContext,
-                             nbands: int,
+                             nbands: int | None,
                              frequencies: None | dict | np.ndarray = None,
                              *, domega0: float | None = None,
                              omega2: float | None = None,
@@ -560,9 +541,20 @@ def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
 
     if (isinstance(frequencies, dict) and
         frequencies.get('omegamax') is None):
-        omegamax = find_maximum_frequency(gs.kpt_u, context,
-                                          nbands=nbands)
-        frequencies['omegamax'] = omegamax * Ha
+        # At some point, this printing should be the user's problem.
+        # Let us do it as a part of #1157
+        epsmin, epsmax = gs.get_eigenvalue_range(nbands)
+        context.print('\n'.join([
+            'Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
+            'Maximum eigenvalue: %10.3f eV' % (epsmax * Ha)]))
+        frequencies['omegamax'] = get_omegamax(gs, nbands)
 
     wd = FrequencyDescriptor.from_array_or_dict(frequencies)
     return wd
+
+
+def get_omegamax(gs: ResponseGroundStateAdapter,
+                 nbands: int | None = None):
+    """Get the maxmimum eigenvalue difference including nbands, in eV."""
+    epsmin, epsmax = gs.get_eigenvalue_range(nbands=nbands)
+    return (epsmax - epsmin) * Ha
