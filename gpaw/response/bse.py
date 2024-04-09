@@ -322,9 +322,6 @@ class BSEBackend:
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
         self.context.timer.stop('Pair densities')
 
-        if hasattr(self, 'H_sS'):
-            return
-
         # Calculate Hamiltonian
         self.context.timer.start('Calculate Hamiltonian')
         t0 = time()
