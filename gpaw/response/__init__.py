@@ -1,32 +1,28 @@
 """GPAW Response core functionality."""
 from __future__ import annotations
-from typing import Union
-from pathlib import Path
 
-from .groundstate import ResponseGroundStateAdapter  # noqa
-from .context import ResponseContext, timer  # noqa
+from .groundstate import ResponseGroundStateAdapter, GPWFilename  # noqa
+from .context import ResponseContext, TXTFilename, timer  # noqa
 
-__all__ = ['ResponseGroundStateAdapter', 'ResponseContext', 'timer']
-
-
-GPWFilename = Union[Path, str]
-TXTFilename = Union[Path, str]
+__all__ = ['ResponseGroundStateAdapter', 'GPWFilename',
+           'ResponseContext', 'TXTFilename', 'timer']
 
 
 def ensure_gs_and_context(gs: ResponseGroundStateAdapter | GPWFilename,
                           context: ResponseContext | TXTFilename = '-')\
         -> tuple[ResponseGroundStateAdapter, ResponseContext]:
+    return ensure_gs(gs), ensure_context(context)
+
+
+def ensure_gs(gs: ResponseGroundStateAdapter | GPWFilename
+              ) -> ResponseGroundStateAdapter:
+    if not isinstance(gs, ResponseGroundStateAdapter):
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpw=gs)
+    return gs
+
+
+def ensure_context(context: ResponseContext | TXTFilename
+                   ) -> ResponseContext:
     if not isinstance(context, ResponseContext):
         context = ResponseContext(txt=context)
-    gs = ensure_gs(gs, context=context)
-    return gs, context
-
-
-def ensure_gs(gs: ResponseGroundStateAdapter | GPWFilename,
-              context: ResponseContext | None = None)\
-        -> ResponseGroundStateAdapter:
-    if not isinstance(gs, ResponseGroundStateAdapter):
-        if context is None:
-            context = ResponseContext()
-        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
-    return gs
+    return context

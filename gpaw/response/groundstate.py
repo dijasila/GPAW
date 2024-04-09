@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Union
 from pathlib import Path
 from functools import cached_property
 from types import SimpleNamespace
@@ -15,7 +16,6 @@ if TYPE_CHECKING:
     from gpaw.new.ase_interface import ASECalculator
     from gpaw.calculator import GPAW
     from gpaw.setup import Setups, LeanSetup
-    from gpaw.response.context import ResponseContext
 
 
 class PAWDatasetCollection:
@@ -34,6 +34,9 @@ class PAWDatasetCollection:
         self.by_species = by_species
         self.by_atom = by_atom
         self.id_by_atom = id_by_atom
+
+
+GPWFilename = Union[Path, str]
 
 
 class ResponseGroundStateAdapter:
@@ -77,18 +80,12 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw: Path | str,
-                      context: ResponseContext) -> ResponseGroundStateAdapter:
+    def from_gpw_file(cls, gpw: GPWFilename) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
-
-        context.print('Reading ground state calculation:\n  %s' % gpw)
-
-        with context.timer('Read ground state'):
-            with disable_dry_run():
-                calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
-
+        with disable_dry_run():
+            calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
         return cls(calc)
 
     @property

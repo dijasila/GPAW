@@ -279,18 +279,17 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # Part 1: chiks calculation
 
     # Initialize ground state adapter
-    context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs], context)
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs])
     nbands = response_band_cutoff[wfs]
 
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
     # Calculate chiks
-    chiks_calc = ChiKSCalculator(gs, context=context,
-                                 ecut=ecut, nbands=nbands)
+    chiks_calc = ChiKSCalculator(gs, ecut=ecut, nbands=nbands)
     chiks = chiks_calc.calculate(spincomponent, q_c, zd)
     chiks = chiks.copy_with_global_frequency_distribution()
+    chiks_calc.context.write_timer()
 
     # Part 2: chi0 calculation
     chi0_calc = Chi0(gpw_files[wfs],
@@ -299,12 +298,10 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
                      hilbert=False, intraband=False)
     chi0 = chi0_calc.calculate(q_c)
     chi0_wGG = chi0.body.get_distributed_frequencies_array()
+    chi0_calc.context.write_timer()
 
     # Part 3: Check chiks vs. chi0
     assert chiks.array == pytest.approx(chi0_wGG, rel=1e-3, abs=1e-5)
-
-    # Make it possible to check timings for the test
-    context.write_timer()
 
 
 @pytest.mark.response
