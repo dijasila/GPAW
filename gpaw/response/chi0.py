@@ -505,9 +505,6 @@ class Chi0(Chi0Calculator):
         # context: ResponseContext from gpaw.response.context
         gs, context = get_gs_and_context(calc, txt, world, timer)
 
-        # bd: BandDescriptor from gpaw.band_descriptor
-        nbands = nbands or gs.bd.nbands
-
         # wd: FrequencyDescriptor from gpaw.response.frequencies
         wd = new_frequency_descriptor(
             gs, context, nbands, frequencies,
