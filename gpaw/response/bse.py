@@ -35,6 +35,13 @@ def decide_whether_tammdancoff(val_sn, con_sn):
 
 
 @dataclass
+class BSEMatrix:
+    rhoG0_S: np.ndarray
+    df_S: np.ndarray
+    H_sS: np.ndarray
+
+
+@dataclass
 class ScreenedPotential:
     pawcorr_q: list
     W_qGG: list
@@ -181,7 +188,7 @@ class BSEBackend:
         return bands_sn
 
     @timer('BSE calculate')
-    def calculate(self, optical=True):
+    def calculate(self, optical):
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
             # and n is the basis of eigenstates without SOC. Below m is used
@@ -316,10 +323,7 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
 
-        # SERIOUS THINGS START HERE
-
-        # XXX mutable
-        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
         self.context.timer.stop('Pair densities')
 
         # Calculate Hamiltonian
@@ -409,19 +413,18 @@ class BSEBackend:
         # XXX mutable stuff here:
 
         # world.sum(rhoG0_Ksmn)
-        # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
-        self.df_S = np.reshape(df_Ksmn, -1)
+        df_S = np.reshape(df_Ksmn, -1)
         # multiply by 2 when spin-paired and no SOC
-        self.df_S *= 2.0 / nK / Ns / so
+        df_S *= 2.0 / nK / Ns / so
         deps_s = np.reshape(deps_ksmn, -1)
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
-            H_sS[iS] *= self.df_S[iS0 + iS]
+            H_sS[iS] *= df_S[iS0 + iS]
             # add bare transition energies
             H_sS[iS, iS0 + iS] += deps_s[iS]
 
-        self.H_sS = H_sS
+        return BSEMatrix(rhoG0_S, df_S, H_sS)
 
     @timer('get_density_matrix')
     def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
@@ -499,13 +502,17 @@ class BSEBackend:
 
         return ScreenedPotential(pawcorr_q, W_qGG, qpd_q)
 
-    def diagonalize_bse_matrix_nontamdancoff(self):
-        excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
+    def diagonalize_bse_matrix_nontamdancoff(self, bsematrix):
+        df_S = bsematrix.df_S
+        H_sS = bsematrix.H_sS
+        rhoG0_S = bsematrix.rhoG0_S
+
+        excludef_S = np.where(np.abs(df_S) < 0.001)[0]
         self.context.print('  Using numpy.linalg.eig...')
         self.context.print('  Eliminated %s pair orbitals' % len(
             excludef_S))
 
-        H_SS = self.collect_A_SS(self.H_sS)
+        H_SS = self.collect_A_SS(H_sS)
         w_T = np.zeros(self.nS - len(excludef_S), complex)
         if world.rank == 0:
             H_SS = np.delete(H_SS, excludef_S, axis=0)
@@ -515,8 +522,8 @@ class BSEBackend:
 
         # Here the eigenvectors are represented as complex conjugated rows
 
-        df_S = np.delete(self.df_S, excludef_S)
-        rhoG0_S = np.delete(self.rhoG0_S, excludef_S)
+        df_S = np.delete(df_S, excludef_S)
+        rhoG0_S = np.delete(rhoG0_S, excludef_S)
 
         C_T = np.zeros(self.nS - len(excludef_S), complex)
         if world.rank == 0:
@@ -528,10 +535,14 @@ class BSEBackend:
         world.broadcast(C_T, 0)
         return w_T, C_T
 
-    def diagonalize_bse_matrix_tamdancoff(self):
+    def diagonalize_bse_matrix_tamdancoff(self, bsematrix):
+        df_S = bsematrix.df_S
+        H_sS = bsematrix.H_sS
+        rhoG0_S = bsematrix.rhoG0_S
+
         if world.size == 1:
             self.context.print('  Using lapack...')
-            w_T, v_St = eigh(self.H_sS)
+            w_T, v_St = eigh(H_sS)
         else:
             self.context.print('  Using scalapack...')
             nS = self.nS
@@ -548,7 +559,7 @@ class BSEBackend:
             desc2 = grid.new_descriptor(nS, nS, 2, 2)
             H_tmp = desc2.zeros(dtype=complex)
             r = Redistributor(world, desc, desc2)
-            r.redistribute(self.H_sS, H_tmp)
+            r.redistribute(H_sS, H_tmp)
 
             w_T = np.empty(nS)
             v_tmp = desc2.empty(dtype=complex)
@@ -559,8 +570,8 @@ class BSEBackend:
             r.redistribute(v_tmp, v_St)
             v_St = v_St.conj().T
 
-        A_t = np.dot(self.rhoG0_S, v_St)
-        B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
+        A_t = np.dot(rhoG0_S, v_St)
+        B_t = np.dot(rhoG0_S * df_S, v_St)
 
         if world.size == 1:
             C_T = B_t.conj() * A_t
@@ -581,29 +592,29 @@ class BSEBackend:
         return w_T, C_T
 
     @timer('diagonalize')
-    def diagonalize_bse_matrix(self):
+    def diagonalize_bse_matrix(self, bsematrix):
         self.context.print('Diagonalizing Hamiltonian')
         if self.use_tammdancoff:
-            return self.diagonalize_bse_matrix_tamdancoff()
+            return self.diagonalize_bse_matrix_tamdancoff(bsematrix)
         else:
-            return self.diagonalize_bse_matrix_nontamdancoff()
+            return self.diagonalize_bse_matrix_nontamdancoff(bsematrix)
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, optical=True):
-        """Calculate and diagonalize BSE matrix."""
-        self.calculate(optical=optical)
+        """Calculate BSE matrix."""
+        return self.calculate(optical=optical)
 
     @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1, optical=True, write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(optical=optical)
+        bsematrix = self.get_bse_matrix(optical=optical)
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
-        w_T, C_T = self.diagonalize_bse_matrix()
+        w_T, C_T = self.diagonalize_bse_matrix(bsematrix)
 
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
