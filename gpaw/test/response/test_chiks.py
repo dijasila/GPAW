@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.response import (ResponseContext, ResponseGroundStateAdapter,
-                           read_ground_state)
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.chi0 import Chi0
@@ -280,7 +279,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # Part 1: chiks calculation
 
     # Initialize ground state adapter
-    gs = read_ground_state(gpw_files[wfs])
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs])
     nbands = response_band_cutoff[wfs]
 
     # Set up complex frequency descriptor
