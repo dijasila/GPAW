@@ -14,7 +14,7 @@ from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
-from gpaw.response import ResponseContext, read_ground_state
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -1140,7 +1140,7 @@ class G0W0(G0W0Calculator):
 
         context = ResponseContext(txt=filename + '.txt',
                                   comm=world, timer=timer)
-        gs = read_ground_state(gpwfile, context=context)
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
