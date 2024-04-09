@@ -40,6 +40,93 @@ class BSEMatrix:
     df_S: np.ndarray
     H_sS: np.ndarray
 
+    def diagonalize_nontamdancoff(self, bse):
+        df_S = self.df_S
+        H_sS = self.H_sS
+        rhoG0_S = self.rhoG0_S
+
+        excludef_S = np.where(np.abs(df_S) < 0.001)[0]
+        bse.context.print('  Using numpy.linalg.eig...')
+        bse.context.print('  Eliminated %s pair orbitals' % len(
+            excludef_S))
+
+        H_SS = bse.collect_A_SS(H_sS)
+        w_T = np.zeros(bse.nS - len(excludef_S), complex)
+        if world.rank == 0:
+            H_SS = np.delete(H_SS, excludef_S, axis=0)
+            H_SS = np.delete(H_SS, excludef_S, axis=1)
+            w_T, v_ST = np.linalg.eig(H_SS)
+        world.broadcast(w_T, 0)
+
+        # Here the eigenvectors are represented as complex conjugated rows
+
+        df_S = np.delete(df_S, excludef_S)
+        rhoG0_S = np.delete(rhoG0_S, excludef_S)
+
+        C_T = np.zeros(bse.nS - len(excludef_S), complex)
+        if world.rank == 0:
+            A_T = np.dot(rhoG0_S, v_ST)
+            B_T = np.dot(rhoG0_S * df_S, v_ST)
+            tmp = np.dot(v_ST.conj().T, v_ST)
+            overlap_tt = np.linalg.inv(tmp)
+            C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
+        world.broadcast(C_T, 0)
+        return w_T, C_T
+
+    def diagonalize_tamdancoff(self, bse):
+        df_S = self.df_S
+        H_sS = self.H_sS
+        rhoG0_S = self.rhoG0_S
+
+        nS = bse.nS
+        ns = bse.ns
+
+        if world.size == 1:
+            bse.context.print('  Using lapack...')
+            w_T, v_St = eigh(H_sS)
+        else:
+            bse.context.print('  Using scalapack...')
+            assert ns == (
+                -(-bse.kd.nbzkpts // world.size) * (
+                    bse.nv * bse.nc *
+                    bse.spins *
+                    (bse.spinors + 1)**2))
+
+            # XXX We don't need to create new BLACS grids all the time
+            # (also: remove the one further down)
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, nS, ns, nS)
+
+            desc2 = grid.new_descriptor(nS, nS, 2, 2)
+            H_tmp = desc2.zeros(dtype=complex)
+            r = Redistributor(world, desc, desc2)
+            r.redistribute(H_sS, H_tmp)
+
+            w_T = np.empty(nS)
+            v_tmp = desc2.empty(dtype=complex)
+            desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
+
+            r = Redistributor(grid.comm, desc2, desc)
+            v_St = desc.zeros(dtype=complex)
+            r.redistribute(v_tmp, v_St)
+            v_St = v_St.conj().T
+
+        A_t = np.dot(rhoG0_S, v_St)
+        B_t = np.dot(rhoG0_S * df_S, v_St)
+
+        if world.size == 1:
+            C_T = B_t.conj() * A_t
+        else:
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, 1, ns, 1)
+            C_t = desc.empty(dtype=complex)
+            C_t[:, 0] = B_t.conj() * A_t
+            C_T = desc.collect_on_master(C_t)[:, 0]
+            if world.rank != 0:
+                C_T = np.empty(nS, dtype=complex)
+            world.broadcast(C_T, 0)
+        return w_T, C_T
+
 
 @dataclass
 class ScreenedPotential:
@@ -131,6 +218,11 @@ class BSEBackend:
 
         self.print_initialization(self.use_tammdancoff, self.eshift,
                                   self.gw_skn)
+
+        self.Nv = self.nv * (self.spinors + 1)
+        self.Nc = self.nc * (self.spinors + 1)
+        self.ns = (
+            -(-self.kd.nbzkpts // world.size) * self.Nv * self.Nc * self.spins)
 
     def parse_bands(self, bands, band_type='valence'):
         """Helper function that checks whether bands are correctly specified,
@@ -502,102 +594,13 @@ class BSEBackend:
 
         return ScreenedPotential(pawcorr_q, W_qGG, qpd_q)
 
-    def diagonalize_bse_matrix_nontamdancoff(self, bsematrix):
-        df_S = bsematrix.df_S
-        H_sS = bsematrix.H_sS
-        rhoG0_S = bsematrix.rhoG0_S
-
-        excludef_S = np.where(np.abs(df_S) < 0.001)[0]
-        self.context.print('  Using numpy.linalg.eig...')
-        self.context.print('  Eliminated %s pair orbitals' % len(
-            excludef_S))
-
-        H_SS = self.collect_A_SS(H_sS)
-        w_T = np.zeros(self.nS - len(excludef_S), complex)
-        if world.rank == 0:
-            H_SS = np.delete(H_SS, excludef_S, axis=0)
-            H_SS = np.delete(H_SS, excludef_S, axis=1)
-            w_T, v_ST = np.linalg.eig(H_SS)
-        world.broadcast(w_T, 0)
-
-        # Here the eigenvectors are represented as complex conjugated rows
-
-        df_S = np.delete(df_S, excludef_S)
-        rhoG0_S = np.delete(rhoG0_S, excludef_S)
-
-        C_T = np.zeros(self.nS - len(excludef_S), complex)
-        if world.rank == 0:
-            A_T = np.dot(rhoG0_S, v_ST)
-            B_T = np.dot(rhoG0_S * df_S, v_ST)
-            tmp = np.dot(v_ST.conj().T, v_ST)
-            overlap_tt = np.linalg.inv(tmp)
-            C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
-        world.broadcast(C_T, 0)
-        return w_T, C_T
-
-    def diagonalize_bse_matrix_tamdancoff(self, bsematrix):
-        df_S = bsematrix.df_S
-        H_sS = bsematrix.H_sS
-        rhoG0_S = bsematrix.rhoG0_S
-
-        if world.size == 1:
-            self.context.print('  Using lapack...')
-            w_T, v_St = eigh(H_sS)
-        else:
-            self.context.print('  Using scalapack...')
-            nS = self.nS
-            ns = -(-self.kd.nbzkpts // world.size) * (
-                self.nv * self.nc *
-                self.spins *
-                (self.spinors + 1)**2)
-
-            # XXX We don't need to create new BLACS grids all the time
-            # (also: remove the one further down)
-            grid = BlacsGrid(world, world.size, 1)
-            desc = grid.new_descriptor(nS, nS, ns, nS)
-
-            desc2 = grid.new_descriptor(nS, nS, 2, 2)
-            H_tmp = desc2.zeros(dtype=complex)
-            r = Redistributor(world, desc, desc2)
-            r.redistribute(H_sS, H_tmp)
-
-            w_T = np.empty(nS)
-            v_tmp = desc2.empty(dtype=complex)
-            desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
-
-            r = Redistributor(grid.comm, desc2, desc)
-            v_St = desc.zeros(dtype=complex)
-            r.redistribute(v_tmp, v_St)
-            v_St = v_St.conj().T
-
-        A_t = np.dot(rhoG0_S, v_St)
-        B_t = np.dot(rhoG0_S * df_S, v_St)
-
-        if world.size == 1:
-            C_T = B_t.conj() * A_t
-        else:
-            Nv = self.nv * (self.spinors + 1)
-            Nc = self.nc * (self.spinors + 1)
-            Ns = self.spins
-            nS = self.nS
-            ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
-            grid = BlacsGrid(world, world.size, 1)
-            desc = grid.new_descriptor(nS, 1, ns, 1)
-            C_t = desc.empty(dtype=complex)
-            C_t[:, 0] = B_t.conj() * A_t
-            C_T = desc.collect_on_master(C_t)[:, 0]
-            if world.rank != 0:
-                C_T = np.empty(nS, dtype=complex)
-            world.broadcast(C_T, 0)
-        return w_T, C_T
-
     @timer('diagonalize')
     def diagonalize_bse_matrix(self, bsematrix):
         self.context.print('Diagonalizing Hamiltonian')
         if self.use_tammdancoff:
-            return self.diagonalize_bse_matrix_tamdancoff(bsematrix)
+            return bsematrix.diagonalize_tamdancoff(self)
         else:
-            return self.diagonalize_bse_matrix_nontamdancoff(bsematrix)
+            return bsematrix.diagonalize_nontamdancoff(self)
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, optical=True):
