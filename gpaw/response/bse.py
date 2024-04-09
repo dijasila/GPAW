@@ -35,6 +35,100 @@ def decide_whether_tammdancoff(val_sn, con_sn):
 
 
 @dataclass
+class BSEMatrix:
+    rhoG0_S: np.ndarray
+    df_S: np.ndarray
+    H_sS: np.ndarray
+
+    def diagonalize_nontamdancoff(self, bse):
+        df_S = self.df_S
+        H_sS = self.H_sS
+        rhoG0_S = self.rhoG0_S
+
+        excludef_S = np.where(np.abs(df_S) < 0.001)[0]
+        bse.context.print('  Using numpy.linalg.eig...')
+        bse.context.print('  Eliminated %s pair orbitals' % len(
+            excludef_S))
+
+        H_SS = bse.collect_A_SS(H_sS)
+        w_T = np.zeros(bse.nS - len(excludef_S), complex)
+        if world.rank == 0:
+            H_SS = np.delete(H_SS, excludef_S, axis=0)
+            H_SS = np.delete(H_SS, excludef_S, axis=1)
+            w_T, v_ST = np.linalg.eig(H_SS)
+        world.broadcast(w_T, 0)
+
+        # Here the eigenvectors are represented as complex conjugated rows
+
+        df_S = np.delete(df_S, excludef_S)
+        rhoG0_S = np.delete(rhoG0_S, excludef_S)
+
+        C_T = np.zeros(bse.nS - len(excludef_S), complex)
+        if world.rank == 0:
+            A_T = np.dot(rhoG0_S, v_ST)
+            B_T = np.dot(rhoG0_S * df_S, v_ST)
+            tmp = np.dot(v_ST.conj().T, v_ST)
+            overlap_tt = np.linalg.inv(tmp)
+            C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
+        world.broadcast(C_T, 0)
+        return w_T, C_T
+
+    def diagonalize_tamdancoff(self, bse):
+        df_S = self.df_S
+        H_sS = self.H_sS
+        rhoG0_S = self.rhoG0_S
+
+        nS = bse.nS
+        ns = bse.ns
+
+        if world.size == 1:
+            bse.context.print('  Using lapack...')
+            w_T, v_St = eigh(H_sS)
+        else:
+            bse.context.print('  Using scalapack...')
+            assert ns == (
+                -(-bse.kd.nbzkpts // world.size) * (
+                    bse.nv * bse.nc *
+                    bse.spins *
+                    (bse.spinors + 1)**2))
+
+            # XXX We don't need to create new BLACS grids all the time
+            # (also: remove the one further down)
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, nS, ns, nS)
+
+            desc2 = grid.new_descriptor(nS, nS, 2, 2)
+            H_tmp = desc2.zeros(dtype=complex)
+            r = Redistributor(world, desc, desc2)
+            r.redistribute(H_sS, H_tmp)
+
+            w_T = np.empty(nS)
+            v_tmp = desc2.empty(dtype=complex)
+            desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
+
+            r = Redistributor(grid.comm, desc2, desc)
+            v_St = desc.zeros(dtype=complex)
+            r.redistribute(v_tmp, v_St)
+            v_St = v_St.conj().T
+
+        A_t = np.dot(rhoG0_S, v_St)
+        B_t = np.dot(rhoG0_S * df_S, v_St)
+
+        if world.size == 1:
+            C_T = B_t.conj() * A_t
+        else:
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, 1, ns, 1)
+            C_t = desc.empty(dtype=complex)
+            C_t[:, 0] = B_t.conj() * A_t
+            C_T = desc.collect_on_master(C_t)[:, 0]
+            if world.rank != 0:
+                C_T = np.empty(nS, dtype=complex)
+            world.broadcast(C_T, 0)
+        return w_T, C_T
+
+
+@dataclass
 class ScreenedPotential:
     pawcorr_q: list
     W_qGG: list
@@ -125,9 +219,10 @@ class BSEBackend:
         self.print_initialization(self.use_tammdancoff, self.eshift,
                                   self.gw_skn)
 
-    @property
-    def pair_calc(self):
-        return self.kptpair_factory.pair_calculator()
+        self.Nv = self.nv * (self.spinors + 1)
+        self.Nc = self.nc * (self.spinors + 1)
+        self.ns = (
+            -(-self.kd.nbzkpts // world.size) * self.Nv * self.Nc * self.spins)
 
     def parse_bands(self, bands, band_type='valence'):
         """Helper function that checks whether bands are correctly specified,
@@ -185,8 +280,7 @@ class BSEBackend:
         return bands_sn
 
     @timer('BSE calculate')
-    def calculate(self, optical=True):
-
+    def calculate(self, optical):
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
             # and n is the basis of eigenstates without SOC. Below m is used
@@ -211,10 +305,11 @@ class BSEBackend:
         if optical:
             v_G[0] = 0.0
 
-        self.kptpair_factory = KPointPairFactory(
+        kptpair_factory = KPointPairFactory(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
+        pair_calc = kptpair_factory.pair_calculator()
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -234,7 +329,8 @@ class BSEBackend:
         # Calculate pair densities, eigenvalues and occupations
         self.context.timer.start('Pair densities')
         so = self.spinors + 1
-        Nv, Nc = so * self.nv, so * self.nc
+        Nv = self.Nv
+        Nc = self.Nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
         # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
@@ -243,8 +339,8 @@ class BSEBackend:
 
         optical_limit = np.allclose(self.q_c, 0.0)
 
-        get_pair = self.kptpair_factory.get_kpoint_pair
-        get_pair_density = self.pair_calc.get_pair_density
+        get_pair = kptpair_factory.get_kpoint_pair
+        get_pair_density = pair_calc.get_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -285,7 +381,7 @@ class BSEBackend:
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = self.pair_calc.get_optical_pair_density_head(
+                    n_mnv = pair_calc.get_optical_pair_density_head(
                         qpd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
@@ -320,11 +416,8 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
 
-        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
         self.context.timer.stop('Pair densities')
-
-        if hasattr(self, 'H_sS'):
-            return
 
         # Calculate Hamiltonian
         self.context.timer.start('Calculate Hamiltonian')
@@ -334,9 +427,9 @@ class BSEBackend:
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
-                kptv1 = self.kptpair_factory.get_k_point(
+                kptv1 = kptpair_factory.get_k_point(
                     s1, iK1, vi_s[s1], vf_s[s1])
-                kptc1 = self.kptpair_factory.get_k_point(
+                kptc1 = kptpair_factory.get_k_point(
                     s1, ikq_k[iK1], ci_s[s1], cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
@@ -354,14 +447,14 @@ class BSEBackend:
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
-                            kptv2 = self.kptpair_factory.get_k_point(
+                            kptv2 = kptpair_factory.get_k_point(
                                 s1, iK2, vi_s[s1], vf_s[s1])
-                            kptc2 = self.kptpair_factory.get_k_point(
+                            kptc2 = kptpair_factory.get_k_point(
                                 s1, ikq, ci_s[s1], cf_s[s1])
                             rho3_mmG, iq = self.get_density_matrix(
-                                screened_potential, kptv1, kptv2)
+                                pair_calc, screened_potential, kptv1, kptv2)
                             rho4_nnG, iq = self.get_density_matrix(
-                                screened_potential, kptc1, kptc2)
+                                pair_calc, screened_potential, kptc1, kptc2)
                             if self.spinors:
                                 vec0_mn = v0_kmn[iK1, mvi:mvf, ni:nf]
                                 vec1_mn = v1_kmn[iK1, mvi:mvf, ni:nf]
@@ -410,23 +503,24 @@ class BSEBackend:
         if myKsize > 0:
             iS0 = myKrange[0] * Nv * Nc * Ns
 
+        # XXX mutable stuff here:
+
         # world.sum(rhoG0_Ksmn)
-        # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
-        self.df_S = np.reshape(df_Ksmn, -1)
+        df_S = np.reshape(df_Ksmn, -1)
         # multiply by 2 when spin-paired and no SOC
-        self.df_S *= 2.0 / nK / Ns / so
-        self.deps_s = np.reshape(deps_ksmn, -1)
+        df_S *= 2.0 / nK / Ns / so
+        deps_s = np.reshape(deps_ksmn, -1)
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
-            H_sS[iS] *= self.df_S[iS0 + iS]
+            H_sS[iS] *= df_S[iS0 + iS]
             # add bare transition energies
-            H_sS[iS, iS0 + iS] += self.deps_s[iS]
+            H_sS[iS, iS0 + iS] += deps_s[iS]
 
-        self.H_sS = H_sS
+        return BSEMatrix(rhoG0_S, df_S, H_sS)
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, screened_potential, kpt1, kpt2):
+    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -441,7 +535,7 @@ class BSEBackend:
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
-                                 self.pair_calc, timer=self.context.timer)
+                                 pair_calc, timer=self.context.timer)
         return rho_mnG, iq
 
     @cached_property
@@ -501,111 +595,30 @@ class BSEBackend:
 
         return ScreenedPotential(pawcorr_q, W_qGG, qpd_q)
 
-    def diagonalize_bse_matrix_nontamdancoff(self):
-        excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
-        self.context.print('  Using numpy.linalg.eig...')
-        self.context.print('  Eliminated %s pair orbitals' % len(
-            excludef_S))
-
-        H_SS = self.collect_A_SS(self.H_sS)
-        w_T = np.zeros(self.nS - len(excludef_S), complex)
-        if world.rank == 0:
-            H_SS = np.delete(H_SS, excludef_S, axis=0)
-            H_SS = np.delete(H_SS, excludef_S, axis=1)
-            w_T, v_ST = np.linalg.eig(H_SS)
-        world.broadcast(w_T, 0)
-
-        # Here the eigenvectors are represented as complex conjugated rows
-
-        df_S = np.delete(self.df_S, excludef_S)
-        rhoG0_S = np.delete(self.rhoG0_S, excludef_S)
-
-        C_T = np.zeros(self.nS - len(excludef_S), complex)
-        if world.rank == 0:
-            A_T = np.dot(rhoG0_S, v_ST)
-            B_T = np.dot(rhoG0_S * df_S, v_ST)
-            tmp = np.dot(v_ST.conj().T, v_ST)
-            overlap_tt = np.linalg.inv(tmp)
-            C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
-        world.broadcast(C_T, 0)
-        return w_T, C_T
-
-    def diagonalize_bse_matrix_tamdancoff(self):
-        if world.size == 1:
-            self.context.print('  Using lapack...')
-            w_T, v_St = eigh(self.H_sS)
-        else:
-            self.context.print('  Using scalapack...')
-            nS = self.nS
-            ns = -(-self.kd.nbzkpts // world.size) * (
-                self.nv * self.nc *
-                self.spins *
-                (self.spinors + 1)**2)
-
-            # XXX We don't need to create new BLACS grids all the time
-            # (also: remove the one further down)
-            grid = BlacsGrid(world, world.size, 1)
-            desc = grid.new_descriptor(nS, nS, ns, nS)
-
-            desc2 = grid.new_descriptor(nS, nS, 2, 2)
-            H_tmp = desc2.zeros(dtype=complex)
-            r = Redistributor(world, desc, desc2)
-            r.redistribute(self.H_sS, H_tmp)
-
-            w_T = np.empty(nS)
-            v_tmp = desc2.empty(dtype=complex)
-            desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
-
-            r = Redistributor(grid.comm, desc2, desc)
-            v_St = desc.zeros(dtype=complex)
-            r.redistribute(v_tmp, v_St)
-            v_St = v_St.conj().T
-
-        A_t = np.dot(self.rhoG0_S, v_St)
-        B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
-
-        if world.size == 1:
-            C_T = B_t.conj() * A_t
-        else:
-            Nv = self.nv * (self.spinors + 1)
-            Nc = self.nc * (self.spinors + 1)
-            Ns = self.spins
-            nS = self.nS
-            ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
-            grid = BlacsGrid(world, world.size, 1)
-            desc = grid.new_descriptor(nS, 1, ns, 1)
-            C_t = desc.empty(dtype=complex)
-            C_t[:, 0] = B_t.conj() * A_t
-            C_T = desc.collect_on_master(C_t)[:, 0]
-            if world.rank != 0:
-                C_T = np.empty(nS, dtype=complex)
-            world.broadcast(C_T, 0)
-        return w_T, C_T
-
     @timer('diagonalize')
-    def diagonalize_bse_matrix(self):
+    def diagonalize_bse_matrix(self, bsematrix):
         self.context.print('Diagonalizing Hamiltonian')
         if self.use_tammdancoff:
-            return self.diagonalize_bse_matrix_tamdancoff()
+            return bsematrix.diagonalize_tamdancoff(self)
         else:
-            return self.diagonalize_bse_matrix_nontamdancoff()
+            return bsematrix.diagonalize_nontamdancoff(self)
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, optical=True):
-        """Calculate and diagonalize BSE matrix."""
-        self.calculate(optical=optical)
+        """Calculate BSE matrix."""
+        return self.calculate(optical=optical)
 
     @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1, optical=True, write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(optical=optical)
+        bsematrix = self.get_bse_matrix(optical=optical)
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
-        w_T, C_T = self.diagonalize_bse_matrix()
+        w_T, C_T = self.diagonalize_bse_matrix(bsematrix)
 
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
