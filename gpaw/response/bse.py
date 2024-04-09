@@ -221,11 +221,12 @@ class BSEBackend:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             pawcorr = pairden_paw_corr(qpd0)
         else:
-            # self.get_screened_potential()
+            screened_potential = self.calculate_screened_potential()
+
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                pawcorr = self.screened_potential.pawcorr_q[iq0]
+                pawcorr = screened_potential.pawcorr_q[iq0]
             else:
                 pairden_paw_corr = self.gs.pair_density_paw_corrections
                 pawcorr = pairden_paw_corr(qpd0)
@@ -357,10 +358,10 @@ class BSEBackend:
                                 s1, iK2, vi_s[s1], vf_s[s1])
                             kptc2 = self.kptpair_factory.get_k_point(
                                 s1, ikq, ci_s[s1], cf_s[s1])
-                            rho3_mmG, iq = self.get_density_matrix(kptv1,
-                                                                   kptv2)
-                            rho4_nnG, iq = self.get_density_matrix(kptc1,
-                                                                   kptc2)
+                            rho3_mmG, iq = self.get_density_matrix(
+                                screened_potential, kptv1, kptv2)
+                            rho4_nnG, iq = self.get_density_matrix(
+                                screened_potential, kptc1, kptc2)
                             if self.spinors:
                                 vec0_mn = v0_kmn[iK1, mvi:mvf, ni:nf]
                                 vec1_mn = v1_kmn[iK1, mvi:mvf, ni:nf]
@@ -385,7 +386,7 @@ class BSEBackend:
                             W_mnmn = np.einsum(
                                 'ijk,km,pqm->ipjq',
                                 rho3_mmG.conj(),
-                                self.screened_potential.W_qGG[iq],
+                                screened_potential.W_qGG[iq],
                                 rho4_nnG,
                                 optimize='optimal')
                             W_mnmn *= Ns * so
@@ -425,14 +426,14 @@ class BSEBackend:
         self.H_sS = H_sS
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, kpt1, kpt2):
+    def get_density_matrix(self, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
                                                      kpt1, kpt2)
-        qpd = self.screened_potential.qpd_q[iq]
+        qpd = screened_potential.qpd_q[iq]
         nG = qpd.ngmax
-        pawcorr0 = self.screened_potential.pawcorr_q[iq]
+        pawcorr0 = screened_potential.pawcorr_q[iq]
         pawcorr, I_G = symop.apply_symop_q(qpd, pawcorr0, kpt1, kpt2)
         self.context.timer.stop('Symop')
 
@@ -442,10 +443,6 @@ class BSEBackend:
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
                                  self.pair_calc, timer=self.context.timer)
         return rho_mnG, iq
-
-    @cached_property
-    def screened_potential(self):
-        return self.calculate_screened_potential()
 
     @cached_property
     def _chi0calc(self):
