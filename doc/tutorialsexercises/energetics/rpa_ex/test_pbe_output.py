@@ -1,7 +1,6 @@
 """Test the RPA outputs are consistent and do not change."""
 
 import numpy as np
-import pytest
 
 
 def test():
