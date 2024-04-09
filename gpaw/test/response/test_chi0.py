@@ -44,7 +44,7 @@ def test_response_chi0(in_tmp_dir):
 
         chi0_calc = Chi0Calculator(
             *ensure_gs_and_context(calc, name + '.log'),
-            wd=FrequencyDescriptor(np.array([0, 1.0, 2.0])),
+            wd=FrequencyDescriptor.from_array_or_dict([0, 1.0, 2.0]),
             hilbert=False, ecut=100)
         chi0 = chi0_calc.calculate(q_c)
         assert chi0.body.blockdist.blockcomm.size == 1
