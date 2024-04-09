@@ -329,7 +329,8 @@ class BSEBackend:
         # Calculate pair densities, eigenvalues and occupations
         self.context.timer.start('Pair densities')
         so = self.spinors + 1
-        Nv, Nc = so * self.nv, so * self.nc
+        Nv = self.Nv
+        Nc = self.Nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
         # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
