@@ -316,6 +316,9 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
 
+        # SERIOUS THINGS START HERE
+
+        # XXX mutable
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
         self.context.timer.stop('Pair densities')
 
@@ -406,18 +409,20 @@ class BSEBackend:
         if myKsize > 0:
             iS0 = myKrange[0] * Nv * Nc * Ns
 
+        # XXX mutable stuff here:
+
         # world.sum(rhoG0_Ksmn)
         # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
         # multiply by 2 when spin-paired and no SOC
         self.df_S *= 2.0 / nK / Ns / so
-        self.deps_s = np.reshape(deps_ksmn, -1)
+        deps_s = np.reshape(deps_ksmn, -1)
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
             H_sS[iS] *= self.df_S[iS0 + iS]
             # add bare transition energies
-            H_sS[iS, iS0 + iS] += self.deps_s[iS]
+            H_sS[iS, iS0 + iS] += deps_s[iS]
 
         self.H_sS = H_sS
 
