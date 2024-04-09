@@ -433,7 +433,6 @@ class BSEBackend:
                     s1, ikq_k[iK1], ci_s[s1], cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
-                # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
                 rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
@@ -493,9 +492,6 @@ class BSEBackend:
                     % ((iK1 + 1) * Nv * Nc * Ns * world.size, timedelta(
                         seconds=round(dt)), timedelta(seconds=round(tleft))))
 
-        # if self.mode == 'BSE':
-        #     del self.Q_qaGii, self.W_qGG, self.qpd_q
-
         H_ksmnKsmn /= self.gs.volume
         self.context.timer.stop('Calculate Hamiltonian')
 
@@ -503,9 +499,6 @@ class BSEBackend:
         if myKsize > 0:
             iS0 = myKrange[0] * Nv * Nc * Ns
 
-        # XXX mutable stuff here:
-
-        # world.sum(rhoG0_Ksmn)
         df_S = np.reshape(df_Ksmn, -1)
         # multiply by 2 when spin-paired and no SOC
         df_S *= 2.0 / nK / Ns / so
