@@ -19,9 +19,6 @@ def test():
             x = [float(x) for x in line.strip().split()]
             isolated_results.append(x)
 
-    # make sure results are consistent, the tol here was tested on only one
-    # laptop and may to be strict.
-    # Loop in case the si.pbe+exx.results.txt file has multiple lines
     for result, benchmark in zip(isolated_results, isolated_benchmark):
         assert len(result) == 3
         assert np.allclose(result, benchmark, rtol=1.e-5, atol=1.e-8)
