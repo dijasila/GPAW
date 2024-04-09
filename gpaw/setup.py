@@ -493,7 +493,11 @@ class BaseSetup:
                                np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
                 L += 1
 
-        return M_p, M_pp
+        # Ivanov correction:
+        V_q = 0.5 * (np.dot(wn_lqg[0], self.local_corr.nc_g) +
+                     np.dot(self.local_corr.n_qg, wnc_g))
+
+        return M_p, M_pp, V_p
 
     def calculate_integral_potentials(self, func):
         """Calculates a set of potentials using func."""
