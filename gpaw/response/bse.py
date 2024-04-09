@@ -157,7 +157,7 @@ class BSEBackend:
         self.spinors = spinors
         self.scale = scale
 
-        assert mode in ['RPA', 'TDHF', 'BSE']
+        assert mode in ['RPA', 'BSE']
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
