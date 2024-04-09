@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 # from ase.units import Bohr
