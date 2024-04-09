@@ -333,7 +333,6 @@ class BSEBackend:
         Nc = self.Nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
-        # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
         df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
         deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
 
