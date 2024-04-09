@@ -255,6 +255,19 @@ class ResponseGroundStateAdapter:
             nocc2 = max((f_n > ftol).sum(), nocc2)
         return nocc1, nocc2
 
+    def get_eigenvalue_range(self, nbands: int | None = None):
+        """Get smallest and largest Kohn-Sham eigenvalues."""
+        if nbands is None:
+            nbands = self.bd.nbands
+        assert 1 <= nbands <= self.bd.nbands
+
+        epsmin = np.inf
+        epsmax = -np.inf
+        for kpt in self.kpt_u:
+            epsmin = min(epsmin, kpt.eps_n[0])  # the eigenvalues are ordered
+            epsmax = max(epsmax, kpt.eps_n[nbands - 1])
+        return epsmin, epsmax
+
     @property
     def metallic(self):
         # Does the number of filled bands equal the number of non-empty bands?
