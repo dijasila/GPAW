@@ -125,10 +125,6 @@ class BSEBackend:
         self.print_initialization(self.use_tammdancoff, self.eshift,
                                   self.gw_skn)
 
-    @property
-    def pair_calc(self):
-        return self.kptpair_factory.pair_calculator()
-
     def parse_bands(self, bands, band_type='valence'):
         """Helper function that checks whether bands are correctly specified,
          and brings them to the format used later in the code.
@@ -186,7 +182,6 @@ class BSEBackend:
 
     @timer('BSE calculate')
     def calculate(self, optical=True):
-
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
             # and n is the basis of eigenstates without SOC. Below m is used
@@ -211,10 +206,11 @@ class BSEBackend:
         if optical:
             v_G[0] = 0.0
 
-        self.kptpair_factory = KPointPairFactory(
+        kptpair_factory = KPointPairFactory(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
+        pair_calc = kptpair_factory.pair_calculator()
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -243,8 +239,8 @@ class BSEBackend:
 
         optical_limit = np.allclose(self.q_c, 0.0)
 
-        get_pair = self.kptpair_factory.get_kpoint_pair
-        get_pair_density = self.pair_calc.get_pair_density
+        get_pair = kptpair_factory.get_kpoint_pair
+        get_pair_density = pair_calc.get_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -285,7 +281,7 @@ class BSEBackend:
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = self.pair_calc.get_optical_pair_density_head(
+                    n_mnv = pair_calc.get_optical_pair_density_head(
                         qpd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
@@ -334,9 +330,9 @@ class BSEBackend:
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
-                kptv1 = self.kptpair_factory.get_k_point(
+                kptv1 = kptpair_factory.get_k_point(
                     s1, iK1, vi_s[s1], vf_s[s1])
-                kptc1 = self.kptpair_factory.get_k_point(
+                kptc1 = kptpair_factory.get_k_point(
                     s1, ikq_k[iK1], ci_s[s1], cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
@@ -354,14 +350,14 @@ class BSEBackend:
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
-                            kptv2 = self.kptpair_factory.get_k_point(
+                            kptv2 = kptpair_factory.get_k_point(
                                 s1, iK2, vi_s[s1], vf_s[s1])
-                            kptc2 = self.kptpair_factory.get_k_point(
+                            kptc2 = kptpair_factory.get_k_point(
                                 s1, ikq, ci_s[s1], cf_s[s1])
                             rho3_mmG, iq = self.get_density_matrix(
-                                screened_potential, kptv1, kptv2)
+                                pair_calc, screened_potential, kptv1, kptv2)
                             rho4_nnG, iq = self.get_density_matrix(
-                                screened_potential, kptc1, kptc2)
+                                pair_calc, screened_potential, kptc1, kptc2)
                             if self.spinors:
                                 vec0_mn = v0_kmn[iK1, mvi:mvf, ni:nf]
                                 vec1_mn = v1_kmn[iK1, mvi:mvf, ni:nf]
@@ -426,7 +422,7 @@ class BSEBackend:
         self.H_sS = H_sS
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, screened_potential, kpt1, kpt2):
+    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -441,7 +437,7 @@ class BSEBackend:
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
-                                 self.pair_calc, timer=self.context.timer)
+                                 pair_calc, timer=self.context.timer)
         return rho_mnG, iq
 
     @cached_property
