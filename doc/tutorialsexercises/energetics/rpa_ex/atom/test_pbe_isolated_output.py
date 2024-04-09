@@ -22,3 +22,7 @@ def test():
     for result, benchmark in zip(isolated_results, isolated_benchmark):
         assert len(result) == 3
         assert np.allclose(result, benchmark, rtol=1.e-5, atol=1.e-8)
+
+
+if __name__ == "__main__":
+    test()
