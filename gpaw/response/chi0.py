@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import warnings
 from time import ctime
-from typing import Union, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ase.units import Ha
 
 import gpaw
-import gpaw.mpi as mpi
 from gpaw.response import ResponseContext
 from gpaw.response.chi0_data import (Chi0Data, Chi0BodyData,
                                      Chi0OpticalExtensionData)
@@ -17,7 +16,6 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
 from gpaw.response.chi0_base import Chi0ComponentPWCalculator, Chi0Integrand
 from gpaw.response.integrators import (
@@ -39,6 +37,48 @@ class Chi0Calculator:
                  intraband=True,
                  rate=0.0,
                  **kwargs):
+        """Construct the Chi0Calculator object.
+
+        Parameters
+        ----------
+        ecut : float
+            Plane-wave energy cutoff in eV.
+        wd : FrequencyDescriptor
+            Frequency grid used to evaluate chi0.
+        nbands : int
+            Number of bands to include.
+        eta : float
+            Artificial broadening of spectra.
+        hilbert : bool
+            Switch for hilbert transform. If True, the full density response
+            is determined from a hilbert transform of its spectral function.
+            This is typically much faster, but does not work for imaginary
+            frequencies. Needs wd to be the build-in nonlinear grid.
+        timeordered : bool
+            Switch for calculating the time ordered density response function.
+            In this case the hilbert transform cannot be used.
+        intraband : bool
+            Flag for including the intraband contribution to the chi0 head.
+        nblocks : int
+            Divide the response function into nblocks. Useful when the response
+            function is large.
+        disable_point_group : bool
+            Do not use the point group symmetry operators.
+        disable_time_reversal : bool
+            Do not use time reversal symmetry.
+        integrationmode : str
+            Integrator for the kpoint integration.
+            If == 'tetrahedron integration' then the kpoint integral is
+            performed using the linear tetrahedron method.
+        eshift : float
+            Shift unoccupied bands
+        rate : float, str
+            Phenomenological scattering rate to use in optical limit Drude term
+            (in eV). If rate='eta', it uses input artificial broadening eta as
+            rate. Note, for consistency with the formalism the rate is
+            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
+            some literature by a factor of 2.
+        """
         self.gs = gs
         self.context = context or ResponseContext()
 
@@ -420,100 +460,6 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                '    Linear response parametrization:',
                self.get_response_info_string(qpd, tab='    ')]
         self.context.print('\n'.join(isl))
-
-
-class Chi0(Chi0Calculator):
-    """Class for calculating non-interacting response functions.
-    Tries to be backwards compatible, for now. """
-
-    def __init__(self,
-                 calc: str,
-                 *,
-                 frequencies: Union[dict, Array1D] | None = None,
-                 ecut=50,
-                 world=mpi.world, txt='-', timer=None,
-                 nblocks=1,
-                 nbands: int | None = None,
-                 domega0: float | None = None,  # deprecated
-                 omega2: float | None = None,  # deprecated
-                 omegamax: float | None = None,  # deprecated
-                 **kwargs):
-        """Construct Chi0 object.
-
-        Parameters
-        ----------
-        calc : str
-            The groundstate calculation file that the linear response
-            calculation is based on.
-        frequencies :
-            Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
-            (see :ref:`frequency grid`).
-        ecut : float
-            Energy cutoff.
-        hilbert : bool
-            Switch for hilbert transform. If True, the full density response
-            is determined from a hilbert transform of its spectral function.
-            This is typically much faster, but does not work for imaginary
-            frequencies.
-        nbands : int
-            Maximum band index to include.
-        timeordered : bool
-            Switch for calculating the time ordered density response function.
-            In this case the hilbert transform cannot be used.
-        eta : float
-            Artificial broadening of spectra.
-        intraband : bool
-            Switch for including the intraband contribution to the density
-            response function.
-        world : MPI comm instance
-            MPI communicator.
-        txt : str
-            Output file.
-        timer : gpaw.utilities.timing.timer instance
-        nblocks : int
-            Divide the response function into nblocks. Useful when the response
-            function is large.
-        disable_point_group : bool
-            Do not use the point group symmetry operators.
-        disable_time_reversal : bool
-            Do not use time reversal symmetry.
-        integrationmode : str
-            Integrator for the kpoint integration.
-            If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method.
-        eshift : float
-            Shift unoccupied bands
-        rate : float,str
-            Phenomenological scattering rate to use in optical limit Drude term
-            (in eV). If rate='eta', then use input artificial broadening eta as
-            rate. Note, for consistency with the formalism the rate is
-            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
-            some literature by a factor of 2.
-
-
-        Attributes
-        ----------
-        kptpair_factory : gpaw.response.pair.KPointPairFactory instance
-            Class for calculating matrix elements of pairs of wavefunctions.
-
-        """
-        from gpaw.response.pair import get_gs_and_context
-
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        # context: ResponseContext from gpaw.response.context
-        gs, context = get_gs_and_context(calc, txt, world, timer)
-
-        # wd: FrequencyDescriptor from gpaw.response.frequencies
-        wd = new_frequency_descriptor(
-            gs, context, nbands, frequencies,
-            domega0=domega0,
-            omega2=omega2, omegamax=omegamax)
-
-        super().__init__(
-            gs, context, nblocks=nblocks,
-            wd=wd, nbands=nbands, ecut=ecut, **kwargs)
 
 
 def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
