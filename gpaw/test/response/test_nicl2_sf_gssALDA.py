@@ -4,7 +4,7 @@ import pytest
 from gpaw.mpi import world
 from gpaw.test import findpeak
 
-from gpaw.response import read_ground_state
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
@@ -39,7 +39,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     # ---------- Script ---------- #
 
     # Magnetic response calculation
-    gs = read_ground_state(gpw_files['nicl2_pw'])
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['nicl2_pw'])
     chiks_calc = ChiKSCalculator(gs,
                                  ecut=ecut,
                                  gammacentered=True,
