@@ -9,6 +9,7 @@ from ase.units import Ha
 
 import gpaw
 import gpaw.mpi as mpi
+from gpaw.response import ResponseContext
 from gpaw.response.chi0_data import (Chi0Data, Chi0BodyData,
                                      Chi0OpticalExtensionData)
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -25,7 +26,6 @@ from gpaw.response.integrators import (
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
 
 if TYPE_CHECKING:
-    from gpaw.response.context import ResponseContext
     from gpaw.response.groundstate import ResponseGroundStateAdapter
     from gpaw.response.pair import ActualPairDensityCalculator
 
@@ -33,14 +33,14 @@ if TYPE_CHECKING:
 class Chi0Calculator:
     def __init__(self,
                  gs: ResponseGroundStateAdapter,
-                 context: ResponseContext,
+                 context: ResponseContext | None = None,
                  nblocks=1,
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
         self.gs = gs
-        self.context = context
+        self.context = context or ResponseContext()
 
         self.chi0_body_calc = Chi0BodyCalculator(
             self.gs, self.context,
