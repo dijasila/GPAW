@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from time import ctime
 from typing import TYPE_CHECKING
 
@@ -24,6 +23,8 @@ from gpaw.response.integrators import (
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
 
 if TYPE_CHECKING:
+    from typing import Any
+    from gpaw.typing import ArrayLike1D
     from gpaw.response.groundstate import ResponseGroundStateAdapter
     from gpaw.response.pair import ActualPairDensityCalculator
 
@@ -440,38 +441,23 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         self.context.print('\n'.join(isl))
 
 
-def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
-                             context: ResponseContext,
-                             nbands: int | None,
-                             frequencies: None | dict | np.ndarray = None,
-                             *, domega0: float | None = None,
-                             omega2: float | None = None,
-                             omegamax: float | None = None)\
-        -> FrequencyDescriptor:
+def get_frequency_descriptor(
+        frequencies: ArrayLike1D | dict[str, Any] | None = None, *,
+        gs: ResponseGroundStateAdapter | None = None,
+        nbands: int | None = None):
+    """Helper function to generate frequency descriptors.
 
-    if domega0 is not None or omega2 is not None or omegamax is not None:
-        assert frequencies is None
-        frequencies = {'type': 'nonlinear',
-                       'domega0': domega0,
-                       'omega2': omega2,
-                       'omegamax': omegamax}
-        warnings.warn(f'Please use frequencies={frequencies}')
-
-    elif frequencies is None:
-        frequencies = {'type': 'nonlinear'}
-
-    if (isinstance(frequencies, dict) and
-        frequencies.get('omegamax') is None):
-        # At some point, this printing should be the user's problem.
-        # Let us do it as a part of #1157
-        epsmin, epsmax = gs.get_eigenvalue_range(nbands)
-        context.print('\n'.join([
-            'Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
-            'Maximum eigenvalue: %10.3f eV' % (epsmax * Ha)]))
+    In most cases, the `frequencies` input can be processed directly via
+    wd = FrequencyDescriptor.from_array_or_dict(frequencies),
+    but in cases where `frequencies` does not specify omegamax, it is
+    calculated from the input ground state adapter.
+    """
+    if frequencies is None:
+        frequencies = {'type': 'nonlinear'}  # default frequency grid
+    if isinstance(frequencies, dict) and frequencies.get('omegamax') is None:
+        assert gs is not None
         frequencies['omegamax'] = get_omegamax(gs, nbands)
-
-    wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-    return wd
+    return FrequencyDescriptor.from_array_or_dict(frequencies)
 
 
 def get_omegamax(gs: ResponseGroundStateAdapter,

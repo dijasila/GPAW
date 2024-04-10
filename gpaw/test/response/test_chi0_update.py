@@ -7,8 +7,7 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chi0 import Chi0Calculator, get_omegamax
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 
 
 @pytest.mark.response
@@ -49,10 +48,8 @@ def test_si_update_consistency(in_tmp_dir):
 
     # Response calculation
     gs = ResponseGroundStateAdapter.from_gpw_file('Si')
-    wd = FrequencyDescriptor.from_array_or_dict(
-        {'type': 'nonlinear',
-         'omegamax': get_omegamax(gs)})
-    chi0 = Chi0Calculator(gs, wd=wd, hilbert=True, intraband=False)
+    chi0 = Chi0Calculator(gs, wd=get_frequency_descriptor(gs=gs),
+                          hilbert=True, intraband=False)
 
     chi0_full = chi0.create_chi0(q_c)
     chi0_steps = chi0.create_chi0(q_c)
