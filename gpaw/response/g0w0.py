@@ -16,8 +16,7 @@ from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.chi0 import Chi0Calculator, get_omegamax
+from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
@@ -1165,13 +1164,11 @@ class G0W0(G0W0Calculator):
         else:
             # use nonlinear frequency grid
             frequencies = get_frequencies(frequencies, domega0, omega2)
-            if frequencies.get('omegamax') is None:
-                frequencies['omegamax'] = get_omegamax(gs, nbands)
 
             parameters = {'eta': eta,
                           'hilbert': True,
                           'timeordered': True}
-        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        wd = get_frequency_descriptor(frequencies, gs=gs, nbands=nbands)
 
         wcontext = context.with_txt(filename + '.w.txt', mode=mode)
         chi0calc = Chi0Calculator(

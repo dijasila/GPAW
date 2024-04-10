@@ -24,6 +24,8 @@ from gpaw.response.integrators import (
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
 
 if TYPE_CHECKING:
+    from typing import Any
+    from gpaw.typing import ArrayLike1D
     from gpaw.response.groundstate import ResponseGroundStateAdapter
     from gpaw.response.pair import ActualPairDensityCalculator
 
@@ -474,13 +476,22 @@ def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
     return wd
 
 
-def full_frequency_descriptor(gs: ResponseGroundStateAdapter, *,
-                              nbands: int | None = None,
-                              domega0: float | None = None,
-                              omega2: float | None = None):
-    """Get nonlinear frequency descriptor spanning all band transitions."""
-    frequencies = {'type': 'nonlinear', 'domega0': domega0, 'omega2': omega2,
-                   'omegamax': get_omegamax(gs, nbands)}
+def get_frequency_descriptor(
+        frequencies: ArrayLike1D | dict[str, Any] | None = None, *,
+        gs: ResponseGroundStateAdapter | None = None,
+        nbands: int | None = None):
+    """Helper function to generate frequency descriptors.
+
+    In most cases, the `frequencies` input can be processed directly via
+    wd = FrequencyDescriptor.from_array_or_dict(frequencies),
+    but in cases where `frequencies` does not specify omegamax, it is
+    calculated from the input ground state adapter.
+    """
+    if frequencies is None:
+        frequencies = {'type': 'nonlinear'}  # default frequency grid
+    if isinstance(frequencies, dict) and frequencies.get('omegamax') is None:
+        assert gs is not None
+        frequencies['omegamax'] = get_omegamax(gs, nbands)
     return FrequencyDescriptor.from_array_or_dict(frequencies)
 
 
