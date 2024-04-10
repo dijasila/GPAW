@@ -37,48 +37,6 @@ class Chi0Calculator:
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        """Construct the Chi0Calculator object.
-
-        Parameters
-        ----------
-        ecut : float
-            Plane-wave energy cutoff in eV.
-        wd : FrequencyDescriptor
-            Frequency grid used to evaluate chi0.
-        nbands : int
-            Number of bands to include.
-        eta : float
-            Artificial broadening of spectra.
-        hilbert : bool
-            Switch for hilbert transform. If True, the full density response
-            is determined from a hilbert transform of its spectral function.
-            This is typically much faster, but does not work for imaginary
-            frequencies. Needs wd to be the build-in nonlinear grid.
-        timeordered : bool
-            Switch for calculating the time ordered density response function.
-            In this case the hilbert transform cannot be used.
-        intraband : bool
-            Flag for including the intraband contribution to the chi0 head.
-        nblocks : int
-            Divide the response function into nblocks. Useful when the response
-            function is large.
-        disable_point_group : bool
-            Do not use the point group symmetry operators.
-        disable_time_reversal : bool
-            Do not use time reversal symmetry.
-        integrationmode : str
-            Integrator for the kpoint integration.
-            If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method.
-        eshift : float
-            Shift unoccupied bands
-        rate : float, str
-            Phenomenological scattering rate to use in optical limit Drude term
-            (in eV). If rate='eta', it uses input artificial broadening eta as
-            rate. Note, for consistency with the formalism the rate is
-            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
-            some literature by a factor of 2.
-        """
         self.gs = gs
         self.context = context or ResponseContext()
 
@@ -175,6 +133,13 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
     def __init__(self, *args,
                  eshift=0.0,
                  **kwargs):
+        """Construct the Chi0BodyCalculator.
+
+        Parameters
+        ----------
+        eshift : float
+            Energy shift of the conduction bands in eV.
+        """
         self.eshift = eshift / Ha
         super().__init__(*args, **kwargs)
 
@@ -338,13 +303,26 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                  intraband=True,
                  rate=0.0,
                  **kwargs):
+        """Contruct the Chi0OpticalExtensionCalculator.
+
+        Parameters
+        ----------
+        intraband : bool
+            Flag for including the intraband contribution to the chi0 head.
+        rate : float, str
+            Phenomenological scattering rate to use in optical limit Drude term
+            (in eV). If rate='eta', it uses input artificial broadening eta as
+            rate. Please note that for consistency the rate is implemented as
+            omegap^2 / (omega + 1j * rate)^2, which differs from some
+            literature by a factor of 2.
+        """
         # Serial block distribution
         super().__init__(*args, nblocks=1, **kwargs)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
-        # transitions to the head of the chi0 wings. This is handled by a
-        # separate calculator, provided that intraband is set to True.
+        # transitions to the head of chi0. This is handled by a separate
+        # calculator, provided that intraband is set to True.
         if self.gs.metallic and intraband:
             from gpaw.response.chi0_drude import Chi0DrudeCalculator
             if rate == 'eta':
