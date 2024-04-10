@@ -58,6 +58,7 @@ class KPointPairFactory:
         self.gs = gs
         self.context = context
         assert self.gs.kd.symmetry.symmorphic
+        assert self.gs.world.size == 1
 
     @timer('Get a k-point')
     def get_k_point(self, s, K, n1, n2, blockcomm=None):
