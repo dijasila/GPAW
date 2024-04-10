@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from time import ctime
 from typing import TYPE_CHECKING
 
