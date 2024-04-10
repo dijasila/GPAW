@@ -442,40 +442,6 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         self.context.print('\n'.join(isl))
 
 
-def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
-                             context: ResponseContext,
-                             nbands: int | None,
-                             frequencies: None | dict | np.ndarray = None,
-                             *, domega0: float | None = None,
-                             omega2: float | None = None,
-                             omegamax: float | None = None)\
-        -> FrequencyDescriptor:
-
-    if domega0 is not None or omega2 is not None or omegamax is not None:
-        assert frequencies is None
-        frequencies = {'type': 'nonlinear',
-                       'domega0': domega0,
-                       'omega2': omega2,
-                       'omegamax': omegamax}
-        warnings.warn(f'Please use frequencies={frequencies}')
-
-    elif frequencies is None:
-        frequencies = {'type': 'nonlinear'}
-
-    if (isinstance(frequencies, dict) and
-        frequencies.get('omegamax') is None):
-        # At some point, this printing should be the user's problem.
-        # Let us do it as a part of #1157
-        epsmin, epsmax = gs.get_eigenvalue_range(nbands)
-        context.print('\n'.join([
-            'Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
-            'Maximum eigenvalue: %10.3f eV' % (epsmax * Ha)]))
-        frequencies['omegamax'] = get_omegamax(gs, nbands)
-
-    wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-    return wd
-
-
 def get_frequency_descriptor(
         frequencies: ArrayLike1D | dict[str, Any] | None = None, *,
         gs: ResponseGroundStateAdapter | None = None,
