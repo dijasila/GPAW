@@ -474,6 +474,16 @@ def new_frequency_descriptor(gs: ResponseGroundStateAdapter,
     return wd
 
 
+def full_frequency_descriptor(gs: ResponseGroundStateAdapter, *,
+                              nbands: int | None = None,
+                              domega0: float | None = None,
+                              omega2: float | None = None):
+    """Get nonlinear frequency descriptor spanning all band transitions."""
+    frequencies = {'type': 'nonlinear', 'domega0': domega0, 'omega2': omega2,
+                   'omegamax': get_omegamax(gs, nbands)}
+    return FrequencyDescriptor.from_array_or_dict(frequencies)
+
+
 def get_omegamax(gs: ResponseGroundStateAdapter,
                  nbands: int | None = None):
     """Get the maxmimum eigenvalue difference including nbands, in eV."""
