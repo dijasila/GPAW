@@ -82,7 +82,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # susceptibility in a reduced plane-wave basis and write the decomposed
         # spectrum to a file
         chi = chi.copy_with_reduced_ecut(reduced_ecut)
-        chi.write_diagonal(f'chiwG_q{q}.pckl')
+        chi.write_diagonal(f'chiwG_q{q}.npz')
         Amaj, Amin = spectral_decomposition(chi,
                                             pos_eigs=pos_eigs,
                                             neg_eigs=neg_eigs)
@@ -104,8 +104,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wmin1_w, Amin1_w = read_full_spectral_weight('Amin_q1.dat')
     wa0_w, a0_wm = read_eigenmode_lineshapes('Amaj_modes_q0.dat')
     wa1_w, a1_wm = read_eigenmode_lineshapes('Amaj_modes_q1.dat')
-    w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.pckl')
-    w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
+    w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.npz')
+    w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.npz')
     Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.pckl')
     Amaj1 = EigendecomposedSpectrum.from_file('Amaj_q1.pckl')
 
