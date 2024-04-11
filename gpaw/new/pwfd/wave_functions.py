@@ -238,9 +238,9 @@ class PWFDWaveFunctions(WaveFunctions, XP):
 
         dH:::
 
-           ~ ~    a  ~  ~
-          <𝜓|p> ΔH  <p |𝜓>
-            m i   ij  j  n
+           ~  ~    a  ~  ~
+          <𝜓 |p> ΔH  <p |𝜓>
+            m  i   ij  j  n
         """
         self.orthonormalize(work_array)
         psit_nX = self.psit_nX
