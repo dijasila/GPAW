@@ -6,7 +6,7 @@ from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pw.hamiltonian import PWHamiltonian
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
-from gpaw.utilities import unpack
+from gpaw.utilities import unpack_hermitian
 
 
 def coulomb(pw: PWDesc, grid: UGDesc, omega: float):
@@ -41,7 +41,7 @@ class PWHybridHamiltonian(PWHamiltonian):
         self.exx_fraction = xc.exx_fraction
         self.exx_omega = xc.exx_omega
 
-        self.VC_aii = [unpack(setup.X_p) for setup in setups]
+        self.VC_aii = [unpack_hermitian(setup.X_p) for setup in setups]
         self.delta_aiiL = [setup.Delta_iiL for setup in setups]
         self.C_app = [setup.M_pp for setup in setups]
 
