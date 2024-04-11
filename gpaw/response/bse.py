@@ -310,21 +310,10 @@ class BSEBackend:
             context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
         pair_calc = kptpair_factory.pair_calculator()
+        pawcorr = self.gs.pair_density_paw_corrections(qpd0)
 
-        # Calculate direct (screened) interaction and PAW corrections
-        if self.mode == 'RPA':
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            pawcorr = pairden_paw_corr(qpd0)
-        else:
+        if self.mode != 'RPA':
             screened_potential = self.calculate_screened_potential()
-
-            if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
-                iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
-                                                          self.qd.bzk_kc)]
-                pawcorr = screened_potential.pawcorr_q[iq0]
-            else:
-                pairden_paw_corr = self.gs.pair_density_paw_corrections
-                pawcorr = pairden_paw_corr(qpd0)
 
         # Calculate pair densities, eigenvalues and occupations
         self.context.timer.start('Pair densities')
@@ -443,7 +432,7 @@ class BSEBackend:
                             optimize='optimal')
                         self.context.timer.stop('Coulomb')
 
-                        if not self.mode == 'RPA' and s1 == s2:
+                        if self.mode != 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
                             kptv2 = kptpair_factory.get_k_point(
                                 s1, iK2, vi_s[s1], vf_s[s1])
