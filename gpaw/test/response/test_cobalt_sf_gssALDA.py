@@ -86,8 +86,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         Amaj, Amin = spectral_decomposition(chi,
                                             pos_eigs=pos_eigs,
                                             neg_eigs=neg_eigs)
-        Amaj.write(f'Amaj_q{q}.pckl')
-        Amin.write(f'Amin_q{q}.pckl')
+        Amaj.write(f'Amaj_q{q}.npz')
+        Amin.write(f'Amin_q{q}.npz')
         assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
@@ -106,8 +106,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wa1_w, a1_wm = read_eigenmode_lineshapes('Amaj_modes_q1.dat')
     w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.npz')
     w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.npz')
-    Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.pckl')
-    Amaj1 = EigendecomposedSpectrum.from_file('Amaj_q1.pckl')
+    Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.npz')
+    Amaj1 = EigendecomposedSpectrum.from_file('Amaj_q1.npz')
 
     # Find acoustic magnon mode
     wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)
