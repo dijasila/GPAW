@@ -72,7 +72,7 @@ class WignerSeitzTruncatedCoulomb:
         size = tuple(grid.size)
         if pw.dtype == float:
             size = (size[0], size[1], size[2] // 2 + 1)
-        self._get_potential(pw.indices(size),
+        self._get_potential(pw.indices(size)[pw.ng1:pw.ng2],
                             pw.kpt_c,
                             grid.size_c,
                             pw.dtype,
