@@ -29,7 +29,7 @@ def fermi_dirac(eig: np.ndarray,
 
     >>> f, _, _ = fermi_dirac(0.0, 0.0, 0.1)
     >>> f
-    0.5
+    np.float64(0.5)
     """
     x = (eig - fermi_level) / width
     x = np.clip(x, -100, 100)
@@ -184,7 +184,7 @@ class OccupationNumberCalculator:
         self.domain_comm.broadcast(f_qn, 0)
 
         fermi_level, e_entropy = result
-        return f_qn, [fermi_level], e_entropy
+        return f_qn, [float(fermi_level)], float(e_entropy)
 
     def _calculate(self,
                    nelectrons: float,
