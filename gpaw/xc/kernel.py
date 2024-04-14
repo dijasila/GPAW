@@ -74,6 +74,8 @@ class XCKernel:
             assert (dedsigma_xg.flags.contiguous and
                     dedsigma_xg.dtype == float)
             if self.type == 'MGGA':
+                print(tau_sg.shape)
+                print(n_sg.shape)
                 assert tau_sg.shape == (S,) + G
                 assert dedtau_sg.shape == (S,) + G
                 assert tau_sg.flags.contiguous and tau_sg.dtype == float
