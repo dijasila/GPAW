@@ -20,8 +20,8 @@ def count(dir, pattern):
 
 
 def polygon(x, y1, y2, *args, **kwargs):
-    x = plt.concatenate((x, x[::-1]))
-    y = plt.concatenate((y1, y2[::-1]))
+    x = np.concatenate((x, x[::-1]))
+    y = np.concatenate((y1, y2[::-1]))
     plt.fill(x, y, *args, **kwargs)
 
 
