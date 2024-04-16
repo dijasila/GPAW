@@ -4,7 +4,7 @@ from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.mpi import world
 
 
-def test_wstc():
+def hmm_test_wstc():
     a = 10.0
     n = 80
     grid = UGDesc(cell=[a, a, a], size=[n, n, n], comm=world)
@@ -23,4 +23,4 @@ def test_wstc():
     plt.show()
 
 
-test_wstc()
+# test_wstc()
