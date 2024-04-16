@@ -16,15 +16,13 @@ class Hamiltonian:
         self.apply_local_potential(vt_sR[spin], psit_nG, out)
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nG, out)
-        self.hybrid_energies = self.apply_orbital_dependent(
-            ibzwfs, D_asii, psit_nG, spin, out)
+        self.apply_orbital_dependent(ibzwfs, D_asii, psit_nG, spin, out)
         return out
 
     def apply_local_potential(self,
                               vt_R: UGArray,
                               psit_nG: XArray,
-                              out: XArray
-                              ) -> None:
+                              out: XArray) -> None:
         raise NotImplementedError
 
     def apply_mgga(self,
@@ -38,8 +36,8 @@ class Hamiltonian:
                                 D_asii,
                                 psit_nG: XArray,
                                 spin: int,
-                                out: XArray) -> dict[str, float]:
-        return {'evv': 0.0, 'evc': 0.0, 'ekin': 0.0}
+                                out: XArray) -> None:
+        pass
 
     def create_preconditioner(self, blocksize):
         raise NotImplementedError

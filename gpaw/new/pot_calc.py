@@ -123,7 +123,7 @@ class PotentialCalculator:
             self.soc,
             kpt_band_comm)
 
-        energies['spinorbit'] = 0
+        energies['spinorbit'] = 0.0
         for key, e in corrections.items():
             if 0:
                 print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')

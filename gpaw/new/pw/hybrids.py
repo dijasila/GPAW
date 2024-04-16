@@ -1,11 +1,12 @@
 import numpy as np
 from gpaw.core import PWArray, PWDesc, UGDesc
 from gpaw.core.arrays import DistributedArrays as XArray
+from gpaw.core.atom_arrays import AtomArrays
 from gpaw.hybrids.paw import pawexxvv
 from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pw.hamiltonian import PWHamiltonian
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.typing import Array1D
 from gpaw.utilities import unpack_hermitian
 
 
@@ -53,45 +54,57 @@ class PWHybridHamiltonian(PWHamiltonian):
     def apply_orbital_dependent(self,
                                 ibzwfs: IBZWaveFunctions,
                                 D_asii,
-                                psit_nG: XArray,
+                                psit2_nG: XArray,
                                 spin: int,
-                                Htpsit_nG: XArray) -> dict[str, float]:
-        assert isinstance(psit_nG, PWArray)
-        assert isinstance(Htpsit_nG, PWArray)
-        energies = np.zeros(3)
-        for wfs in ibzwfs:
-            if wfs.spin != spin:
-                continue
-            D_aii = D_asii[:, spin]
-            if ibzwfs.nspins == 1:
-                D_aii.data *= 0.5
-            energies += self.calculate(wfs, D_aii, psit_nG, Htpsit_nG)
-        return {'evv': energies[0],
-                'evc': energies[1],
-                'ekin': energies[2]}
+                                Htpsit2_nG: XArray) -> dict[str, float]:
+        assert isinstance(psit2_nG, PWArray)
+        assert isinstance(Htpsit2_nG, PWArray)
+        wfs = ibzwfs.wfs_qs[0][spin]
+        D_aii = D_asii[:, spin]
+        if ibzwfs.nspins == 1:
+            D_aii.data *= 0.5
+        f1_n = wfs.myocc_n
+        psit1_nG = wfs.psit_nX
+        P1_ani = wfs.P_ani
+        pt_aiG = wfs.pt_aiX
+
+        same = psit1_nG is psit2_nG
+
+        if same:
+            P2_ani = P1_ani
+        else:
+            P2_ani = pt_aiG.integrate(psit2_nG)
+
+        evv, evc, ekin = self.calculate(D_aii, same, pt_aiG,
+                                        psit1_nG, P1_ani, f1_n,
+                                        psit2_nG, P2_ani,
+                                        Htpsit2_nG)
+        if same:
+            for name, e in [('exx_vv', evv),
+                            ('exc_vc', evc),
+                            ('exx_kinetic', ekin)]:
+                print(spin, name, e)
+                if spin == 0:
+                    ibzwfs.energies[name] = e
+                else:
+                    ibzwfs.energies[name] += e
 
     def calculate(self,
-                  wfs1: PWFDWaveFunctions,
                   D_aii,
+                  same,
+                  pt_aiG,
+                  psit1_nG: PWArray,
+                  P1_ani: AtomArrays,
+                  f1_n: Array1D,
                   psit2_nG: PWArray,
-                  out_nG: PWArray):
-        f1_n = wfs1.myocc_n
-        psit1_nG = wfs1.psit_nX
+                  P2_ani: AtomArrays,
+                  Htpsit2_nG: PWArray):
 
         psit1_R = self.grid.empty()
         psit2_R = self.grid.empty()
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()
         vrhot_G = self.pw.empty()
-
-        P1_ani = wfs1.P_ani
-        pt_aiG = wfs1.pt_aiX
-
-        same = psit1_nG is psit2_nG
-        if same:
-            P2_ani = P1_ani
-        else:
-            P2_ani = pt_aiG.integrate(psit2_nG)
 
         evv = 0.0
         evc = 0.0
@@ -104,12 +117,12 @@ class PWHybridHamiltonian(PWHamiltonian):
             B_ani[a] = B_ni
             if same:
                 ec = (D_ii * VC_ii).sum()
-                ev = (D_ii * VC_ii).sum()
-                ekin += ev + 2 * ev
-                evv += ev
-                evc += ec
+                ev = (D_ii * VV_ii).sum()
+                ekin += ec + 2 * ev
+                evv -= ev
+                evc -= ec
 
-        for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, out_nG)):
+        for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, Htpsit2_nG)):
             psit2_G.ifft(out=psit2_R, plan=self.plan)
 
             for n1, (psit1_G, f1) in enumerate(zip(psit1_nG, f1_n)):
@@ -136,6 +149,6 @@ class PWHybridHamiltonian(PWHamiltonian):
                         'L, ijL, j -> i',
                         f1 * A_L, self.delta_aiiL[a], P1_ani[a][n1])
 
-        pt_aiG.add_to(out_nG, B_ani)
+        pt_aiG.add_to(Htpsit2_nG, B_ani)
 
         return evv, evc, ekin
