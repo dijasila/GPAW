@@ -11,7 +11,7 @@ import gpaw.mpi as mpi
 from gpaw.response.context import ResponseContext
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
-from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
+from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -595,9 +595,6 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def __init__(self, calc, *,
                  frequencies=None,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
-                 omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
                  nbands=None, eta=0.2,
@@ -640,13 +637,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         eshift: float
             Shift unoccupied bands
         """
-
         gs, context = get_gs_and_context(calc, txt, world, timer=None)
-        nbands = nbands or gs.bd.nbands
-
-        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
-                                      domega0=domega0,
-                                      omega2=omega2, omegamax=omegamax)
+        wd = get_frequency_descriptor(frequencies, gs=gs, nbands=nbands)
 
         chi0calc = Chi0Calculator(
             gs, context, nblocks=nblocks,
