@@ -401,6 +401,7 @@ def combine_energies(potential: Potential,
     energies['kinetic'] += ibzwfs.energies.get('exx_kinetic', 0.0)
     energies['xc'] += ibzwfs.energies.get('exx_vv', 0.0)
     energies['xc'] += ibzwfs.energies.get('exx_vc', 0.0)
+    print(ibzwfs.energies)
     energies['entropy'] = ibzwfs.energies['entropy']
     energies['total_free'] = sum(energies.values())
     energies['total_extrapolated'] = (energies['total_free'] +

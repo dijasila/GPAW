@@ -1,3 +1,5 @@
+from math import pi
+
 import numpy as np
 from gpaw.core import PWArray, PWDesc, UGDesc
 from gpaw.core.arrays import DistributedArrays as XArray
@@ -15,17 +17,17 @@ def coulomb(pw: PWDesc, grid: UGDesc, omega: float):
         wstc = WignerSeitzTruncatedCoulomb(
             pw.cell_cv, np.array([1, 1, 1]))
         return wstc.get_potential_new(pw, grid)
-    1 / 0
-    """
-        G2_G = pd.G2_qG[0]
-        x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
-        with np.errstate(invalid='ignore'):
-            v_G = 4 * pi * x_G / G2_G
-        G0 = G2_G.argmin()
-        if G2_G[G0] < 1e-11:
-            v_G[G0] = pi / self.omega**2
-        return v_G
-    """
+
+    v_G = pw.empty()
+    G2_G = pw.ekin_G * 2
+    v_G.data[:] = 4 * pi * (1 - np.exp(-G2_G / (4 * omega**2)))
+    if pw.ng1 == 0:
+        v_G.data[1:] /= G2_G[1:]
+        v_G.data[0] = pi / omega**2
+    else:
+        v_G.data /= G2_G
+
+    return v_G
 
 
 class PWHybridHamiltonian(PWHamiltonian):
@@ -42,11 +44,13 @@ class PWHybridHamiltonian(PWHamiltonian):
         self.exx_fraction = xc.exx_fraction
         self.exx_omega = xc.exx_omega
 
-        self.VC_aii = [unpack_hermitian(setup.X_p) for setup in setups]
+        self.VC_aii = [unpack_hermitian(setup.X_p * self.exx_fraction)
+                       for setup in setups]
         self.delta_aiiL = [setup.Delta_iiL for setup in setups]
-        self.C_app = [setup.M_pp for setup in setups]
+        self.C_app = [setup.M_pp * self.exx_fraction for setup in setups]
 
-        self.v_G = coulomb(pw, grid, xc.exx_omega)
+        self.v_G = coulomb(pw, grid, self.exx_omega)
+        self.v_G.data *= self.exx_fraction
         self.ghat_aLG = setups.create_compensation_charges(
             pw, fracpos_ac, atomdist)
         self.plan = grid.fft_plans()
@@ -84,6 +88,7 @@ class PWHybridHamiltonian(PWHamiltonian):
                             ('exc_vc', evc),
                             ('exx_kinetic', ekin)]:
                 print(spin, name, e)
+                e *= ibzwfs.spin_degeneracy
                 if spin == 0:
                     ibzwfs.energies[name] = e
                 else:
@@ -136,7 +141,7 @@ class PWHybridHamiltonian(PWHamiltonian):
                 vrhot_G.data[:] = rhot_G.data * self.v_G.data
                 if same:
                     e = f1 * f1_n[n2] * rhot_G.integrate(vrhot_G)
-                    evv += 0.5 * e
+                    evv -= 0.5 * e
                     ekin += e
                 vrhot_G.ifft(out=rhot_R, plan=self.plan)
                 rhot_R.data *= psit1_R.data
