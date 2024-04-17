@@ -87,7 +87,6 @@ class PWHybridHamiltonian(PWHamiltonian):
             for name, e in [('exx_vv', evv),
                             ('exc_vc', evc),
                             ('exx_kinetic', ekin)]:
-                print(spin, name, e)
                 e *= ibzwfs.spin_degeneracy
                 if spin == 0:
                     ibzwfs.energies[name] = e

@@ -100,7 +100,6 @@ def calculate(kpts, wfs, paw, sym, coulomb):
                      kpt.weight)
         wfs.pt.add(w_nG, v1_ani, kpt.psit.kpt)
 
-    print(exxvv, exxvc, ekin)
     return (comm.sum_scalar(exxvv),
             comm.sum_scalar(exxvc),
             comm.sum_scalar(ekin),
