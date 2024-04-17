@@ -105,7 +105,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             if mylcaonbands < mynbands:
                 psit_nX[mylcaonbands:].randomize(
                     seed=self.communicators['w'].rank)
-                eig_n[mylcaonbands:] = np.inf
+                eig_n[mylcaonbands:] = 1e10  # np.inf
 
             wfs = PWFDWaveFunctions(
                 psit_nX=psit_nX,
@@ -154,7 +154,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 qspiral_v=self.qspiral_v)
 
             eig_n = self.xp.empty(self.nbands)
-            eig_n[:] = np.inf
+            eig_n[:] = 1e10  # np.inf
             wfs._eig_n = eig_n
             return wfs
 
