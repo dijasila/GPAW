@@ -1,3 +1,4 @@
+from __future__ import annotations
 from math import pi
 
 import numpy as np
@@ -44,6 +45,7 @@ class PWHybridHamiltonian(PWHamiltonian):
         self.exx_fraction = xc.exx_fraction
         self.exx_omega = xc.exx_omega
 
+        self.exx_cc = sum(setup.ExxC for setup in setups) * self.exx_fraction
         self.VC_aii = [unpack_hermitian(setup.X_p * self.exx_fraction)
                        for setup in setups]
         self.delta_aiiL = [setup.Delta_iiL for setup in setups]
@@ -60,7 +62,7 @@ class PWHybridHamiltonian(PWHamiltonian):
                                 D_asii,
                                 psit2_nG: XArray,
                                 spin: int,
-                                Htpsit2_nG: XArray) -> dict[str, float]:
+                                Htpsit2_nG: XArray) -> None:
         assert isinstance(psit2_nG, PWArray)
         assert isinstance(Htpsit2_nG, PWArray)
         wfs = ibzwfs.wfs_qs[0][spin]
@@ -85,13 +87,14 @@ class PWHybridHamiltonian(PWHamiltonian):
                                         Htpsit2_nG)
         if same:
             for name, e in [('exx_vv', evv),
-                            ('exc_vc', evc),
+                            ('exx_vc', evc),
                             ('exx_kinetic', ekin)]:
                 e *= ibzwfs.spin_degeneracy
                 if spin == 0:
                     ibzwfs.energies[name] = e
                 else:
                     ibzwfs.energies[name] += e
+            ibzwfs.energies['exx_cc'] = self.exx_cc
 
     def calculate(self,
                   D_aii,
