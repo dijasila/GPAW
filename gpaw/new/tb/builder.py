@@ -161,6 +161,7 @@ class TBPotentialCalculator(PotentialCalculator):
 class DummyXC:
     no_forces = False
     xc = None
+    exx_fraction = 0.0
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp):
         return 0.0

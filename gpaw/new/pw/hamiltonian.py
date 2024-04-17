@@ -13,7 +13,7 @@ from gpaw.new.c import pw_precond
 
 
 class PWHamiltonian(Hamiltonian):
-    def __init__(self, grid, pw, xp):
+    def __init__(self, grid, pw, xp=np):
         self.grid_local = grid.new(comm=None, dtype=pw.dtype)
         self.plan = self.grid_local.fft_plans(xp=xp)
         # It's a bit too expensive to create all the local PW-descriptors
@@ -143,6 +143,8 @@ class SpinorPWHamiltonian(Hamiltonian):
     def apply(self,
               vt_xR: UGArray,
               dedtaut_xR: UGArray | None,
+              ibzwfs,
+              D_asii,
               psit_nsG: XArray,
               out: XArray,
               spin: int) -> XArray:
