@@ -19,7 +19,7 @@ import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UGArray
-from gpaw.new import zips
+from gpaw.new import trace, zips
 from gpaw.new.potential import Potential
 from gpaw.new.xc import Functional
 from gpaw.setup import Setup
@@ -117,6 +117,7 @@ class PotentialCalculator:
         return Potential(vt_sR, dH_asii, dedtaut_sR, energies, vHt_x), Q_aL
 
 
+@trace
 def calculate_non_local_potential(setups,
                                   density,
                                   xc,

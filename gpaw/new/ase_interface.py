@@ -13,7 +13,7 @@ from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
 from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
-from gpaw.new import Timer
+from gpaw.new import Timer, trace
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   CalculationModeError,
@@ -209,6 +209,7 @@ class ASECalculator:
         return {name: value * units[name]
                 for name, value in self.dft.results.items()}
 
+    @trace
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self._dft = DFTCalculation.from_parameters(
@@ -226,6 +227,7 @@ class ASECalculator:
             self._dft = self.dft.move_atoms(atoms)
         self._atoms = atoms.copy()
 
+    @trace
     def converge(self):
         """Iterate to self-consistent solution.
 
@@ -264,9 +266,11 @@ class ASECalculator:
                                        'free_energy' if force_consistent else
                                        'energy')
 
+    @trace
     def get_forces(self, atoms: Atoms | None = None) -> Array2D:
         return self.calculate_property(atoms, 'forces')
 
+    @trace
     def get_stress(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'stress')
 
