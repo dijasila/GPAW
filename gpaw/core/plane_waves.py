@@ -14,7 +14,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PWAtomCenteredFunctions
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod, trace, zips
+from gpaw.new import prod, zips
 from gpaw.new.c import (add_to_density, add_to_density_gpu, pw_insert,
                         pw_insert_gpu)
 from gpaw.pw.descriptor import pad
@@ -568,7 +568,6 @@ class PWArray(DistributedArrays[PWDesc]):
         self.desc.comm.sum(result_x)
         return result_x.reshape(self.mydims) * self.dv
 
-    @trace
     def abs_square(self,
                    weights: Array1D,
                    out: UGArray,

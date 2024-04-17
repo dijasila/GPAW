@@ -11,7 +11,6 @@ import gpaw.utilities.blas as blas
 from gpaw import debug, get_scipy_version
 from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.new import trace
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
@@ -156,7 +155,6 @@ class Matrix:
         self.data += other
         return self
 
-    @trace
     def multiply(self,
                  other,
                  alpha=1.0,
@@ -182,7 +180,6 @@ class Matrix:
         dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric=symmetric)
         return out
 
-    @trace
     def redist(self, other: Matrix) -> None:
         """Redistribute to other BLACS layout."""
         if self is other:
@@ -279,7 +276,6 @@ class Matrix:
         if info != 0:
             raise ValueError(f'scalapack_inverse error: {info}')
 
-    @trace
     def invcholesky(self) -> None:
         """In-place inverse of Cholesky decomposition.
 
@@ -317,7 +313,6 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    @trace
     def eigh(self,
              S=None,
              *,
@@ -419,7 +414,6 @@ class Matrix:
 
         return eps
 
-    @trace
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 

@@ -14,7 +14,7 @@ from gpaw.typing import Array1D, Literal, Self, ArrayND
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
 
-from gpaw.new import prod, trace
+from gpaw.new import prod
 
 DomainType = TypeVar('DomainType', bound=Domain)
 
@@ -126,7 +126,6 @@ class DistributedArrays(Generic[DomainType]):
 
         return self._matrix
 
-    @trace
     def matrix_elements(self,
                         other: Self,
                         *,
