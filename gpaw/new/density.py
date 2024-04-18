@@ -11,7 +11,7 @@ from gpaw.core.plane_waves import PWDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
-from gpaw.new import zips
+from gpaw.new import trace, zips
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack_hermitian, unpack_density
 from gpaw.new.symmetry import SymmetrizationPlan
@@ -176,6 +176,7 @@ class Density:
             self.nct_aX,
             self.tauct_aX)
 
+    @trace
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp
         ccc_aL = AtomArraysLayout(
