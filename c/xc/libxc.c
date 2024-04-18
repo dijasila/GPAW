@@ -65,6 +65,19 @@ lxcXCFunctional_needs_laplacian(lxcXCFunctionalObject *self, PyObject *args)
 }
 
 static PyObject*
+lxcXCFunctional_disable_fhc(lxcXCFunctionalObject *self, PyObject *args)
+{
+  int success = 1; /* assume disable fhc is present */
+#if XC_MAJOR_VERSION >= 7
+  self->functional[0]->info->flags = self->functional[0]->info->flags ^ XC_FLAGS_ENFORCE_FHC;
+  self->functional[1]->info->flags = self->functional[1]->info->flags ^ XC_FLAGS_ENFORCE_FHC;
+#else
+  success = 0; /* XC_FLAGS_ENFORCE_FHC can't be used */
+#endif
+  return Py_BuildValue("i", success);
+}
+
+static PyObject*
 lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 {
   int success = 0; /* Assume we don't use sfat */
@@ -601,6 +614,8 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_is_mgga, METH_VARARGS, 0},
   {"needs_laplacian",
    (PyCFunction)lxcXCFunctional_needs_laplacian, METH_VARARGS, 0},
+  {"disable_fhc",
+   (PyCFunction)lxcXCFunctional_disable_fhc, METH_VARARGS, 0},
   {"set_omega",
    (PyCFunction)lxcXCFunctional_set_omega, METH_VARARGS, 0},
   {"calculate",

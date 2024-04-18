@@ -62,8 +62,9 @@ class LibXC(XCKernel):
 
         if self.xc.is_mgga():
             self.type = 'MGGA'
-            warnings.warn('libxc should compiled with --disable-fhc' +
-                          ' otherwise SCF won\'t converge.')
+            if not self.xc.disable_fhc():
+                warnings.warn('libxc should compiled with --disable-fhc' +
+                              ' otherwise SCF won\'t converge.')
             if self.xc.needs_laplacian():
                 msg = 'Functional "%s" needs laplacian' % name
                 msg += ' (unsupported)'
