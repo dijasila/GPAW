@@ -156,7 +156,7 @@ class Density:
             # XXX This doesn't always work, HGH, SIC, ...
             sc = self.get_spin_contamination(atoms, int(magmom < 0))
             log('Spin contamination: %f electrons' % sc)
-        except (TypeError, AttributeError, AssertionError):
+        except (TypeError, AttributeError):
             pass
 
     def initialize(self, setups, timer, magmom_av, hund):
@@ -484,7 +484,6 @@ class Density:
             nct_a.append([nct])
             if self.setups[a].data.has_corehole and not skip_core and \
                     self.nspins > 1:
-                assert self.setups[a].data.lcorehole == 0
                 work_setup = self.setups[a].data
                 rmax = nc.get_cutoff()
                 # work_setup.phicorehole_g
