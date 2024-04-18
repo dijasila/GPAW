@@ -10,6 +10,12 @@ Git master branch
 
 :git:`master <>`.
 
+* A new ``adjust_cell()`` function is added to replace the 
+  ``Cluster.minimal_box()``, and the Cluster object will be 
+  discontinued. he new  ``adjust_cell()`` function expands the ``minimal_box()`` 
+  unction but considers the ``pbc`` for periodic calculations and 
+  only adjusts the cell in the non-periodic directions.
+
 * New 14 electron Cr PAW potential added to our :ref:`setup releases`.
   For high accuracy, it is recommented over the old 6-electron version
   (which is still the default).  You can use it by
