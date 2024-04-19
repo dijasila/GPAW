@@ -12,7 +12,7 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack_density, unpack_hermitian
 from gpaw.xc import XC
 from gpaw.new import zips
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
@@ -320,7 +320,7 @@ class BaseSetup:
             i += 2 * l + 1
             ib += 2 * l + 1
         for s in range(nspins):
-            D_sp[s] = pack(D_sii[s])
+            D_sp[s] = pack_density(D_sii[s])
         return D_sp
 
     def get_partial_waves(self):
@@ -431,10 +431,10 @@ class BaseSetup:
                 p1 += 1
 
         # To unpack into I4_iip do:
-        # from gpaw.utilities import unpack
+        # from gpaw.utilities import unpack_hermitian
         # I4_iip = np.empty((ni, ni, _np)):
         # for p in range(_np):
-        #     I4_iip[..., p] = unpack(I4_pp[:, p])
+        #     I4_iip[..., p] = unpack_hermitian(I4_pp[:, p])
 
         return self.I4_pp
 
@@ -493,7 +493,7 @@ class BaseSetup:
                                np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
                 L += 1
 
-        return M_p, M_pp
+        return M_p, M_pp  # , V_p
 
     def calculate_integral_potentials(self, func):
         """Calculates a set of potentials using func."""
@@ -950,14 +950,15 @@ class Setup(BaseSetup):
         self.M -= data.e_electrostatic
         self.E = data.e_total
 
-        Delta0_ii = unpack(self.Delta_pL[:, 0].copy())
+        Delta0_ii = unpack_hermitian(self.Delta_pL[:, 0].copy())
         self.dO_ii = data.get_overlap_correction(Delta0_ii)
         self.dC_ii = self.get_inverse_overlap_coefficients(self.B_ii,
                                                            self.dO_ii)
 
         self.Delta_iiL = np.zeros((ni, ni, self.Lmax))
         for L in range(self.Lmax):
-            self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
+            self.Delta_iiL[:, :, L] = unpack_hermitian(
+                self.Delta_pL[:, L].copy())
 
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])

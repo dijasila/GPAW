@@ -150,6 +150,9 @@ class PWDesc(Domain):
         """Return indices into FFT-grid."""
         Q_G = self._indices_cache.get(shape)
         if Q_G is None:
+            # We should do this here instead of everywhere calling this: !!!!
+            # if self..dtype == float:
+            #     shape = (shape[0], shape[1], shape[2] // 2 + 1)
             Q_G = np.ravel_multi_index(self.indices_cG, shape,  # type: ignore
                                        mode='wrap').astype(np.int32)
             self._indices_cache[shape] = Q_G

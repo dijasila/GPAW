@@ -5,7 +5,7 @@ from functools import partial
 from ase.units import Ha
 from ase.data import chemical_symbols
 
-from gpaw.response import ResponseContext, ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.groundstate import ResponsePAWDataset
 from gpaw.response.paw import (calculate_pair_density_correction,
@@ -46,9 +46,7 @@ def test_paw_corrections(setup):
 @pytest.mark.response
 def test_paw_correction_consistency(gpw_files):
     """Test consistency of the pair density PAW corrections."""
-    context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
-                                                  context=context)
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'])
 
     # Set up plane-wave basis
     ecut = 50  # eV
@@ -76,9 +74,7 @@ def test_paw_correction_consistency(gpw_files):
 @pytest.mark.serial
 def test_site_paw_correction_consistency(gpw_files):
     """Test consistency of generalized matrix elements."""
-    context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
-                                                  context=context)
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'])
 
     # Expand the LDA fxc kernel in real spherical harmonics
     pawdata = gs.pawdatasets.by_atom[0]

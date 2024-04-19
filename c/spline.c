@@ -102,6 +102,11 @@ static PyObject * spline_map(SplineObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject * spline_get_npoints(SplineObject *self, PyObject *args)
+{
+  return Py_BuildValue("i", self->spline.nbins + 1);
+}
+
 static PyMethodDef spline_methods[] = {
     {"get_cutoff",
      (PyCFunction)spline_get_cutoff, METH_VARARGS, 0},
@@ -113,6 +118,8 @@ static PyMethodDef spline_methods[] = {
      (PyCFunction)spline_get_value_and_derivative, METH_VARARGS, 0},
     {"get_indices_from_zranges",
      (PyCFunction)spline_get_indices_from_zranges, METH_VARARGS, 0},
+    {"get_npoints",
+     (PyCFunction)spline_get_npoints, METH_VARARGS, 0},
     {NULL, NULL, 0, NULL}
 };
 

@@ -10,6 +10,7 @@ from ase.units import Bohr, Ha, alpha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.ibz2bz import IBZ2BZMaps
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import broadcast_array, serial_comm
@@ -17,7 +18,6 @@ from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
-from gpaw.ibz2bz import IBZ2BZMaps
 from gpaw.utilities.partition import AtomPartition
 
 if TYPE_CHECKING:
@@ -661,7 +661,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
         'This function has no tests.  It is very likely that it no longer '
         'works correctly after merging !677.')
 
-    from gpaw.utilities import unpack
+    from gpaw.utilities import unpack_hermitian
 
     if nbands is None:
         nbands = calc.get_number_of_bands()
@@ -725,12 +725,12 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     m_av = []
     for a in range(len(calc.atoms)):
         N0_p = calc.density.setups[a].N0_p.copy()
-        N0_ij = unpack(N0_p)
+        N0_ij = unpack_hermitian(N0_p)
         Dx_ij = np.zeros_like(N0_ij, complex)
         Dy_ij = np.zeros_like(N0_ij, complex)
         Dz_ij = np.zeros_like(N0_ij, complex)
         Delta_p = calc.density.setups[a].Delta_pL[:, 0].copy()
-        Delta_ij = unpack(Delta_p)
+        Delta_ij = unpack_hermitian(Delta_p)
         for ik in range(Nk):
             P_ami = ...  # get_spinorbit_projections(calc, ik, v_knm[ik])
             P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])

@@ -168,7 +168,6 @@ class LCAOWaveFunctions(WaveFunctions):
         # Quick'n'dirty implementation
         # We should generalize the PW+FD method
         assert self.band_comm.size == 1
-        assert self.domain_comm.size == 1
         n2 = n2 or self.nbands + n2
         return LCAOWaveFunctions(
             setups=self.setups,
@@ -181,7 +180,7 @@ class LCAOWaveFunctions(WaveFunctions):
             T_MM=self.T_MM,
             P_aMi=self.P_aMi,
             fracpos_ac=self.fracpos_ac,
-            atomdist=self.atomdist,
+            atomdist=self.atomdist.gather(),
             kpt_c=self.kpt_c,
             spin=self.spin,
             q=self.q,
@@ -214,7 +213,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                  T_MM=None,
                                  P_aMi=None,
                                  fracpos_ac=self.fracpos_ac,
-                                 atomdist=self.atomdist,
+                                 atomdist=self.atomdist.gather(),
                                  kpt_c=kpt_c,
                                  spin=spin,
                                  q=q,
