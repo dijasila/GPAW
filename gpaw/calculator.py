@@ -58,7 +58,8 @@ class GPAW(Calculator):
 
     implemented_properties = ['energy', 'free_energy',
                               'forces', 'stress',
-                              'dipole', 'magmom', 'magmoms']
+                              'dipole', 'magmom', 'magmoms',
+                              'excess_electrons', 'electrode_potential']
 
     default_parameters: Dict[str, Any] = {
         'mode': None,  # issue #897: start deprecating reliance on default mode
