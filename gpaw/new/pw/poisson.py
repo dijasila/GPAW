@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import PWArray
 from gpaw.new.poisson import PoissonSolver
+from gpaw.typing import Array1D
 from scipy.special import erf
 
 
@@ -22,7 +23,7 @@ def make_poisson_solver(pw: PWDesc,
     ps = PWPoissonSolver(pw, charge, strength)
 
     if dipolelayer:
-        return DipoleLayerPWPoissonSolver(ps, grid, **kwargs)
+        return DipoleLayerPWPoissonSolver(ps, grid, pbc_c, **kwargs)
     assert not kwargs
     return ps
 
@@ -177,11 +178,12 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
                  grid: UGDesc,
+                 pbc_c: Array1D,
                  width: float = 1.0):  # Ångström
         self.ps = ps
         self.grid = grid
         self.width = width / Bohr
-        (self.axis,) = np.where(~grid.pbc_c)
+        (self.axis,) = np.where(~pbc_c)[0]
 
     def solve(self,
               vHt_g: PWArray,
@@ -203,8 +205,8 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
             c = self.axis
             L = grid.cell_cv[c, c]
             w = self.width / 2
-            assert w < L / 2
-            gc = int(w / grid.size_c[c])
+            assert w < L / 2, (w, L, c)
+            gc = int(w / L * grid.size_c[c])
             x = np.linspace(0, L, grid.size_c[c], endpoint=False)
             sawtooth = x / L - 0.5
             a = 1 / L - 0.75 / w
