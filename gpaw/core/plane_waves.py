@@ -357,7 +357,7 @@ class PWArray(DistributedArrays[PWDesc]):
         if out is None:
             out = grid.empty(self.dims, xp=xp)
         assert self.desc.dtype == out.desc.dtype, (self.desc, out.desc)
-        assert out.desc.pbc_c.all()
+        assert not out.desc.zerobc_c.any()
         assert comm.size == out.desc.comm.size, (comm, out.desc.comm)
 
         plan = plan or out.desc.fft_plans(xp=xp)
