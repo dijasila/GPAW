@@ -95,4 +95,9 @@ class Potential:
         grid = self.vt_sR.desc
         if grid.pbc_c.all():
             return np.nan
-        return broadcast_float(self.vt_sR[:, 0, 0, 0].mean(), grid.comm) * Ha
+        if grid.zerobc_c.any():
+            return 0.0
+        print(self.vt_sR.data[:, 0, 0, :])
+        print(self.vt_sR.data[:, :, 0, 0])
+        return broadcast_float(self.vt_sR.data[:, 0, 0, 0].mean(),
+                               grid.comm) * Ha

@@ -186,6 +186,7 @@ class Hamiltonian:
                 vacuum = np.nan
 
         fermilevel = wfs.fermi_level
+
         wf1 = vacuum - fermilevel + dipole_correction
         wf2 = vacuum - fermilevel - dipole_correction
         return np.array([wf1, wf2])

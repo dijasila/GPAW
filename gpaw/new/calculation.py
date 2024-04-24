@@ -34,6 +34,10 @@ class ReuseWaveFunctionsError(Exception):
     """
 
 
+class NonsenseError(Exception):
+    """Operation doesn't make sense."""
+
+
 class CalculationModeError(Exception):
     """Calculation mode does not match what is expected from a given method.
 
@@ -301,8 +305,29 @@ class DFTCalculation:
 
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
-
+        vacuum_level = self.state.potential.get_vacuum_level()
+        if not np.isnan(vacuum_level):
+            self.log(f'vacuum-level: {vacuum_level:.3f}  # V')
+            try:
+                wf1, wf2 = self.workfunctions()
+            except NonsenseError:
+                pass
+            else:
+                self.log(f'Workfunctions: {wf1:.3f}, {wf2:.3f}  # V')
         self.log.fd.flush()
+
+    def workfunctions(self):
+        vacuum_level = self.state.potential.get_vacuum_level()
+        if np.isnan(vacuum_level):
+            raise NonsenseError('No vacuum')
+        try:
+            correction = self.pot_calc.poisson_solver.dipole_layer_correction()
+        except NotImplementedError:
+            raise NonsenseError('No dipole layer')
+        correction *= Ha
+        (fermi_level,) = self.state.ibzwfs.fermi_levels * Ha
+        wf = vacuum_level - fermi_level
+        return wf - correction, wf + correction
 
     def electrostatic_potential(self) -> ElectrostaticPotential:
         return ElectrostaticPotential.from_calculation(self)

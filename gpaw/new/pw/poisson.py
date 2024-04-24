@@ -22,7 +22,7 @@ def make_poisson_solver(pw: PWDesc,
     ps = PWPoissonSolver(pw, charge, strength)
 
     if dipolelayer:
-        return DipoleLayerPWPoissonSolver(ps, grid, pbc_c, **kwargs)
+        return DipoleLayerPWPoissonSolver(ps, grid, **kwargs)
     assert not kwargs
     return ps
 
@@ -177,12 +177,12 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
                  grid: UGDesc,
-                 pbc_c: Array1D,
                  width: float = 1.0):  # Ångström
         self.ps = ps
         self.grid = grid
         self.width = width / Bohr
-        (self.axis,) = np.where(~pbc_c)[0]
+        (self.axis,) = np.where(~grid.pbc_c)[0]
+        self.correction = np.nan
 
     def solve(self,
               vHt_g: PWArray,
@@ -196,6 +196,9 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         vHt_g.data -= 2 * self.correction * self.sawtooth_g.data
 
         return epot + 2 * np.pi * dip_v[c]**2 / self.grid.volume
+
+    def dipole_layer_correction(self) -> float:
+        return self.correction
 
     @cached_property
     def sawtooth_g(self) -> PWArray:
