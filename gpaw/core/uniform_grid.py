@@ -25,6 +25,7 @@ class UGDesc(Domain):
                  cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
+                 zerobc=(False, False, False),
                  kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] | None = None,
@@ -52,9 +53,12 @@ class UGDesc(Domain):
             Data-type (float or complex).
         """
         self.size_c = np.array(size, int)
+        if isinstance(zerobc, int):
+            zerobc = (zerobc,) * 3
+        self.zerobc_c = np.array(zerobc, bool)
 
         if decomp is None:
-            gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
+            gd = GridDescriptor(size, pbc_c=~self.zerobc_c, comm=comm)
             decomp = gd.n_cp
         self.decomp_cp = [np.asarray(d) for d in decomp]
 
@@ -76,6 +80,9 @@ class UGDesc(Domain):
 
         self.itemsize = 8 if self.dtype == float else 16
 
+        if (self.zerobc_c & self.pbc_c).any():
+            raise ValueError('Bad boundary conditions')
+
     @property
     def size(self):
         """Size of uniform grid."""
@@ -83,7 +90,7 @@ class UGDesc(Domain):
 
     def global_shape(self) -> tuple[int, ...]:
         """Actual size of uniform grid."""
-        return tuple(self.size_c - 1 + self.pbc_c)
+        return tuple(self.size_c - self.zerobc_c)
 
     def __repr__(self):
         return Domain.__repr__(self).replace(
@@ -112,6 +119,7 @@ class UGDesc(Domain):
             comm: MPIComm | Literal['inherit'] | None = 'inherit',
             size=None,
             pbc=None,
+            zerobc=None,
             decomp=None) -> UGDesc:
         """Create new uniform grid description."""
         if decomp is None and comm == 'inherit':
@@ -121,6 +129,7 @@ class UGDesc(Domain):
         return UGDesc(cell=self.cell_cv,
                       size=self.size_c if size is None else size,
                       pbc=self.pbc_c if pbc is None else pbc,
+                      zerobc=self.zerobc_c if zerobc is None else zerobc,
                       kpt=(self.kpt_c if self.kpt_c.any() else None)
                       if kpt is None else kpt,
                       comm=comm or serial_comm,
@@ -226,20 +235,10 @@ class UGDesc(Domain):
 
         return GridDescriptor(self.size_c,
                               cell_cv=self.cell_cv,
-                              pbc_c=self.pbc_c,
+                              pbc_c=~self.zerobc_c,
                               comm=comm,
                               parsize_c=[len(d_p) - 1
                                          for d_p in self.decomp_cp])
-
-    @classmethod
-    def _from_gd_and_kpt_and_dtype(cls, gd, kpt, dtype):
-        return UGDesc(cell=gd.cell_cv,
-                      size=gd.N_c,
-                      pbc=gd.pbc_c,
-                      comm=gd.comm,
-                      dtype=dtype,
-                      kpt=kpt,
-                      decomp=gd.n_cp)
 
     @classmethod
     def from_cell_and_grid_spacing(cls,
@@ -500,10 +499,10 @@ class UGArray(DistributedArrays[UGDesc]):
         return result * self.desc.dv
 
     def to_pbc_grid(self):
-        """Convert to UniformGrud with ``pbc=(True, True, True)``."""
-        if self.desc.pbc_c.all():
+        """Convert to UniformGrid with ``pbc=(True, True, True)``."""
+        if not self.desc.zerobc_c.any():
             return self
-        grid = self.desc.new(pbc=True)
+        grid = self.desc.new(zerobc=False)
         new = grid.empty(self.dims)
         new.data[:] = 0.0
         *_, i, j, k = self.data.shape
@@ -728,7 +727,7 @@ class UGArray(DistributedArrays[UGDesc]):
                 a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
-            offset_c = 1 - self.desc.pbc_c
+            offset_c = np.array(self.desc.zerobc_c, dtype=int)
             for a_R, b_R in zips(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
                 for r_cc, t_c in zips(rotation_scc, t_sc):
@@ -785,6 +784,7 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = UGDesc(cell=grid.cell_cv * s,
                       size=grid.size_c,
                       pbc=grid.pbc_c,
+                      zerobc=grid.zerobc_c,
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                       dtype=grid.dtype,
                       comm=grid.comm)
