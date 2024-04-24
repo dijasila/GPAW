@@ -49,12 +49,14 @@ class PWHybridHamiltonian(PWHamiltonian):
         self.VC_aii = [unpack_hermitian(setup.X_p * self.exx_fraction)
                        for setup in setups]
         self.delta_aiiL = [setup.Delta_iiL for setup in setups]
-        self.C_app = [setup.M_pp * self.exx_fraction for setup in setups]
+        self.VV_app = [setup.M_pp * self.exx_fraction for setup in setups]
 
         self.v_G = coulomb(pw, grid, self.exx_omega)
         self.v_G.data *= self.exx_fraction
+
         self.ghat_aLG = setups.create_compensation_charges(
             pw, fracpos_ac, atomdist)
+
         self.plan = grid.fft_plans()
 
     def apply_orbital_dependent(self,
@@ -120,7 +122,7 @@ class PWHybridHamiltonian(PWHamiltonian):
         ekin = 0.0
         B_ani = {}
         for a, D_ii in D_aii.items():
-            VV_ii = pawexxvv(self.C_app[a], D_ii)
+            VV_ii = pawexxvv(self.VV_app[a], D_ii)
             VC_ii = self.VC_aii[a]
             B_ni = P2_ani[a] @ (-VC_ii - 2 * VV_ii)
             B_ani[a] = B_ni
@@ -179,7 +181,7 @@ class PWHybridHamiltonian(PWHamiltonian):
 
         B_ani = {}
         for a, D_ii in D_aii.items():
-            VV_ii = pawexxvv(self.C_app[a], D_ii)
+            VV_ii = pawexxvv(self.VV_app[a], D_ii)
             VC_ii = self.VC_aii[a]
             B_ni = P2_ani[a] @ (-VC_ii - 2 * VV_ii)
             B_ani[a] = B_ni
