@@ -541,8 +541,8 @@ class UGArray(DistributedArrays[UGDesc]):
                 raise ValueError('Please specify "grid" or "out".')
             out = grid.empty(self.dims, xp=self.xp)
 
-        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
-            raise ValueError('Grids must have pbc=True!')
+        if out.desc.zerobc_c.any() or self.desc.zerobc_c.any():
+            raise ValueError('Grids must have zerobc=False!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
@@ -636,8 +636,8 @@ class UGArray(DistributedArrays[UGDesc]):
                 raise ValueError('Please specify "grid" or "out".')
             out = grid.empty(self.dims, xp=self.xp)
 
-        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
-            raise ValueError('Grids must have pbc=True!')
+        if out.desc.zerobc_c.any() or self.desc.zerobc_c.any():
+            raise ValueError('Grids must have zerobc=False!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
