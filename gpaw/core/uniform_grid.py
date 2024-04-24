@@ -42,6 +42,9 @@ class UGDesc(Domain):
             Number of grid points along axes.
         pbc:
             Periodic boundary conditions flag(s).
+        zerobc:
+            Zero-boundary conditions flag(s).  Skip first grid-point
+            (assumed to be zero).
         comm:
             Communicator for domain-decomposition.
         kpt:
