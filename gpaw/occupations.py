@@ -427,8 +427,8 @@ def collect_eigelvalues(eig_qn: np.ndarray,
                         weight_q: np.ndarray,
                         bd: BandDescriptor,
                         kpt_comm: MPIComm) -> Tuple[np.ndarray,
-                                                            np.ndarray,
-                                                            np.ndarray]:
+                                                    np.ndarray,
+                                                    np.ndarray]:
     """Collect eigenvalues from bd.comm and kpt_comm."""
     nkpts_r = np.zeros(kpt_comm.size, int)
     nkpts_r[kpt_comm.rank] = len(weight_q)
