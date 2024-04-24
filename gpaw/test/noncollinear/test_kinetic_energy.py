@@ -3,7 +3,7 @@ import pytest
 
 from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 
 
 @pytest.mark.soc
@@ -36,7 +36,7 @@ def test_kinetic_energy(gpw_files):
                                    axis=1) * ucvol
     Ekin_pseudo = -0.5 * (laplacian_on_psit_n @ occ_n)
 
-    D_p = pack(state.density.D_asii[0][0].real)
+    D_p = pack_density(state.density.D_asii[0][0].real)
     Ekin_PAW = setup.K_p @ D_p + setup.Kc
 
     Ekin2 = Ekin_pseudo + Ekin_PAW

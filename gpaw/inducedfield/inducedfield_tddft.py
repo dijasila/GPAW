@@ -300,7 +300,7 @@ class TDDFTInducedField(BaseInducedField, TDDFTObserver):
 #                                          dtype=self.dtype)
 #                    if gd.comm.size > 1:
 #                        gd.comm.broadcast(FD_wsp, self.rank_a[a])
-#                    D_ij = unpack2(FD_wsp[w][s])
+#                    D_ij = unpack_density(FD_wsp[w][s])
 #                    D_ij = np.triu(D_ij, 1) + np.conj(np.tril(D_ij))
 
                     M2 = M1 + ni

@@ -20,7 +20,7 @@ def test_pair_density_paw_correction():
     gd = GridDescriptor([n, n, n], [a, a, a])
     r = np.linspace(0, rc, 200)
     g = np.exp(-(r / rc * b)**2)
-    splines = [Spline(l=l, rmax=rc, f_g=g) for l in range(lmax + 1)]
+    splines = [Spline.from_data(l=l, rmax=rc, f_g=g) for l in range(lmax + 1)]
     c = LFC(gd, [splines])
     c.set_positions([(0.5, 0.5, 0.5)])
     psi = gd.zeros(m)

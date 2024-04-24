@@ -13,7 +13,7 @@ import numpy as np
 from gpaw.test import findpeak
 from gpaw.mpi import world
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import (ChiFactory, spectral_decomposition,
                                           read_eigenmode_lineshapes)
@@ -82,17 +82,14 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     # ---------- Script ---------- #
 
-    context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
-                                                  context=context)
-
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'])
     chiks_calc = ChiKSCalculator(gs,
-                                 context=context,
                                  nbands=nbands,
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    fxckwargs_and_identifiers = set_up_fxc_calculators(gs, context)
+    fxckwargs_and_identifiers = set_up_fxc_calculators(
+        gs, chiks_calc.context)
 
     chi_factory = ChiFactory(
         chiks_calc,
