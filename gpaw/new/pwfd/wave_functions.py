@@ -457,7 +457,7 @@ class PWFDWaveFunctions(WaveFunctions, XP):
             assert isinstance(self.psit_nX, PWArray)
             # Find size of fft grid large enough to store square of wfs.
             pw = self.psit_nX.desc
-            s1, s2, s3 = pw.indices_cG.ptp(axis=1)  # type: ignore
+            s1, s2, s3 = np.ptp(pw.indices_cG, axis=1)  # type: ignore
             assert pw.dtype == float
             # Last dimension is special because dtype=float:
             size_c = [2 * s1 + 2,
