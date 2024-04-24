@@ -122,9 +122,10 @@ class UGDesc(Domain):
             zerobc=None,
             decomp=None) -> UGDesc:
         """Create new uniform grid description."""
-        if decomp is None and comm == 'inherit':
-            if size is None and pbc is None:
-                decomp = self.decomp_cp
+        reuse_decomp = (decomp is None and comm == 'inherit' and
+                        size is None and pbc is None and zerobc is None)
+        if reuse_decomp:
+            decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UGDesc(cell=self.cell_cv,
                       size=self.size_c if size is None else size,
