@@ -758,8 +758,12 @@ class UGArray(DistributedArrays[UGDesc]):
 
         index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
                     for c in range(3)]
+        for index_r, zerobc, size in zip(index_cr, ug.zerobc_c, ug.size_c):
+            if not zerobc and index_r[0] == 0:
+                index_r[0] = 0.5 * size
 
         if center_v is not None:
+            1 / 0
             frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
             corner_c = (frac_c % 1 - 0.5) * ug.size_c
             for index_r, corner, size in zips(index_cr, corner_c, ug.size_c):
