@@ -194,7 +194,6 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         L = self.grid.cell_cv[c, c]
         self.correction = 2 * np.pi * dip_v[c] * L / self.grid.volume
         vHt_g.data -= 2 * self.correction * self.sawtooth_g.data
-
         return epot + 2 * np.pi * dip_v[c]**2 / self.grid.volume
 
     def dipole_layer_correction(self) -> float:
@@ -219,7 +218,7 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
             shape = [1, 1, 1]
             shape[c] = -1
             sawtooth_r.data[:] = sawtooth.reshape(shape)
-            sawtooth_g = sawtooth_r.fft(pw=self.ps.pw).data
+            sawtooth_g = sawtooth_r.fft(pw=self.ps.pw.new(comm=None)).data
         else:
             sawtooth_g = None
 

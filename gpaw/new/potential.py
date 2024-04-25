@@ -97,7 +97,19 @@ class Potential:
             return np.nan
         if grid.zerobc_c.any():
             return 0.0
-        print(self.vt_sR.data[:, 0, 0, :])
-        print(self.vt_sR.data[:, :, 0, 0])
-        return broadcast_float(self.vt_sR.data[:, 0, 0, 0].mean(),
-                               grid.comm) * Ha
+        if isinstance(self.vHt_x, UGArray):
+            vHt_r = self.vHt_x.gather()
+        else:
+            vHt_g = self.vHt_x.gather()
+            if vHt_g is not None:
+                vHt_r = vHt_g.ifft(grid=grid.new(comm=None,
+                                                 size=grid.size_c * 2))
+            else:
+                vHt_r = None
+        vacuum_level = 0.0
+        if vHt_r is not None:
+            for c, periodic in enumerate(grid.pbc_c):
+                if not periodic:
+                    vacuum_level += np.moveaxis(vHt_r.data, c, 0)[0].mean()
+            vacuum_level /= (3 - grid.pbc_c.sum())
+        return broadcast_float(vacuum_level, grid.comm) * Ha
