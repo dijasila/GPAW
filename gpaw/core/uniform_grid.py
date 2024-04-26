@@ -758,8 +758,10 @@ class UGArray(DistributedArrays[UGDesc]):
 
         index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
                     for c in range(3)]
-        for index_r, zerobc, size in zip(index_cr, ug.zerobc_c, ug.size_c):
-            if not zerobc and index_r[0] == 0:
+        for index_r, size in zip(index_cr, ug.size_c):
+            if index_r[0] == 0:
+                # We have periodic bc's, so index 0 is the same as index
+                # size.  Include both points we 0.5 weight:
                 index_r[0] = 0.5 * size
 
         if center_v is not None:
