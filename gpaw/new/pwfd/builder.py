@@ -101,11 +101,11 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             mylcaonbands, nao = lcaowfs.C_nM.dist.shape
             mynbands = len(psit_nX.data)
             eig_n = np.empty(self.nbands)
-            eig_n[:mylcaonbands] = lcaowfs._eig_n[lcaowfs.n1:lcaowfs.n2]
+            eig_n[:lcaonbands] = lcaowfs._eig_n
+            eig_n[lcaonbands:] = 1e10
             if mylcaonbands < mynbands:
                 psit_nX[mylcaonbands:].randomize(
                     seed=self.communicators['w'].rank)
-                eig_n[mylcaonbands:] = 1e10  # np.inf
 
             wfs = PWFDWaveFunctions(
                 psit_nX=psit_nX,
