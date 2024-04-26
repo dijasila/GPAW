@@ -751,7 +751,7 @@ class UGArray(DistributedArrays[UGDesc]):
         rng.random(a.shape, out=a)
         a -= 0.5
 
-    def moment(self, center_v=None):
+    def moment(self):
         """Calculate moment of data."""
         assert self.dims == ()
         ug = self.desc
@@ -761,17 +761,8 @@ class UGArray(DistributedArrays[UGDesc]):
         for index_r, size in zip(index_cr, ug.size_c):
             if index_r[0] == 0:
                 # We have periodic bc's, so index 0 is the same as index
-                # size.  Include both points we 0.5 weight:
+                # size (= last + 1).  Include both points with 0.5 weight:
                 index_r[0] = 0.5 * size
-
-        if center_v is not None:
-            1 / 0
-            frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
-            corner_c = (frac_c % 1 - 0.5) * ug.size_c
-            for index_r, corner, size in zips(index_cr, corner_c, ug.size_c):
-                index_r -= corner
-                index_r %= size
-                index_r += corner
 
         rho_ijk = self.data
         rho_ij = rho_ijk.sum(axis=2)
