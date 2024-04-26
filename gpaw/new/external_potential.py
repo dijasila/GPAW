@@ -11,13 +11,12 @@ from gpaw.new.density import Density
 def create_external_potential(params: dict) -> ExternalPotential:
     if not params:
         return ExternalPotential()
-    if params['name'] == 'BField':
-        assert len(params) == 2
-        return BField(np.asarray(params['field']) / Ha)
-    if params['name'] == 'ConstantElectricField':
-        return ConstantElectricField(
-            strength=params['strength'] * (Bohr / Ha),
-            direction=params['direction'])
+    params = params.copy()
+    name = params.pop('name')
+    if name == 'BField':
+        return BField(**params)
+    if name == 'ConstantElectricField':
+        return ConstantElectricField(**params)
     1 / 0
 
 
@@ -66,7 +65,8 @@ class ConstantElectricField(ExternalPotential):
         v_r = L_c[axis] * (fracpos_r - 0.5) * self.strength
         if grid.start_c[axis] == 0:
             v_r[0] = 0.0
-        vt_sR.data += v_r.reshape([-1 if c == axis else 1 for c in range(3)])
+        vt_sR.data += v_r.reshape([1] +
+                                  [-1 if c == axis else 1 for c in range(3)])
         return 0.0
 
 
@@ -77,7 +77,7 @@ class BField(ExternalPotential):
         field:
             B-field vector in units of Ha/bohr-magnoton.
         """
-        self.field_v = np.array(field)
+        self.field_v = np.array(field) / Ha
         assert self.field_v.shape == (3,)
 
     def update_potential(self,
