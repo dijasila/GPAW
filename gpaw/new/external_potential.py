@@ -17,7 +17,7 @@ def create_external_potential(params: dict) -> ExternalPotential:
         return BField(**params)
     if name == 'ConstantElectricField':
         return ConstantElectricField(**params)
-    1 / 0
+    raise ValueError
 
 
 class ExternalPotential:

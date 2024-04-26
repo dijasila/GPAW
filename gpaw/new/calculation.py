@@ -329,7 +329,7 @@ class DFTCalculation:
         except NotImplementedError:
             raise NonsenseError('No dipole layer')
         correction *= Ha
-        (fermi_level,) = self.state.ibzwfs.fermi_levels * Ha
+        fermi_level = self.state.ibzwfs.fermi_level * Ha
         wf = vacuum_level - fermi_level
         return wf - correction, wf + correction
 

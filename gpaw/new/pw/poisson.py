@@ -6,7 +6,6 @@ from ase.units import Bohr, Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import PWArray
 from gpaw.new.poisson import PoissonSolver
-from gpaw.typing import Array1D
 from scipy.special import erf
 
 
