@@ -13,7 +13,7 @@ class QuantumState:
         self.factor = factor
 
 
-def real_to_complex_quantum_state(state: QuantumState) -> list[QuantumState]:
+def real_to_complex_quantum_state(state: QuantumState):
     """represent the real Y_lm in complex Y_l^m"""
     if state.m == 0:
         return [QuantumState(state.l, state.m, 1.0)]
