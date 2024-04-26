@@ -6,8 +6,8 @@ from gpaw.spinorbit import get_L_vlmm
 class QuantumState:
     """Quantum State, representing real Y_lm or complex Y_l^m"""
     def __init__(self, l: int, m: int, factor: complex = 1.0):
-        assert type(l) == int
-        assert type(m) == int
+        assert type(l) is int
+        assert type(m) is int
         self.l = l
         self.m = m
         self.factor = factor
