@@ -503,7 +503,8 @@ class BSEBackend:
     @timer('get_density_matrix')
     def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
-        from gpaw.response.g0w0 import QSymmetryOp, get_nmG
+        from gpaw.response.g0w0 import QSymmetryOp
+        from gpaw.response.sigma import get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
                                                      kpt1, kpt2)
         qpd = screened_potential.qpd_q[iq]

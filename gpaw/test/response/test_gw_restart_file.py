@@ -5,13 +5,13 @@ from gpaw.mpi import world
 
 
 class FragileG0W0(G0W0):
-    def calculate_q(self, *args, **kwargs):
+    def integrate_sigma(self, *args, **kwargs):
         if not hasattr(self, 'doom'):
             self.doom = 0
         self.doom += 1  # Advance doom
         if self.doom == 12:
             raise ValueError('Cthulhu awakens')
-        G0W0.calculate_q(self, *args, **kwargs)
+        G0W0.integrate_sigma(self, *args, **kwargs)
 
 
 @pytest.mark.response
