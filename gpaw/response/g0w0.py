@@ -66,7 +66,6 @@ def compare_inputs(inp1, inp2, rel_tol=1e-14, abs_tol=1e-14):
         if len(inp1) != len(inp2):
             return False
         for val1, val2 in zip(inp1, inp2):
-            print('calling compare inputs with', val1, val2)
             if not compare_inputs(val1, val2,
                                   rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
