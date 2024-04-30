@@ -874,7 +874,7 @@ class G0W0Calculator:
 
         for iq in range(len(self.wcalc.qd.ibzk_kc)):
             self.calculate_single_q_point(iq, pb)
-        
+
         pb.finish()
 
     def calculate_q_point(self, iq, q_c, pb, chi0calc):
@@ -1155,7 +1155,7 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-        
+
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
         # (calc can not actually be a calculator at all.)
