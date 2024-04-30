@@ -279,7 +279,7 @@ class DynamicSusceptibility:
         return self.rf0_w, self.rf_w
 
     def write(self, filename):
-        if filename is not None and mpi.rank == 0:
+        if mpi.rank == 0:
             write_response_function(
                 filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
 
@@ -450,25 +450,25 @@ class DielectricFunctionCalculator:
     def get_chi(self, *args, **kwargs):
         return self._new_chi(*args, **kwargs).unpack()
 
-    def _new_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], *,
-                                    filename='chiM_w.csv', **kwargs):
+    def _new_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], **kwargs):
         chi0 = self.calculate_chi0(q_c)
         chi = chi0.chi(xc=xc, return_VchiV=False, **kwargs)
-        dynsus = chi.dynamic_susceptibility()
-        dynsus.write(filename)
-        return dynsus
+        return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
         dm = self._new_dielectric_matrix(*args, **kwargs)
-        df = dm.dielectric_function()
-        return df
+        return dm.dielectric_function()
 
     def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         chi0 = self.calculate_chi0(q_c)
         return chi0.dielectric_matrix(xc=xc, **kwargs)
 
-    def get_dynamic_susceptibility(self, *args, **kwargs):
-        return self._new_dynamic_susceptibility(*args, **kwargs).unpack()
+    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
+                                   **kwargs):
+        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
+        if filename:
+            dynsus.write(filename)
+        return dynsus.unpack()
 
     def get_dielectric_matrix(self, *args, **kwargs):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
