@@ -368,15 +368,8 @@ class DielectricFunctionCalculator:
         # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def get_frequencies(self) -> np.ndarray:
-        """ Return frequencies that Chi is evaluated on"""
-        return self.wd.omega_w * Hartree
-
     def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
-
-    def get_chi(self, *args, **kwargs):
-        return self._new_chi(*args, **kwargs).unpack()
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
         chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
@@ -579,6 +572,10 @@ class DielectricFunction(DielectricFunctionCalculator):
         )
 
         super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+
+    def get_frequencies(self) -> np.ndarray:
+        """ Return frequencies that Chi is evaluated on"""
+        return self.wd.omega_w * Hartree
 
 
 # ----- Result-like objects and IO ----- #
