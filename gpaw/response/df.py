@@ -268,36 +268,6 @@ class ChiData:
 
 
 @dataclass
-class DynamicSusceptibility:
-    wd: FrequencyDescriptor
-    rf0_w: np.ndarray
-    rf_w: np.ndarray
-
-    def unpack(self):
-        return self.rf0_w, self.rf_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(
-                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
-
-
-@dataclass
-class EELSSpectrum:
-    wd: FrequencyDescriptor
-    eels_NLFC_w: np.ndarray
-    eels_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.eels_NLFC_w, self.eels_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.eels_NLFC_w, self.eels_LFC_w)
-
-
-@dataclass
 class DielectricMatrixData:
     dyson: Chi0DysonEquation
     qpd: SingleQPWDescriptor | None = None
@@ -328,44 +298,6 @@ class DielectricMatrixData:
         df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
         return DielectricFunctionData(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
-
-
-@dataclass
-class Polarizability:
-    wd: FrequencyDescriptor
-    alpha0_w: np.ndarray
-    alpha_w: np.ndarray
-
-    def unpack(self):
-        return self.alpha0_w, self.alpha_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.alpha0_w, self.alpha_w)
-
-
-@dataclass
-class DielectricFunctionData:
-    wd: FrequencyDescriptor
-    df_NLFC_w: np.ndarray
-    df_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.df_NLFC_w, self.df_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.df_NLFC_w, self.df_LFC_w)
-
-    @property
-    def eps0(self):
-        return self.df_NLFC_w[0].real
-
-    @property
-    def eps(self):
-        return self.df_LFC_w[0].real
 
 
 class DielectricFunctionCalculator:
@@ -647,6 +579,77 @@ class DielectricFunction(DielectricFunctionCalculator):
         )
 
         super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+
+
+# ----- Result-like objects and IO ----- #
+
+
+@dataclass
+class DynamicSusceptibility:
+    wd: FrequencyDescriptor
+    rf0_w: np.ndarray
+    rf_w: np.ndarray
+
+    def unpack(self):
+        return self.rf0_w, self.rf_w
+
+    def write(self, filename):
+        if mpi.rank == 0:
+            write_response_function(
+                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
+
+
+@dataclass
+class EELSSpectrum:
+    wd: FrequencyDescriptor
+    eels_NLFC_w: np.ndarray
+    eels_LFC_w: np.ndarray
+
+    def unpack(self):
+        return self.eels_NLFC_w, self.eels_LFC_w
+
+    def write(self, filename):
+        if mpi.rank == 0:
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    self.eels_NLFC_w, self.eels_LFC_w)
+
+
+@dataclass
+class Polarizability:
+    wd: FrequencyDescriptor
+    alpha0_w: np.ndarray
+    alpha_w: np.ndarray
+
+    def unpack(self):
+        return self.alpha0_w, self.alpha_w
+
+    def write(self, filename):
+        if mpi.rank == 0:
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    self.alpha0_w, self.alpha_w)
+
+
+@dataclass
+class DielectricFunctionData:
+    wd: FrequencyDescriptor
+    df_NLFC_w: np.ndarray
+    df_LFC_w: np.ndarray
+
+    def unpack(self):
+        return self.df_NLFC_w, self.df_LFC_w
+
+    def write(self, filename):
+        if mpi.rank == 0:
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    self.df_NLFC_w, self.df_LFC_w)
+
+    @property
+    def eps0(self):
+        return self.df_NLFC_w[0].real
+
+    @property
+    def eps(self):
+        return self.df_LFC_w[0].real
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
