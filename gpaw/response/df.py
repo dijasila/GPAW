@@ -383,48 +383,9 @@ class DielectricFunctionCalculator:
         chi0 = self.calculate_chi0(q_c)
         return chi0.dielectric_matrix(xc=xc, **kwargs)
 
-    def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
-        df = self._new_dielectric_function(*args, **kwargs)
-        if filename:
-            df.write(filename)
-        return df.unpack()
-
-    def get_macroscopic_dielectric_constant(self, xc='RPA',
-                                            direction='x', q_v=None):
-        """Calculate macroscopic dielectric constant.
-
-        Returns eM_NLFC and eM_LFC.
-
-        Macroscopic dielectric constant is defined as the real part
-        of dielectric function at w=0.
-
-        Parameters:
-
-        eM_LFC: float
-            Dielectric constant without local field correction. (RPA, ALDA)
-        eM2_NLFC: float
-            Dielectric constant with local field correction.
-        """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
-
-        self.context.print('', flush=False)
-        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
-        self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % df.eps0,
-                           flush=False)
-        self.context.print('    Include local field: %f' % df.eps)
-
-        return df.eps0, df.eps
-
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
         return chi.eels_spectrum()
-
-    def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
-        eels = self._new_eels_spectrum(*args, **kwargs)
-        if filename:
-            eels.write(filename)
-        return eels.unpack()
 
     def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0]):
         r"""Calculate the polarizability alpha.
@@ -490,13 +451,6 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         return Polarizability(self.wd, alpha0_w, alpha_w)
-
-    def get_polarizability(self, *args, filename='polarizability.csv',
-                           **kwargs):
-        pol = self._new_polarizability(*args, **kwargs)
-        if filename:
-            pol.write(filename)
-        return pol.unpack()
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -574,8 +528,54 @@ class DielectricFunction(DielectricFunctionCalculator):
             dynsus.write(filename)
         return dynsus.unpack()
 
+    def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        df = self._new_dielectric_function(*args, **kwargs)
+        if filename:
+            df.write(filename)
+        return df.unpack()
+
     def get_dielectric_matrix(self, *args, **kwargs):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
+
+    def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
+        eels = self._new_eels_spectrum(*args, **kwargs)
+        if filename:
+            eels.write(filename)
+        return eels.unpack()
+
+    def get_polarizability(self, *args, filename='polarizability.csv',
+                           **kwargs):
+        pol = self._new_polarizability(*args, **kwargs)
+        if filename:
+            pol.write(filename)
+        return pol.unpack()
+
+    def get_macroscopic_dielectric_constant(self, xc='RPA',
+                                            direction='x', q_v=None):
+        """Calculate macroscopic dielectric constant.
+
+        Returns eM_NLFC and eM_LFC.
+
+        Macroscopic dielectric constant is defined as the real part
+        of dielectric function at w=0.
+
+        Parameters:
+
+        eM_LFC: float
+            Dielectric constant without local field correction. (RPA, ALDA)
+        eM2_NLFC: float
+            Dielectric constant with local field correction.
+        """
+        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
+
+        self.context.print('', flush=False)
+        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
+        self.context.print('  %s direction' % direction, flush=False)
+        self.context.print('    Without local field: %f' % df.eps0,
+                           flush=False)
+        self.context.print('    Include local field: %f' % df.eps)
+
+        return df.eps0, df.eps
 
 
 # ----- Result-like objects and IO ----- #
