@@ -602,7 +602,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None, rate=0.0,
-                 eshift=0.0):
+                 eshift: float | None = None):
         """Creates a DielectricFunction object.
 
         calc: str
