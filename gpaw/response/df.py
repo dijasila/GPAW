@@ -265,8 +265,7 @@ class ChiData:
 
         eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
         eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return EELSSpectrum(self.dyson.context, self.wd,
-                            eels_NLFC_w, eels_LFC_w)
+        return EELSSpectrum(self.wd, eels_NLFC_w, eels_LFC_w)
 
 
 @dataclass
@@ -286,7 +285,6 @@ class DynamicSusceptibility:
 
 @dataclass
 class EELSSpectrum:
-    context: ResponseContext
     wd: FrequencyDescriptor
     eels_NLFC_w: np.ndarray
     eels_LFC_w: np.ndarray
@@ -295,7 +293,7 @@ class EELSSpectrum:
         return self.eels_NLFC_w, self.eels_LFC_w
 
     def write(self, filename):
-        if filename is not None and self.context.comm.rank == 0:
+        if mpi.rank == 0:
             write_response_function(filename, self.wd.omega_w * Hartree,
                                     self.eels_NLFC_w, self.eels_LFC_w)
 
@@ -505,16 +503,15 @@ class DielectricFunctionCalculator:
 
         return df.eps0, df.eps
 
-    def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
-                           direction='x', filename='eels.csv'):
+    def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
-        eels = chi.eels_spectrum()
-        eels.write(filename)
-        return eels
+        return chi.eels_spectrum()
 
-    def get_eels_spectrum(self, *args, **kwargs):
-        """..."""
-        return self._new_eels_spectrum(*args, **kwargs).unpack()
+    def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
+        eels = self._new_eels_spectrum(*args, **kwargs)
+        if filename:
+            eels.write(filename)
+        return eels.unpack()
 
     def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                             filename='polarizability.csv'):
