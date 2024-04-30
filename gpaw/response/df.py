@@ -450,9 +450,8 @@ class DielectricFunctionCalculator:
     def get_chi(self, *args, **kwargs):
         return self._new_chi(*args, **kwargs).unpack()
 
-    def _new_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], **kwargs):
-        chi0 = self.calculate_chi0(q_c)
-        chi = chi0.chi(xc=xc, return_VchiV=False, **kwargs)
+    def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
+        chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
         return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
