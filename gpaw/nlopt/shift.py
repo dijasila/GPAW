@@ -12,7 +12,7 @@ def get_shift(
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
-        eshift=0.0,
+        eshift: float = None or 0.0,
         ftol=1e-4, Etol=1e-6,
         band_n=None,
         out_name='shift.npy'):
@@ -123,7 +123,8 @@ def get_shift(
 
 def shift_current(
         eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
-        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0):
+        band_n=None, ftol=1e-4, Etol=1e-6,
+        eshift: float = None or 0.0):
     """
     Loop over bands for computing in length gauge
 
