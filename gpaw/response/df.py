@@ -359,7 +359,7 @@ class DielectricFunctionData:
         return self.df_NLFC_w, self.df_LFC_w
 
     def write(self, filename):
-        if filename is not None and mpi.rank == 0:
+        if mpi.rank == 0:
             write_response_function(filename, self.wd.omega_w * Hartree,
                                     self.df_NLFC_w, self.df_LFC_w)
 
@@ -458,10 +458,9 @@ class DielectricFunctionCalculator:
         dynsus.write(filename)
         return dynsus
 
-    def _new_dielectric_function(self, *args, filename='df.csv', **kwargs):
+    def _new_dielectric_function(self, *args, **kwargs):
         dm = self._new_dielectric_matrix(*args, **kwargs)
         df = dm.dielectric_function()
-        df.write(filename)
         return df
 
     def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
@@ -474,9 +473,11 @@ class DielectricFunctionCalculator:
     def get_dielectric_matrix(self, *args, **kwargs):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
-    def get_dielectric_function(self, *args, **kwargs):
-        """..."""
-        return self._new_dielectric_function(*args, **kwargs).unpack()
+    def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        df = self._new_dielectric_function(*args, **kwargs)
+        if filename:
+            df.write(filename)
+        return df.unpack()
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
@@ -494,8 +495,7 @@ class DielectricFunctionCalculator:
         eM2_NLFC: float
             Dielectric constant with local field correction.
         """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, filename=None,
-                                           direction=direction)
+        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
 
         self.context.print('', flush=False)
         self.context.print('%s Macroscopic Dielectric Constant:' % xc)
@@ -547,9 +547,8 @@ class DielectricFunctionCalculator:
 
         if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
-            df = self._new_dielectric_function(xc=xc, q_c=q_c,
-                                               filename=None,
-                                               direction=direction)
+            df = self._new_dielectric_function(
+                xc=xc, q_c=q_c, direction=direction)
 
             df0_w = df.df_NLFC_w
             df_w = df.df_LFC_w
