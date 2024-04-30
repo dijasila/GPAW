@@ -647,6 +647,10 @@ class G0W0Calculator:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
+        if self.context.comm.rank == 0:
+            self.context.print('Removing remaining empty qcache files...')
+            self.qcache.strip_empties()
+
         # Loop over q in the IBZ:
         self.context.print('Summing all q:')
         self.calculate_all_q_points()
@@ -794,17 +798,34 @@ class G0W0Calculator:
         pawcorr_wcalc1 = pairden_paw_corr(qpd)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
-    def calculate_all_q_points(self):
-        """Main loop over irreducible Brillouin zone points.
-        Handles restarts of individual qpoints using FileCache from ASE,
-        and subsequently calls calculate_q."""
+    def calculate_single_q_point(self, iq, pb=None):
+        if pb is None:
+            self.print_memory_estimate()
+            _pb = ProgressBar(self.context.fd)
+        else:
+            _pb = pb
 
-        pb = ProgressBar(self.context.fd)
+        q_c = self.wcalc.qd.ibzk_kc[iq]
+        with ExitStack() as stack:
+            if self.context.comm.rank == 0:
+                qhandle = stack.enter_context(self.qcache.lock(str(iq)))
+                skip = qhandle is None
+            else:
+                skip = False
 
-        self.context.timer.start('W')
-        self.context.print('\nCalculating screened Coulomb potential')
-        self.context.print(self.wcalc.coulomb.description())
+            skip = broadcast(skip, comm=self.context.comm)
 
+            if not skip:
+                result = self.calculate_q_point(iq, q_c, _pb, self.chi0calc)
+
+                if self.context.comm.rank == 0:
+                    qhandle.save(result)
+
+        # If this method created progress bar, it will also be finished here
+        if _pb is not pb:
+            _pb.finish()
+
+    def print_memory_estimate(self):
         chi0calc = self.chi0calc
         self.context.print(self.wd)
 
@@ -828,6 +849,19 @@ class G0W0Calculator:
                 '  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
                 % (siz / 1024**2, sizA / 1024**2))
 
+    def calculate_all_q_points(self):
+        """Main loop over irreducible Brillouin zone points.
+        Handles restarts of individual qpoints using FileCache from ASE,
+        and subsequently calls calculate_q."""
+
+        pb = ProgressBar(self.context.fd)
+
+        self.context.timer.start('W')
+        self.context.print('\nCalculating screened Coulomb potential')
+        self.context.print(self.wcalc.coulomb.description())
+
+        self.print_memory_estimate()
+
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
         with broadcast_exception(self.context.comm):
@@ -838,23 +872,9 @@ class G0W0Calculator:
                     for fxc_mode, sigma in sigmas.items():
                         sigma.validate_inputs(self.get_validation_inputs())
 
-        for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            with ExitStack() as stack:
-                if self.context.comm.rank == 0:
-                    qhandle = stack.enter_context(self.qcache.lock(str(iq)))
-                    skip = qhandle is None
-                else:
-                    skip = False
-
-                skip = broadcast(skip, comm=self.context.comm)
-
-                if skip:
-                    continue
-
-                result = self.calculate_q_point(iq, q_c, pb, chi0calc)
-
-                if self.context.comm.rank == 0:
-                    qhandle.save(result)
+        for iq in range(len(self.wcalc.qd.ibzk_kc)):
+            self.calculate_single_q_point(iq, pb)
+        
         pb.finish()
 
     def calculate_q_point(self, iq, q_c, pb, chi0calc):
@@ -1135,8 +1155,7 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-        if world.rank == 0:
-            qcache.strip_empties()
+        
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
         # (calc can not actually be a calculator at all.)
