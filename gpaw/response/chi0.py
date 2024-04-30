@@ -34,7 +34,7 @@ class Chi0Calculator:
                  gs: ResponseGroundStateAdapter,
                  context: ResponseContext | None = None,
                  nblocks=1,
-                 eshift: float | None = None,
+                 eshift=None,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
@@ -138,17 +138,13 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
         Parameters
         ----------
-        eshift : float
+        eshift : float or None
             Energy shift of the conduction bands in eV.
         """
-        if eshift is not None:
-            self.eshift = eshift / Ha
-        else:
-            self.eshift = None
+        self.eshift = eshift / Ha if eshift else eshift
 
         super().__init__(*args, **kwargs)
 
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         if self.gs.metallic:
             assert self.eshift is None, \
                 'A rigid energy shift cannot be applied to the conduction '\

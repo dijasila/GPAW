@@ -137,7 +137,7 @@ class GenericUpdate(IntegralTask):
     def __init__(self, eta, blockcomm, eshift=None):
         self.eta = eta
         self.blockcomm = blockcomm
-        self.eshift: float = eshift or 0.0
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -166,7 +166,7 @@ class Hermitian(IntegralTask):
 
     def __init__(self, blockcomm, eshift=None):
         self.blockcomm = blockcomm
-        self.eshift: float = eshift or 0.0
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 hermetian update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -192,7 +192,7 @@ class Hilbert(IntegralTask):
 
     def __init__(self, blockcomm, eshift=None):
         self.blockcomm = blockcomm
-        self.eshift: float = eshift or 0.0
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 spectral function update (new)')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
