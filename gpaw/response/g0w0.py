@@ -56,7 +56,8 @@ def compare_inputs(inp1, inp2, rel_tol=1e-14, abs_tol=1e-14):
         for key in set().union(inp1, inp2):
             val1 = inp1[key]
             val2 = inp2[key]
-            if not compare_inputs(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
+            if not compare_inputs(val1, val2,
+                                  rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
     elif isinstance(inp1, float):
         if not isclose(inp1, inp2, rel_tol=rel_tol, abs_tol=abs_tol):
@@ -65,7 +66,8 @@ def compare_inputs(inp1, inp2, rel_tol=1e-14, abs_tol=1e-14):
         if len(inp1) != len(inp2):
             return False
         for val1, val2 in zip(inp1, inp2):
-            if not compare_inputs(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
+            if not compare_inputs(val1, val2,
+                                  rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
     else:
         if inp1 != inp2:
@@ -98,7 +100,7 @@ class Sigma:
 
     def validate_inputs(self, inputs):
         equals = compare_inputs(inputs, self.inputs, rel_tol=1e-12,
-                               abs_tol=1e-12)
+                                abs_tol=1e-12)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')
