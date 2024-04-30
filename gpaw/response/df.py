@@ -383,16 +383,6 @@ class DielectricFunctionCalculator:
         chi0 = self.calculate_chi0(q_c)
         return chi0.dielectric_matrix(xc=xc, **kwargs)
 
-    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
-                                   **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
-        if filename:
-            dynsus.write(filename)
-        return dynsus.unpack()
-
-    def get_dielectric_matrix(self, *args, **kwargs):
-        return self._new_dielectric_matrix(*args, **kwargs).unpack()
-
     def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
         df = self._new_dielectric_function(*args, **kwargs)
         if filename:
@@ -576,6 +566,16 @@ class DielectricFunction(DielectricFunctionCalculator):
     def get_frequencies(self) -> np.ndarray:
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
+
+    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
+                                   **kwargs):
+        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
+        if filename:
+            dynsus.write(filename)
+        return dynsus.unpack()
+
+    def get_dielectric_matrix(self, *args, **kwargs):
+        return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
 
 # ----- Result-like objects and IO ----- #
