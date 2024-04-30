@@ -104,7 +104,10 @@ class DFTComponentsBuilder:
                                               self.setups.id_a,
                                               self.initial_magmom_av,
                                               params.symmetry)
-        assert not (self.ncomponents == 4 and len(symmetries) > 1)
+        if self.ncomponents == 4:
+            assert (len(symmetries) == 1 and not
+                    symmetries.symmetry.time_reversal)
+
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetries.reduce(bz, strict=False)
 
