@@ -8,7 +8,6 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
-from gpaw.response.context import ResponseContext
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
@@ -333,7 +332,6 @@ class DielectricMatrixData:
 
 @dataclass
 class Polarizability:
-    context: ResponseContext
     wd: FrequencyDescriptor
     alpha0_w: np.ndarray
     alpha_w: np.ndarray
@@ -342,7 +340,7 @@ class Polarizability:
         return self.alpha0_w, self.alpha_w
 
     def write(self, filename):
-        if filename is not None and self.context.comm.rank == 0:
+        if mpi.rank == 0:
             write_response_function(filename, self.wd.omega_w * Hartree,
                                     self.alpha0_w, self.alpha_w)
 
@@ -513,8 +511,7 @@ class DielectricFunctionCalculator:
             eels.write(filename)
         return eels.unpack()
 
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                            filename='polarizability.csv'):
+    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0]):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -577,12 +574,14 @@ class DielectricFunctionCalculator:
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
-        pol = Polarizability(self.context, self.wd, alpha0_w, alpha_w)
-        pol.write(filename)
-        return pol
+        return Polarizability(self.wd, alpha0_w, alpha_w)
 
-    def get_polarizability(self, *args, **kwargs):
-        return self._new_polarizability(*args, **kwargs).unpack()
+    def get_polarizability(self, *args, filename='polarizability.csv',
+                           **kwargs):
+        pol = self._new_polarizability(*args, **kwargs)
+        if filename:
+            pol.write(filename)
+        return pol.unpack()
 
 
 class DielectricFunction(DielectricFunctionCalculator):
