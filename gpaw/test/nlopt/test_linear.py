@@ -1,7 +1,5 @@
 import pytest
 import numpy as np
-from gpaw import GPAW, PW
-from ase import Atoms
 from gpaw.nlopt.linear import get_chi_tensor
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world

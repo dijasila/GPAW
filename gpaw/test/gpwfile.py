@@ -380,7 +380,6 @@ class GPWFiles(CachedFilesHandler):
         atoms.get_potential_energy()
         return atoms.calc
 
-
     @gpwfile
     def co_mom(self):
         atoms = molecule('CO')
