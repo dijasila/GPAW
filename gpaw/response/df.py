@@ -549,30 +549,20 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
-        """Calculate macroscopic dielectric constant.
+        """Calculate the macroscopic dielectric constant.
 
-        Returns eM_NLFC and eM_LFC.
+        The macroscopic dielectric constant is defined as the real part of the
+        dielectric function in the static limit.
 
-        Macroscopic dielectric constant is defined as the real part
-        of dielectric function at w=0.
-
-        Parameters:
-
-        eM_LFC: float
-            Dielectric constant without local field correction. (RPA, ALDA)
-        eM2_NLFC: float
-            Dielectric constant with local field correction.
+        Returns:
+        --------
+        eps0: float
+            Dielectric constant without local field corrections.
+        eps: float
+            Dielectric constant with local field correction. (RPA, ALDA)
         """
         df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
-        eps0, eps = df.static_limit.real
-        self.context.print('', flush=False)
-        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
-        self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % eps0,
-                           flush=False)
-        self.context.print('    Include local field: %f' % eps)
-
-        return eps0, eps
+        return df.static_limit.real
 
 
 # ----- Serialized dataclasses and IO ----- #
