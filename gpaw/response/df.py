@@ -297,7 +297,7 @@ class DielectricMatrixData:
         df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
         df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
-        return DielectricFunctionData(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
+        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
 
 
 class DielectricFunctionCalculator:
@@ -418,11 +418,8 @@ class DielectricFunctionCalculator:
             """Standard expression for the polarizability"""
             df = self._new_dielectric_function(
                 xc=xc, q_c=q_c, direction=direction)
-
-            df0_w = df.df_NLFC_w
-            df_w = df.df_LFC_w
-            alpha_w = V * (df_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * pi)
+            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
+            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
         else:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
@@ -567,18 +564,18 @@ class DielectricFunction(DielectricFunctionCalculator):
             Dielectric constant with local field correction.
         """
         df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
-
+        eps0, eps = df.static_limit.real
         self.context.print('', flush=False)
         self.context.print('%s Macroscopic Dielectric Constant:' % xc)
         self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % df.eps0,
+        self.context.print('    Without local field: %f' % eps0,
                            flush=False)
-        self.context.print('    Include local field: %f' % df.eps)
+        self.context.print('    Include local field: %f' % eps)
 
-        return df.eps0, df.eps
+        return eps0, eps
 
 
-# ----- Result-like objects and IO ----- #
+# ----- Serialized dataclasses and IO ----- #
 
 
 @dataclass
@@ -601,28 +598,12 @@ class ScalarResponseFunctionSet:
         if mpi.rank == 0:
             write_response_function(filename, *self.arrays)
 
-
-@dataclass
-class DielectricFunctionData:
-    wd: FrequencyDescriptor
-    df_NLFC_w: np.ndarray
-    df_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.df_NLFC_w, self.df_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.df_NLFC_w, self.df_LFC_w)
-
     @property
-    def eps0(self):
-        return self.df_NLFC_w[0].real
-
-    @property
-    def eps(self):
-        return self.df_LFC_w[0].real
+    def static_limit(self):
+        """Return the value of the response functions in the static limit."""
+        w0 = np.argmin(np.abs(self.wd.omega_w))
+        assert abs(self.wd.omega_w[w0]) < 1e-8
+        return np.array([self.rf0_w[w0], self.rf_w[w0]])
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
