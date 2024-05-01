@@ -239,7 +239,7 @@ class ChiData:
         rf0_w = self.dyson.df.collect(rf0_w)
         rf_w = self.dyson.df.collect(rf_w)
 
-        return DynamicSusceptibility(self.wd, rf0_w, rf_w)
+        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
 
     @property
     def wd(self):
@@ -264,7 +264,7 @@ class ChiData:
 
         eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
         eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return EELSSpectrum(self.wd, eels_NLFC_w, eels_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eels_NLFC_w, eels_LFC_w)
 
 
 @dataclass
@@ -450,7 +450,7 @@ class DielectricFunctionCalculator:
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
-        return Polarizability(self.wd, alpha0_w, alpha_w)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -582,48 +582,24 @@ class DielectricFunction(DielectricFunctionCalculator):
 
 
 @dataclass
-class DynamicSusceptibility:
+class ScalarResponseFunctionSet:
+    """A set of scalar response functions rf₀(ω) and rf(ω)."""
     wd: FrequencyDescriptor
     rf0_w: np.ndarray
     rf_w: np.ndarray
 
+    @property
+    def arrays(self):
+        return self.wd.omega_w * Hartree, self.rf0_w, self.rf_w
+
     def unpack(self):
+        # Legacy feature to support old DielectricFunction output format
+        # ... to be deprecated ...
         return self.rf0_w, self.rf_w
 
     def write(self, filename):
         if mpi.rank == 0:
-            write_response_function(
-                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
-
-
-@dataclass
-class EELSSpectrum:
-    wd: FrequencyDescriptor
-    eels_NLFC_w: np.ndarray
-    eels_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.eels_NLFC_w, self.eels_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.eels_NLFC_w, self.eels_LFC_w)
-
-
-@dataclass
-class Polarizability:
-    wd: FrequencyDescriptor
-    alpha0_w: np.ndarray
-    alpha_w: np.ndarray
-
-    def unpack(self):
-        return self.alpha0_w, self.alpha_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.alpha0_w, self.alpha_w)
+            write_response_function(filename, *self.arrays)
 
 
 @dataclass
