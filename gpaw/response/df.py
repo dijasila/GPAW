@@ -246,14 +246,10 @@ class ChiData:
         return self.dyson.df.wd
 
     def eels_spectrum(self):
-        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+        r"""The EELS spectrum is obtained from the imaginary part of the
+        density response function as,
 
-        EELS spectrum is obtained from the imaginary part of the
-        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
-        Returns EELS spectrum without and with local field corrections:
-
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()"""
-
+        EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
         # Calculate V^1/2 \chi V^1/2
         Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
         Vchi_wGG = self.chi_wGG
@@ -535,6 +531,17 @@ class DielectricFunction(DielectricFunctionCalculator):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
+        """Calculate the EELS spectrum.
+
+        Generates a file 'eels.csv', unless filename is set to None.
+
+        Returns
+        -------
+        eels0_w: np.array
+            EELS spectrum calculated from chi0.
+        eels_w: np.array
+            EELS spectrum calculated from chi.
+        """
         eels = self._new_eels_spectrum(*args, **kwargs)
         if filename:
             eels.write(filename)
