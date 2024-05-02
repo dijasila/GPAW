@@ -239,21 +239,17 @@ class ChiData:
         rf0_w = self.dyson.df.collect(rf0_w)
         rf_w = self.dyson.df.collect(rf_w)
 
-        return DynamicSusceptibility(self.wd, rf0_w, rf_w)
+        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
 
     @property
     def wd(self):
         return self.dyson.df.wd
 
     def eels_spectrum(self):
-        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+        r"""The EELS spectrum is obtained from the imaginary part of the
+        density response function as,
 
-        EELS spectrum is obtained from the imaginary part of the
-        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
-        Returns EELS spectrum without and with local field corrections:
-
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()"""
-
+        EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
         # Calculate V^1/2 \chi V^1/2
         Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
         Vchi_wGG = self.chi_wGG
@@ -264,7 +260,7 @@ class ChiData:
 
         eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
         eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return EELSSpectrum(self.wd, eels_NLFC_w, eels_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eels_NLFC_w, eels_LFC_w)
 
 
 @dataclass
@@ -281,11 +277,6 @@ class DielectricMatrixData:
         return (self.qpd, self.chi0_wGG, self.chi_wGG)
 
     def dielectric_function(self):
-        """Calculate the dielectric function.
-
-        Returns dielectric function without and with local field correction:
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
-        """
         e_wGG = self.chi0_wGG  # XXX what's with the names here?
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
@@ -297,7 +288,7 @@ class DielectricMatrixData:
         df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
         df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
-        return DielectricFunctionData(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
+        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
 
 
 class DielectricFunctionCalculator:
@@ -418,11 +409,8 @@ class DielectricFunctionCalculator:
             """Standard expression for the polarizability"""
             df = self._new_dielectric_function(
                 xc=xc, q_c=q_c, direction=direction)
-
-            df0_w = df.df_NLFC_w
-            df_w = df.df_LFC_w
-            alpha_w = V * (df_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * pi)
+            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
+            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
         else:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
@@ -450,7 +438,7 @@ class DielectricFunctionCalculator:
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
-        return Polarizability(self.wd, alpha0_w, alpha_w)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -529,6 +517,17 @@ class DielectricFunction(DielectricFunctionCalculator):
         return dynsus.unpack()
 
     def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        """Calculate the dielectric function.
+
+        Generates a file 'df.csv', unless filename is set to None.
+
+        Returns
+        -------
+        df_NLFC_w: np.ndarray
+            Dielectric function without local field corrections.
+        df_LFC_w: np.ndarray
+            Dielectric functio with local field corrections.
+        """
         df = self._new_dielectric_function(*args, **kwargs)
         if filename:
             df.write(filename)
@@ -538,6 +537,17 @@ class DielectricFunction(DielectricFunctionCalculator):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
+        """Calculate the EELS spectrum.
+
+        Generates a file 'eels.csv', unless filename is set to None.
+
+        Returns
+        -------
+        eels0_w: np.ndarray
+            EELS spectrum calculated from chi0.
+        eels_w: np.ndarray
+            EELS spectrum calculated from chi.
+        """
         eels = self._new_eels_spectrum(*args, **kwargs)
         if filename:
             eels.write(filename)
@@ -552,101 +562,51 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
-        """Calculate macroscopic dielectric constant.
+        """Calculate the macroscopic dielectric constant.
 
-        Returns eM_NLFC and eM_LFC.
+        The macroscopic dielectric constant is defined as the real part of the
+        dielectric function in the static limit.
 
-        Macroscopic dielectric constant is defined as the real part
-        of dielectric function at w=0.
-
-        Parameters:
-
-        eM_LFC: float
-            Dielectric constant without local field correction. (RPA, ALDA)
-        eM2_NLFC: float
-            Dielectric constant with local field correction.
+        Returns:
+        --------
+        eps0: float
+            Dielectric constant without local field corrections.
+        eps: float
+            Dielectric constant with local field correction. (RPA, ALDA)
         """
         df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
-
-        self.context.print('', flush=False)
-        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
-        self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % df.eps0,
-                           flush=False)
-        self.context.print('    Include local field: %f' % df.eps)
-
-        return df.eps0, df.eps
+        return df.static_limit.real
 
 
-# ----- Result-like objects and IO ----- #
+# ----- Serialized dataclasses and IO ----- #
 
 
 @dataclass
-class DynamicSusceptibility:
+class ScalarResponseFunctionSet:
+    """A set of scalar response functions rf₀(ω) and rf(ω)."""
     wd: FrequencyDescriptor
     rf0_w: np.ndarray
     rf_w: np.ndarray
 
+    @property
+    def arrays(self):
+        return self.wd.omega_w * Hartree, self.rf0_w, self.rf_w
+
     def unpack(self):
+        # Legacy feature to support old DielectricFunction output format
+        # ... to be deprecated ...
         return self.rf0_w, self.rf_w
 
     def write(self, filename):
         if mpi.rank == 0:
-            write_response_function(
-                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
-
-
-@dataclass
-class EELSSpectrum:
-    wd: FrequencyDescriptor
-    eels_NLFC_w: np.ndarray
-    eels_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.eels_NLFC_w, self.eels_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.eels_NLFC_w, self.eels_LFC_w)
-
-
-@dataclass
-class Polarizability:
-    wd: FrequencyDescriptor
-    alpha0_w: np.ndarray
-    alpha_w: np.ndarray
-
-    def unpack(self):
-        return self.alpha0_w, self.alpha_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.alpha0_w, self.alpha_w)
-
-
-@dataclass
-class DielectricFunctionData:
-    wd: FrequencyDescriptor
-    df_NLFC_w: np.ndarray
-    df_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.df_NLFC_w, self.df_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.df_NLFC_w, self.df_LFC_w)
+            write_response_function(filename, *self.arrays)
 
     @property
-    def eps0(self):
-        return self.df_NLFC_w[0].real
-
-    @property
-    def eps(self):
-        return self.df_LFC_w[0].real
+    def static_limit(self):
+        """Return the value of the response functions in the static limit."""
+        w0 = np.argmin(np.abs(self.wd.omega_w))
+        assert abs(self.wd.omega_w[w0]) < 1e-8
+        return np.array([self.rf0_w[w0], self.rf_w[w0]])
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
