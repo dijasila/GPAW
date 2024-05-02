@@ -277,11 +277,6 @@ class DielectricMatrixData:
         return (self.qpd, self.chi0_wGG, self.chi_wGG)
 
     def dielectric_function(self):
-        """Calculate the dielectric function.
-
-        Returns dielectric function without and with local field correction:
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
-        """
         e_wGG = self.chi0_wGG  # XXX what's with the names here?
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
@@ -522,6 +517,17 @@ class DielectricFunction(DielectricFunctionCalculator):
         return dynsus.unpack()
 
     def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        """Calculate the dielectric function.
+
+        Generates a file 'df.csv', unless filename is set to None.
+
+        Returns
+        -------
+        df_NLFC_w: np.ndarray
+            Dielectric function without local field corrections.
+        df_LFC_w: np.ndarray
+            Dielectric functio with local field corrections.
+        """
         df = self._new_dielectric_function(*args, **kwargs)
         if filename:
             df.write(filename)
@@ -537,9 +543,9 @@ class DielectricFunction(DielectricFunctionCalculator):
 
         Returns
         -------
-        eels0_w: np.array
+        eels0_w: np.ndarray
             EELS spectrum calculated from chi0.
-        eels_w: np.array
+        eels_w: np.ndarray
             EELS spectrum calculated from chi.
         """
         eels = self._new_eels_spectrum(*args, **kwargs)
