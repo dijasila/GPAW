@@ -32,7 +32,7 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
-    def chi(self, xc='RPA', direction='x', return_VchiV=True, q_v=None,
+    def chi(self, xc='RPA', direction='x', q_v=None,
             rshelmax=-1, rshewmin=None):
         """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
 
@@ -59,17 +59,17 @@ class Chi0DysonEquation:
         chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
-        sqrtV_G = Kbare_G**0.5
+        V_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
+        sqrtV_G = V_G**0.5
 
         nG = len(sqrtV_G)
 
-        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
+        Vtrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
 
         if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
         else:
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
+            K_GG = np.diag(Vtrunc_G / V_G)
 
         # kd: KPointDescriptor object from gpaw.kpt_descriptor
         if qpd.kd.gamma:
@@ -101,9 +101,6 @@ class Chi0DysonEquation:
             chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                           np.dot(chi0_GG, K_GG)),
                             chi0_GG)
-            if not return_VchiV:
-                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
 
         if len(chi_wGG):
@@ -111,7 +108,8 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return InverseDielectricFunction(self, chi0_wGG, np.array(chi_wGG))
+        return InverseDielectricFunction(
+            self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
                           calculate_chi=False, q_v=None):
@@ -236,6 +234,7 @@ class InverseDielectricFunction:
     dyson: Chi0DysonEquation
     epsinve0_wGG: np.ndarray  # χ -> χ₀(ω)
     epsinve_wGG: np.ndarray
+    V_G: np.ndarray
 
     def __post_init__(self):
         # Very uggly this... XXX
@@ -248,9 +247,9 @@ class InverseDielectricFunction:
 
     def dynamic_susceptibility(self):
         """Get the macroscopic component of χ(q,ω)."""
-        # NB: right now the naming in epsinv is fake...
-        chi0_W = self._get_macroscopic_component(self.epsinve0_wGG)
-        chi_W = self._get_macroscopic_component(self.epsinve_wGG)
+        V0 = self.V_G[0]  # Macroscopic Coulomb potential (4π/q²)
+        chi0_W = self._get_macroscopic_component(self.epsinve0_wGG) / V0
+        chi_W = self._get_macroscopic_component(self.epsinve_wGG) / V0
         return ScalarResponseFunctionSet(self.wd, chi0_W, chi_W)
 
     def eels_spectrum(self):
@@ -370,7 +369,7 @@ class DielectricFunctionCalculator:
         return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
-        chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
+        chi = self._new_chi(xc=xc, **kwargs)
         return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
