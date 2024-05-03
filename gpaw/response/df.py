@@ -243,9 +243,6 @@ class InverseDielectricFunction:
         self.wd = self.dyson.chi0.wd
         self.wblocks = self.dyson.df.blocks1d
 
-    def unpack(self):
-        return (self.qpd, self.epsinve0_wGG, self.epsinve_wGG)
-
     def _get_macroscopic_component(self, in_wGG):
         return self.wblocks.all_gather(in_wGG[:, 0, 0])
 
