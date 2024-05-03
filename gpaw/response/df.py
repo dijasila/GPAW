@@ -32,27 +32,12 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
-    def chi(self, xc='RPA', direction='x', q_v=None,
-            rshelmax=-1, rshewmin=None):
+    def chi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
         """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
-
-        Parameters
-        ----------
-        rshelmax : int or None
-            Expand kernel in real spherical harmonics inside augmentation
-            spheres. If None, the kernel will be calculated without
-            augmentation. The value of rshelmax indicates the maximum index l
-            to perform the expansion in (l < 6).
-        rshewmin : float or None
-            If None, the kernel correction will be fully expanded up to the
-            chosen lmax. Given as a float, (0 < rshewmin < 1) indicates what
-            coefficients to use in the expansion. If any coefficient
-            contributes with less than a fraction of rshewmin on average,
-            it will not be included.
         """
         chi0 = self.chi0
         qpd = chi0.qpd
@@ -90,7 +75,8 @@ class Chi0DysonEquation:
             Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
-                                           chi0_wGG=chi0_wGG)
+                                           chi0_wGG=chi0_wGG,
+                                           **xckwargs)
             K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
 
         # Invert Dyson eq.
@@ -112,7 +98,7 @@ class Chi0DysonEquation:
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, q_v=None):
+                          calculate_chi=False, q_v=None, **xckwargs):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -168,7 +154,8 @@ class Chi0DysonEquation:
             Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
-                                           chi0_wGG=chi0_wGG)
+                                           chi0_wGG=chi0_wGG,
+                                           **xckwargs)
 
         if calculate_chi:
             chi_wGG = []
@@ -393,7 +380,8 @@ class DielectricFunctionCalculator:
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
         return chi.eels_spectrum()
 
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0]):
+    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
+                            **kwargs):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -423,7 +411,7 @@ class DielectricFunctionCalculator:
         if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
             df = self._new_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction)
+                xc=xc, q_c=q_c, direction=direction, **kwargs)
             alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
             alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
         else:
@@ -440,7 +428,7 @@ class DielectricFunctionCalculator:
             # truncated Coulomb potential and eps_M = 1.0
 
             self.context.print('Using truncated Coulomb interaction')
-            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
+            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
 
             alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
             alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
