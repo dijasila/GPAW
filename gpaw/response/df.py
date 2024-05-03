@@ -214,30 +214,28 @@ class Chi0DysonEquation:
 class InverseDielectricFunction:
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
-    The inverse dielectric function can be written in terms of the electronic
-    contribution to the longitudinal response as follows:
+    The inverse dielectric function characterizes the longitudinal response
 
-    V (q,ω) = ε⁻¹(q,ω) V (q,ω) = V (q,ω) + ε⁻¹(q,ω) V (q,ω)
-     tot                ext       ext       e        ext
+    V (q,ω) = ε⁻¹(q,ω) V (q,ω),
+     tot                ext
 
-    where
+    where the induced potential due to the electronic system is given by Vχ,
 
-    ε⁻¹(q,ω) = V(q) χ(q).
-     e
+    ε⁻¹(q,ω) = 1 + V(q) χ(q,ω).
 
-    In this data class, the inverse dielectric function is represented in terms
-    of its symmetrized electronic contribution:
+    In this data class, ε⁻¹ is cast in terms if its symmetrized representation
     ˷
-    ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q) = V^(1/2)(q) χ(q,ω) V^(1/2)(q).
-     e                      e
+    ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q),
+
+    that is, in terms of V^(1/2)(q) χ(q,ω) V^(1/2)(q).
     """
     dyson: Chi0DysonEquation
-    vchi0v_wGG: np.ndarray  # χ -> χ₀(ω)
-    vchiv_wGG: np.ndarray
+    Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
+    Vchi_symm_wGG: np.ndarray
     V_G: np.ndarray
 
     def __post_init__(self):
-        # Very uggly this... XXX
+        # Very ugly this... XXX
         self.qpd = self.dyson.chi0.qpd
         self.wd = self.dyson.chi0.wd
         self.wblocks = self.dyson.df.blocks1d
@@ -246,43 +244,37 @@ class InverseDielectricFunction:
         return self.wblocks.all_gather(in_wGG[:, 0, 0])
 
     def macroscopic_components(self):
-        vchi0v_W = self._get_macroscopic_component(self.vchi0v_wGG)
-        vchiv_W = self._get_macroscopic_component(self.vchiv_wGG)
-        return vchi0v_W, vchiv_W
+        Vchi0_W = self._get_macroscopic_component(self.Vchi0_symm_wGG)
+        Vchi_W = self._get_macroscopic_component(self.Vchi_symm_wGG)
+        return Vchi0_W, Vchi_W
 
     def dynamic_susceptibility(self):
         """Get the macroscopic component of χ(q,ω)."""
-        vchi0v_W, vchiv_W = self.macroscopic_components()
+        Vchi0_W, Vchi_W = self.macroscopic_components()
         V0 = self.V_G[0]  # Macroscopic Coulomb potential (4π/q²)
-        return ScalarResponseFunctionSet(self.wd, vchi0v_W / V0, vchiv_W / V0)
+        return ScalarResponseFunctionSet(self.wd, Vchi0_W / V0, Vchi_W / V0)
 
     def eels_spectrum(self):
         """Get the macroscopic EELS spectrum.
 
         The EELS spectrum is defined by
-                                                            ˷
-        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im ε⁻¹(G+q,ω)
-                                            e                e
+
+        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω)
 
         where ε⁻¹(G+q,ω) is the G'th diagonal element of the inverse dielectric
         function.
 
-        In the RPA, where the dielectric function is given by
+        In the RPA, the dielectric function is given by
 
         ε(q,ω) = 1 - V(q) χ₀(q,ω),
 
-        the symmetrized inverse dielectric function can be written as
-        ˷
-        ε⁻¹(q,ω) = [1 - V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)]^(-1)
+        from which we define the EELS spectrum without local field effects as
 
-        From this expression, we define the EELS spectrum without local field
-        effects as
-
-        EELS₀(G+q,ω) = -Im [1 - V^(1/2)(G+q) χ₀(G+q,ω) V^(1/2)(G+q)]^(-1)
+        EELS₀(G+q,ω) = -Im [1 - V(G+q) χ₀(G+q,ω)]^(-1)
         """
-        vchi0v_W, vchiv_W = self.macroscopic_components()
-        eels0_W = -(1. / (1. - vchi0v_W)).imag
-        eels_W = -vchiv_W.imag
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        eels0_W = -(1. / (1. - Vchi0_W)).imag
+        eels_W = -Vchi_W.imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
