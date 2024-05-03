@@ -111,7 +111,7 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return ChiData(self, qpd, chi0_wGG, np.array(chi_wGG))
+        return InverseDielectricFunction(self, chi0_wGG, np.array(chi_wGG))
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
                           calculate_chi=False, q_v=None):
@@ -213,46 +213,56 @@ class Chi0DysonEquation:
 
 
 @dataclass
-class ChiData:
+class InverseDielectricFunction:
+    """Data class for the inverse dielectric function ε⁻¹(q,ω).
+
+    The inverse dielectric function can be written in terms of the (in-direct)
+    electronic contribution to the longitudinal response as follows:
+
+    V (q,ω) = ε⁻¹(q,ω) V (q,ω) = V (q,ω) + ε⁻¹(q,ω) V (q,ω)
+     tot                ext       ext       e        ext
+
+    where
+
+    ε⁻¹(q,ω) = V(q) χ(q).
+     e
+
+    In this data class, the inverse dielectric function is represented in terms
+    of its symmetrized electronic contribution:
+    ˷
+    ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q) = V^(1/2)(q) χ(q,ω) V^(1/2)(q).
+     e                      e
+    """
     dyson: Chi0DysonEquation
-    qpd: object
-    chi0_wGG: np.ndarray
-    chi_wGG: np.ndarray
+    epsinve0_wGG: np.ndarray  # χ -> χ₀(ω)
+    epsinve_wGG: np.ndarray
+
+    def __post_init__(self):
+        # Very uggly this... XXX
+        self.qpd = self.dyson.chi0.qpd
+        self.wd = self.dyson.chi0.wd
+        self.wblocks = self.dyson.df.blocks1d
 
     def unpack(self):
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+        return (self.qpd, self.epsinve0_wGG, self.epsinve_wGG)
+
+    def _get_macroscopic_component(self, in_wGG):
+        return self.wblocks.all_gather(in_wGG[:, 0, 0])
 
     def dynamic_susceptibility(self):
-        """Calculate the dynamic susceptibility.
-
-        Returns macroscopic(could be generalized?) dynamic susceptibility:
-        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
-        """
-        rf0_w = np.zeros(len(self.chi_wGG), dtype=complex)
-        rf_w = np.zeros(len(self.chi_wGG), dtype=complex)
-
-        for w, (chi0_GG, chi_GG) in enumerate(zip(self.chi0_wGG,
-                                                  self.chi_wGG)):
-            rf0_w[w] = chi0_GG[0, 0]
-            rf_w[w] = chi_GG[0, 0]
-
-        rf0_w = self.dyson.df.collect(rf0_w)
-        rf_w = self.dyson.df.collect(rf_w)
-
-        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
-
-    @property
-    def wd(self):
-        return self.dyson.df.wd
+        """Get the macroscopic component of χ(q,ω)."""
+        # NB: right now the naming in epsinv is fake...
+        chi0_W = self._get_macroscopic_component(self.epsinve0_wGG)
+        chi_W = self._get_macroscopic_component(self.epsinve_wGG)
+        return ScalarResponseFunctionSet(self.wd, chi0_W, chi_W)
 
     def eels_spectrum(self):
         r"""The EELS spectrum is obtained from the imaginary part of the
         density response function as,
 
         EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
-        # Calculate V^1/2 \chi V^1/2
-        Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
-        Vchi_wGG = self.chi_wGG
+        Vchi0_wGG = self.epsinve0_wGG
+        Vchi_wGG = self.epsinve_wGG
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
