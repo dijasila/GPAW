@@ -12,6 +12,7 @@ from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pw.hamiltonian import PWHamiltonian
 from gpaw.typing import Array1D
 from gpaw.utilities import unpack_hermitian
+from gpaw.utilities.blas import mmm
 
 
 def coulomb(pw: PWDesc,
@@ -132,14 +133,14 @@ class PWHybridHamiltonian(PWHamiltonian):
             evv -= ev
             evc -= ec
 
-        Q_An = np.empty()
-        Q_aniL = {a: np.einsum('ijL, nj -> niL',
+        Q_nA = np.empty()
+        Q_ainL = {a: np.einsum('ijL, nj -> inL',
                                delta_iiL, psi.P_ani[a])
                   for a, delta_iiL in enumerate(self.delta_aiiL)}
 
         tmp1_nR = self.grid.empty(mynbands)
-        tmp2_nR = self.grid.empty()
-        tmp_nG = self.pw.empty()
+        rhot_nR = self.grid.empty(mynbands)
+        rhot_nG = self.pw.empty(mynbands)
         vrhot_G = self.pw.empty()
 
         psi2 = psi.empty(nbands=self.pw.maxmysize)
@@ -147,27 +148,29 @@ class PWHybridHamiltonian(PWHamiltonian):
             if p < comm.size // 2:
                 psi.send((comm.rank + p + 1) % comm.size)
                 psi2.receive((comm.rank - p - 1) % comm.size)
-            psit1_nR = psi.ifft(tmp1_nR, self.plan)
+            psit1_nR = ifft(psi.psit_nG, tmp1_nR, self.plan)
             if p == 0:
                 psit2_nR = psit1_nR
+                P2_ani = psi.P_ani
+                f2_n = psi.f_n
             for n2, (psit2_R, out_G) in enumerate(zip(psit2_nR, Htpsit_nG)):
-                for n1, (psit1_R, f1) in enumerate(zip(psit1_nR, psi.f1_n)):
-                    rhot_nR.data[n] = psit1_R.data * psit2_R.data
+                rhot_nR.data[:] = psit1_nR.data * psit2_R.data
                 fft(rhot_nR, rhot_nG, plan=self.plan)
                 A1 = 0
-                for a, Q_niL in Q_aniL.items():
+                for a, Q_inL in Q_ainL.items():
                     A2 = A1 + 9
-                    Q_An[A1:A2] = P_ani[a][n2] @ Q_niL
-                mmm(Q_nA, self.ghat_AG, rhot_nG)
-                for n1, (psit1_R, f1) in enumerate(zip(psit1_nR, psi.f1_n)):
-                    vrhot_G.data[:] = rhot_G.data * self.v_G.data
-                    e = f1 * f1_n[n2] * rhot_G.integrate(vrhot_G)
+                    Q_nA[:, A1:A2] = P2_ani[a][n2] @ Q_inL
+                mmm(1.0, Q_nA, 'N', self.ghat_AG, 'N', 1.0, rhot_nG.data)
+                for rhot_R, rhot_G, f1 in zip(rhot_nR, rhot_nG, psi.f1_n):
+                    vrhot_G.data = rhot_G.data * self.v_G.data
+                    rhot_G.data[:] = vrhot_G.data
+                    e = f1 * f2_n[n2] * rhot_G.integrate(vrhot_G)
                     evv -= 0.5 * e
                     ekin += e
                 ifft(rhot_nG, rhot_nR, plan=self.plan)
-                rhot_R.data *= psit1_R.data
-                fft(rhot_R, rhot_G, self.plan)
-                out_G.data -= rhot_G.data * f1
+                rhot_nR.data *= psit1_nR.data
+                fft(rhot_nR, rhot_nG, self.plan)
+                out_G.data -= rhot_nG.data * f1
 
                 A_aL = self.ghat_aLG.integrate(vrhot_G)
                 for a, A_L in A_aL.items():
