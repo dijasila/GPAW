@@ -244,20 +244,19 @@ class InverseDielectricFunction:
     def eels_spectrum(self):
         """Get the macroscopic EELS spectrum.
 
-        The EELS spectrum is defined by
+        Here, we define the EELS spectrum to be the spectral part of the
+        inverse dielectric function. In the plane-wave representation,
 
-        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω)
+        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω),
 
-        where ε⁻¹(G+q,ω) is the G'th diagonal element of the inverse dielectric
-        function.
+        where ε⁻¹(G+q,ω) denotes the G'th diagonal element.
 
-        In the RPA, the dielectric function is given by
+        In addition to the many-body spectrum, we also calculate the
+        macroscopic EELS spectrum in the independent-particle random-phase
+        approximation, that is, using the RPA dielectric function ε = 1 - Vχ₀
+        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)]:
 
-        ε(q,ω) = 1 - V(q) χ₀(q,ω),
-
-        from which we define the EELS spectrum without local field effects as
-
-        EELS₀(G+q,ω) = -Im [1 - V(G+q) χ₀(G+q,ω)]^(-1)
+        EELS₀(ω) = -Im 1 / (1 - V(q) χ₀(q,ω)).
         """
         Vchi0_W, Vchi_W = self.macroscopic_components()
         eels0_W = -(1. / (1. - Vchi0_W)).imag
@@ -540,16 +539,16 @@ class DielectricFunction(DielectricFunctionCalculator):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
-        """Calculate the EELS spectrum.
+        """Calculate the macroscopic EELS spectrum.
 
         Generates a file 'eels.csv', unless filename is set to None.
 
         Returns
         -------
         eels0_w: np.ndarray
-            EELS spectrum calculated from chi0.
+            Spectrum in the independent-particle random-phase approximation.
         eels_w: np.ndarray
-            EELS spectrum calculated from chi.
+            Fully screened EELS spectrum.
         """
         eels = self._new_eels_spectrum(*args, **kwargs)
         if filename:
