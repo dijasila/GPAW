@@ -2097,7 +2097,7 @@ class GPAW(Calculator):
             f_g = (fac(l) * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
-            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
+            splines_x.append([Spline.from_data(l, rmax=r[-1], f_g=f_g)])
 
         lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)

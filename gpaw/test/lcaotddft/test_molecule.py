@@ -267,7 +267,6 @@ def test_read_ksd(ksd_reference):
 
     # Now save it and read it without the calculator
     ksd.write('ksd_save.ulm')
-    world.barrier()
     ksd_read = KohnShamDecomposition(filename='ksd_save.ulm')
 
     np.testing.assert_equal(ksd.atoms, ksd_read.atoms)

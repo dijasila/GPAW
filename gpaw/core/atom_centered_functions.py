@@ -22,7 +22,7 @@ def to_spline(l: int,
               f: Callable[[Array1D], Array1D]) -> Spline:
     """Convert to GPAW's Spline object."""
     r = np.linspace(0, rcut, 100)
-    return Spline(l, rcut, f(r))
+    return Spline.from_data(l, rcut, f(r))
 
 
 class AtomCenteredFunctions(XP):

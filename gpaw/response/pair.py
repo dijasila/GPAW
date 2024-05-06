@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 
@@ -58,6 +58,7 @@ class KPointPairFactory:
         self.gs = gs
         self.context = context
         assert self.gs.kd.symmetry.symmorphic
+        assert self.gs.world.size == 1
 
     @timer('Get a k-point')
     def get_k_point(self, s, K, n1, n2, blockcomm=None):
@@ -461,6 +462,6 @@ def get_gs_and_context(calc, txt, world, timer):
         assert calc.wfs.world.size == 1
         gs = calc.gs_adapter()
     else:
-        gs = ResponseGroundStateAdapter.from_gpw_file(calc, context=context)
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpw=calc)
 
     return gs, context

@@ -47,6 +47,13 @@ Force: -0.639 eV/Å
 News
 ====
 
+* `Psi-k highlight of the month
+  <https://psi-k.net/download/highlights/Highlight_157.pdf>`__ (Apr 1, 2024)
+
+* New publication:
+  :doi:`GPAW: An open Python package for electronic structure calculations
+  <10.1063/5.0182685>` (Mar 7, 2024)
+
 * :ref:`GPAW version 24.1.0 <releasenotes>` released (Jan 4, 2024).
 
 * .. warning::

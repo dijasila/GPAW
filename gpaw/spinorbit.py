@@ -10,6 +10,7 @@ from ase.units import Bohr, Ha, alpha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.ibz2bz import IBZ2BZMaps
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import broadcast_array, serial_comm
@@ -17,7 +18,6 @@ from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
-from gpaw.ibz2bz import IBZ2BZMaps
 from gpaw.utilities.partition import AtomPartition
 
 if TYPE_CHECKING:
@@ -223,7 +223,7 @@ class BZWaveFunctions:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
-            e_band = self.kpt_comm.sum(e_band)
+            e_band = self.kpt_comm.sum_scalar(e_band)
         else:
             e_band = 0.0
 
@@ -661,7 +661,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
         'This function has no tests.  It is very likely that it no longer '
         'works correctly after merging !677.')
 
-    from gpaw.utilities import unpack
+    from gpaw.utilities import unpack_hermitian
 
     if nbands is None:
         nbands = calc.get_number_of_bands()
@@ -725,12 +725,12 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     m_av = []
     for a in range(len(calc.atoms)):
         N0_p = calc.density.setups[a].N0_p.copy()
-        N0_ij = unpack(N0_p)
+        N0_ij = unpack_hermitian(N0_p)
         Dx_ij = np.zeros_like(N0_ij, complex)
         Dy_ij = np.zeros_like(N0_ij, complex)
         Dz_ij = np.zeros_like(N0_ij, complex)
         Delta_p = calc.density.setups[a].Delta_pL[:, 0].copy()
-        Delta_ij = unpack(Delta_p)
+        Delta_ij = unpack_hermitian(Delta_p)
         for ik in range(Nk):
             P_ami = ...  # get_spinorbit_projections(calc, ik, v_knm[ik])
             P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])
@@ -871,7 +871,18 @@ def get_L_vlmm():
     d[2, 1] = 3**0.5 * 1.0j
     d[1, 4] = -1.0j
     d[4, 1] = 1.0j
-    _L_vlmm.append([s, p, d])
+    f = np.zeros((7, 7), complex)
+    f[0, 5] = -0.5 * 6**0.5 * 1.0j
+    f[5, 0] = 0.5 * 6**0.5 * 1.0j
+    f[1, 4] = -0.5 * 10**0.5 * 1.0j
+    f[4, 1] = 0.5 * 10**0.5 * 1.0j
+    f[1, 6] = -0.5 * 6**0.5 * 1.0j
+    f[6, 1] = 0.5 * 6**0.5 * 1.0j
+    f[2, 3] = -6**0.5 * 1.0j
+    f[3, 2] = 6**0.5 * 1.0j
+    f[2, 5] = -0.5 * 10**0.5 * 1.0j
+    f[5, 2] = 0.5 * 10**0.5 * 1.0j
+    _L_vlmm.append([s, p, d, f])
 
     p = np.zeros((3, 3), complex)  # y, z, x
     p[1, 2] = -1.0j
@@ -883,7 +894,18 @@ def get_L_vlmm():
     d[3, 2] = 3**0.5 * 1.0j
     d[3, 4] = -1.0j
     d[4, 3] = 1.0j
-    _L_vlmm.append([s, p, d])
+    f = np.zeros((7, 7), complex)
+    f[0, 1] = 0.5 * 6**0.5 * 1.0j
+    f[1, 0] = -0.5 * 6**0.5 * 1.0j
+    f[1, 2] = 0.5 * 10**0.5 * 1.0j
+    f[2, 1] = -0.5 * 10**0.5 * 1.0j
+    f[3, 4] = -6**0.5 * 1.0j
+    f[4, 3] = 6**0.5 * 1.0j
+    f[4, 5] = -0.5 * 10**0.5 * 1.0j
+    f[5, 4] = 0.5 * 10**0.5 * 1.0j
+    f[5, 6] = -0.5 * 6**0.5 * 1.0j
+    f[6, 5] = 0.5 * 6**0.5 * 1.0j
+    _L_vlmm.append([s, p, d, f])
 
     p = np.zeros((3, 3), complex)  # y, z, x
     p[0, 2] = 1.0j
@@ -893,6 +915,12 @@ def get_L_vlmm():
     d[4, 0] = -2.0j
     d[1, 3] = 1.0j
     d[3, 1] = -1.0j
-    _L_vlmm.append([s, p, d])
-
+    f = np.zeros((7, 7), complex)
+    f[0, 6] = 3.0j
+    f[6, 0] = -3.0j
+    f[1, 5] = 2.0j
+    f[5, 1] = -2.0j
+    f[2, 4] = 1.0j
+    f[4, 2] = -1.0j
+    _L_vlmm.append([s, p, d, f])
     return _L_vlmm

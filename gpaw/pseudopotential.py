@@ -9,7 +9,7 @@ from gpaw.spline import Spline
 from gpaw.utilities import divrl, hartree as hartree_solve
 
 
-null_spline = Spline(0, 1.0, [0., 0., 0.])
+null_spline = Spline.from_data(0, 1.0, [0., 0., 0.])
 
 
 # XXX Not used at the moment; see comment below about rgd splines.
@@ -37,7 +37,7 @@ def local_potential_to_spline(rgd, vbar_g, filter=None):
     rcut = rgd.r_g[len(vbar_g) - 1]
     if filter is not None:
         filter(rgd, rcut, vbar_g, l=0)
-    # vbar = Spline(0, rcut, vbar_g)
+    # vbar = Spline.from_data(0, rcut, vbar_g)
     vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
     return vbar
 
@@ -270,7 +270,9 @@ class PseudoPotential(BaseSetup):
 
         r, l_comp, g_comp = data.get_compensation_charge_functions()
         assert l_comp == [0]  # Presumably only spherical charges
-        self.ghat_l = [Spline(l, r[-1], g) for l, g in zip(l_comp, g_comp)]
+        self.ghat_l = [
+            Spline.from_data(l, r[-1], g) for l, g in zip(l_comp, g_comp)
+        ]
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
