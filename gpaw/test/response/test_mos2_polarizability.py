@@ -20,7 +20,9 @@ def test_mos2_polarizability(in_tmp_dir, gpw_files):
                             integrationmode='tetrahedron integration',
                             nblocks='max')
     df.get_polarizability(xc='RPA', filename='rpa_pol.csv')
-    df.get_polarizability(xc='ALDA', rshelmax=0, filename='alda_pol.csv')
+    df.get_polarizability(xc='ALDA', rshelmax=0, bg_density=0.001,
+                          filename='alda_pol.csv')
+    mpi.world.barrier()  # give rank 0 some time to write the files
 
     for xc, refs in zip(
             ['rpa', 'alda'],
@@ -33,9 +35,9 @@ def test_mos2_polarizability(in_tmp_dir, gpw_files):
                 ],
                 [  # alda
                     # w0r, w0i, wr, wi
-                    [1.875, 2.745, 2.300, 2.906],
+                    [1.875, 2.745, 1.895, 2.806],
                     # I0r, I0i, Ir, Ii
-                    [10.602, 11.145, 11.874, 16.066],
+                    [10.602, 11.145, 10.181, 10.485],
                 ],
             ]):
         omega_w, alpha0_w, alpha_w = read_response_function(f'{xc}_pol.csv')
@@ -43,9 +45,9 @@ def test_mos2_polarizability(in_tmp_dir, gpw_files):
         w0r, I0r, w0i, I0i = identify_maxima(omega_w, alpha0_w)
         wr, Ir, wi, Ii = identify_maxima(omega_w, alpha_w)
         assert np.array([w0r, w0i, wr, wi]) == pytest.approx(
-            np.array(refs[0]), abs=0.05)
+            np.array(refs[0]), abs=0.01)
         assert np.array([I0r, I0i, Ir, Ii]) == pytest.approx(
-            np.array(refs[1]), abs=0.2)
+            np.array(refs[1]), abs=0.05)
 
 
 def identify_maxima(omega_w, a_w):
