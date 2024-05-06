@@ -429,8 +429,8 @@ class DielectricFunctionCalculator:
             self.context.print('Using truncated Coulomb interaction')
             chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
 
-            alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
+            alpha_w = -V / (4 * pi) * chi.Vchi_symm_wGG[:, 0, 0]
+            alpha0_w = -V / (4 * pi) * chi.Vchi0_symm_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
