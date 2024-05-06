@@ -32,7 +32,7 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
-    def chi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
+    def Vchi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
         """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
@@ -361,7 +361,7 @@ class DielectricFunctionCalculator:
         return self.blocks1d.all_gather(a_w)
 
     def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
+        return self.calculate_chi0(q_c).Vchi(xc=xc, **kwargs)
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
         chi = self._new_chi(xc=xc, **kwargs)
