@@ -13,7 +13,6 @@ from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context
-from gpaw.response.pair_functions import SingleQPWDescriptor
 
 from typing import TYPE_CHECKING
 
@@ -131,7 +130,7 @@ class Chi0DysonEquation:
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, **xckwargs):
+                          **xckwargs):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -169,9 +168,6 @@ class Chi0DysonEquation:
                                            chi0_wGG=chi0_wGG,
                                            **xckwargs)
 
-        if calculate_chi:
-            chi_wGG = []
-
         for chi0_GG in chi0_wGG:
             if xc == 'RPA':
                 P_GG = chi0_GG
@@ -185,28 +181,9 @@ class Chi0DysonEquation:
                 K_GG = (K_G**2 * np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
 
-            if calculate_chi:
-                K_GG = np.diag(K_G**2)
-                if xc != 'RPA':
-                    K_GG += Kxc_GG
-                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
-                                                    np.dot(chi0_GG, K_GG)),
-                                      chi0_GG))
+            # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = e_GG
-
-        # chi0_wGG is now the dielectric matrix
-        if calculate_chi:
-            if len(chi_wGG):
-                chi_wGG = np.array(chi_wGG)
-            else:
-                chi_wGG = np.zeros((0, nG, nG), complex)
-
-        if not calculate_chi:
-            return DielectricMatrixData(self, chi0_wGG=chi0_wGG)
-        else:
-            # chi_wGG is the full density response function..
-            return DielectricMatrixData(self, qpd=qpd, chi0_wGG=chi0_wGG,
-                                        chi_wGG=chi_wGG)
+        return DielectricMatrixData(self, e_wGG=chi0_wGG)
 
 
 @dataclass
@@ -279,18 +256,14 @@ class InverseDielectricFunction:
 @dataclass
 class DielectricMatrixData:
     dyson: Chi0DysonEquation
-    qpd: SingleQPWDescriptor | None = None
-    chi0_wGG: np.ndarray | None = None
-    chi_wGG: np.ndarray | None = None
+    e_wGG: np.ndarray
 
     def unpack(self):
-        # (This has the (inconsistent) return types of the old API.)
-        if self.qpd is None:
-            return self.chi0_wGG
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+        # Kinda ugly still... XXX
+        return self.dyson.chi0.qpd, self.e_wGG
 
     def dielectric_function(self):
-        e_wGG = self.chi0_wGG  # XXX what's with the names here?
+        e_wGG = self.e_wGG
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
