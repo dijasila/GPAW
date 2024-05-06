@@ -32,6 +32,30 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
+
+    @staticmethod
+    def _normalize(direction):
+        if isinstance(direction, str):
+            d_v = {'x': [1, 0, 0],
+                   'y': [0, 1, 0],
+                   'z': [0, 0, 1]}[direction]
+        else:
+            d_v = direction
+        d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+        return d_v
+
+    def get_chi0_wGG(self, direction='x'):
+        """Project χ₀ along a given direction."""
+        chi0 = self.chi0
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        if chi0.qpd.optical_limit:
+            d_v = self._normalize(direction)
+            W_w = self.blocks1d.myslice
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
+        return chi0_wGG
+
     def Vchi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
         """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
@@ -39,9 +63,8 @@ class Chi0DysonEquation:
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
         """
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        qpd = self.chi0.qpd
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
         V_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
@@ -55,21 +78,6 @@ class Chi0DysonEquation:
             K_GG = np.eye(nG, dtype=complex)
         else:
             K_GG = np.diag(Vtrunc_G / V_G)
-
-        # kd: KPointDescriptor object from gpaw.kpt_descriptor
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice  # slice object for this process.
-            #  used to distribute the calculation when run in parallel.
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -123,32 +131,17 @@ class Chi0DysonEquation:
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
-
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        qpd = self.chi0.qpd
+        if qpd.optical_limit and q_v is not None:
+            print('Restoring q dependence of head and wings of chi0')
+            d_v = self._normalize(direction)
+            chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
+            chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
+            chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
         nG = len(K_G)
-
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
-            if q_v is not None:
-                print('Restoring q dependence of head and wings of chi0')
-                chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
