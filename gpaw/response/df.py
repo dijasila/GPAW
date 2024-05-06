@@ -56,24 +56,10 @@ class Chi0DysonEquation:
         return chi0_wGG
 
     def rpa_density_response(self, direction='x', qinf_v=None):
-        """Calculate the RPA density response function.
-
-        In the random-phase approximation, the "polarizability operator" P is
-        equal to the Kohn-Sham susceptibility χ₀. Depending on whether the
-        Coulomb interaction is truncated or not, we invert the Dyson-like
-        equations [Rev. Mod. Phys. 74, 601 (2002)]
-
-        χ(q,ω) = P(q,ω) + P(q,ω) V(q) χ(q,ω)        (bare Coulomb)
-
-        or
-        ˍ                        ˍ    ˍ
-        P(q,ω) = P(q,ω) + P(q,ω) V(q) P(q,ω)        (truncated Coulomb)
-              ˍ
-        where P(q,ω) is the so-called modified response function.
-        """
+        """Calculate the RPA susceptibility for (semi-)finite q."""
         qpd = self.chi0.qpd
-        V_G = self.coulomb.V(qpd=qpd, q_v=qinf_v)
-        V_GG = np.diag(V_G)  # (possibly truncated) Coulomb kernel
+        V_G = self.coulomb.V(qpd, q_v=qinf_v)
+        V_GG = np.diag(V_G)
         nG = len(V_G)
 
         # Extract χ₀(q,ω)
@@ -86,8 +72,8 @@ class Chi0DysonEquation:
             chi0_wGG[:, 0, 1:] *= np.dot(qinf_v, d_v)
             chi0_wGG[:, 0, 0] *= np.dot(qinf_v, d_v)**2
 
-        # Invert Dyson equation              ˍ
-        chi_wGG = np.zeros_like(chi0_wGG)  # P(q,ω) for truncated Coulomb
+        # Invert Dyson equation
+        chi_wGG = np.zeros_like(chi0_wGG)
         for w, chi0_GG in enumerate(chi0_wGG):
             xi_GG = chi0_GG @ V_GG
             enhancement_GG = np.linalg.inv(np.eye(nG) - xi_GG)
@@ -95,7 +81,7 @@ class Chi0DysonEquation:
 
         return qpd, chi_wGG
 
-    def Vchi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
+    def Vchi(self, xc='RPA', direction='x', **xckwargs):
         """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
@@ -106,12 +92,12 @@ class Chi0DysonEquation:
         qpd = self.chi0.qpd
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        V_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
+        V_G = coulomb_bare.V(qpd)  # np.ndarray
         sqrtV_G = V_G**0.5
 
         nG = len(sqrtV_G)
 
-        Vtrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
+        Vtrunc_G = self.coulomb.V(qpd)
 
         if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
@@ -145,7 +131,7 @@ class Chi0DysonEquation:
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, q_v=None, **xckwargs):
+                          calculate_chi=False, **xckwargs):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -173,7 +159,7 @@ class Chi0DysonEquation:
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         qpd = self.chi0.qpd
 
-        K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
+        K_G = self.coulomb.sqrtV(qpd)
         nG = len(K_G)
 
         if xc != 'RPA':
@@ -592,8 +578,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             pol.write(filename)
         return pol.unpack()
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA',
-                                            direction='x', q_v=None):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate the macroscopic dielectric constant.
 
         The macroscopic dielectric constant is defined as the real part of the
@@ -606,7 +591,7 @@ class DielectricFunction(DielectricFunctionCalculator):
         eps: float
             Dielectric constant with local field correction. (RPA, ALDA)
         """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
+        df = self._new_dielectric_function(xc=xc, direction=direction)
         return df.static_limit.real
 
 
