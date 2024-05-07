@@ -149,8 +149,9 @@ class Chi0DysonEquation:
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         qpd = self.chi0.qpd
 
-        K_G = self.coulomb.sqrtV(qpd)
-        nG = len(K_G)
+        V_G = self.coulomb.V(qpd)
+        V_GG = np.diag(V_G)
+        nG = len(V_G)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -166,12 +167,9 @@ class Chi0DysonEquation:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                             np.dot(chi0_GG, Kxc_GG)),
                               chi0_GG)
-
-            K_GG = (K_G**2 * np.ones([nG, nG])).T
-            e_GG = np.eye(nG) - P_GG * K_GG
-
             # Reuse the chi0_wGG buffer for the output dielectric matrix
-            chi0_GG[:] = e_GG
+            chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
+
         return DielectricMatrixData(self, e_wGG=chi0_wGG)
 
 
