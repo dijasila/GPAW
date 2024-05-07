@@ -186,7 +186,7 @@ class Chi0DysonEquation:
             # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
 
-        return DielectricMatrixData(self, eps_wGG=chi0_wGG)
+        return DielectricMatrixData(self.descriptors, eps_wGG=chi0_wGG)
 
 
 @dataclass
@@ -263,7 +263,7 @@ class InverseDielectricFunction(DielectricFunctionData):
 
 
 @dataclass
-class DielectricMatrixData:
+class DielectricMatrixData(DielectricFunctionData):
     """Data class for the dielectric function ε(q,ω).
 
     The dielectric function is written in terms of the Coulomb potential V and
@@ -276,14 +276,7 @@ class DielectricMatrixData:
     Please remark that the Coulomb potential may have been interchanged with
     its truncated analogue.
     """
-    dyson: Chi0DysonEquation
     eps_wGG: np.ndarray
-
-    def __post_init__(self):
-        # Very ugly this... XXX
-        self.qpd = self.dyson.descriptors.qpd
-        self.wd = self.dyson.descriptors.wd
-        self.wblocks = self.dyson.descriptors.wblocks
 
     def dielectric_function(self):
         """Get the macroscopic dielectric function ε_M(q,ω)."""
