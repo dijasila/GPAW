@@ -170,7 +170,7 @@ class Chi0DysonEquation:
             # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
 
-        return DielectricMatrixData(self, e_wGG=chi0_wGG)
+        return DielectricMatrixData(self, eps_wGG=chi0_wGG)
 
 
 @dataclass
@@ -258,18 +258,20 @@ class DielectricMatrixData:
     its truncated analogue.
     """
     dyson: Chi0DysonEquation
-    e_wGG: np.ndarray
+    eps_wGG: np.ndarray
 
-    def unpack(self):
-        # Kinda ugly still... XXX
-        return self.dyson.chi0.qpd, self.e_wGG
+    def __post_init__(self):
+        # Very ugly this... XXX
+        self.qpd = self.dyson.chi0.qpd
+        self.wd = self.dyson.chi0.wd
+        self.wblocks = self.dyson.df.blocks1d
 
     def dielectric_function(self):
-        e_wGG = self.e_wGG
-        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
-        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
+        eps_wGG = self.eps_wGG
+        df_NLFC_w = np.zeros(len(eps_wGG), dtype=complex)
+        df_LFC_w = np.zeros(len(eps_wGG), dtype=complex)
 
-        for w, e_GG in enumerate(e_wGG):
+        for w, e_GG in enumerate(eps_wGG):
             df_NLFC_w[w] = e_GG[0, 0]
             df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
 
@@ -355,12 +357,8 @@ class DielectricFunctionCalculator:
         return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        dm = self._new_dielectric_matrix(*args, **kwargs)
-        return dm.dielectric_function()
-
-    def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        chi0 = self.calculate_chi0(q_c)
-        return chi0.dielectric_matrix(xc=xc, **kwargs)
+        eps = self.get_dielectric_matrix(*args, **kwargs)
+        return eps.dielectric_function()
 
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
@@ -428,6 +426,10 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+    def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
+        return self.calculate_chi0(q_c).dielectric_matrix(
+            direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
         return self.calculate_chi0(q_c).rpa_density_response(
@@ -525,9 +527,6 @@ class DielectricFunction(DielectricFunctionCalculator):
         if filename:
             df.write(filename)
         return df.unpack()
-
-    def get_dielectric_matrix(self, *args, **kwargs):
-        return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
         """Calculate the macroscopic EELS spectrum.
