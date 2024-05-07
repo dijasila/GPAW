@@ -191,6 +191,9 @@ class InverseDielectricFunction:
     ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q),
 
     that is, in terms of V^(1/2)(q) χ(q,ω) V^(1/2)(q).
+
+    Please remark that V(q) here refers to the bare Coulomb potential
+    irregardless of whether χ(q,ω) was determined using a truncated analogue.
     """
     dyson: Chi0DysonEquation
     Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
