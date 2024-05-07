@@ -242,6 +242,25 @@ class InverseDielectricFunction:
 
 @dataclass
 class DielectricMatrixData:
+    """Data class for the dielectric function ε(q,ω).
+
+    The dielectric function is written in terms of the Coulomb potential V and
+    polarizability operator P [Rev. Mod. Phys. 74, 601 (2002)],
+
+    ε(q,ω) = 1 - V(q) P(q,ω),
+
+    and represented in a plane-wave basis.
+
+    In the optical limit of low-dimensional materials, one might truncate the
+    Coulomb interaction:
+        ˍ
+    V → V(G) = 0 for G=0, V(G) otherwise.
+
+    This implies that ε(q=0,ω) is replaced with the modified dielectric
+    function,
+    ˍ              ˍ
+    ε(q=0,ω) = 1 - V P(q,ω).
+    """
     dyson: Chi0DysonEquation
     e_wGG: np.ndarray
 
