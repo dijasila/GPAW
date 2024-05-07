@@ -143,7 +143,7 @@ class Chi0DysonEquation:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
         return InverseDielectricFunction(
-            self, chi0_wGG, np.array(chi_wGG), V_G)
+            self.descriptors, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
         r"""Returns the dielectric matrix.
@@ -190,7 +190,17 @@ class Chi0DysonEquation:
 
 
 @dataclass
-class InverseDielectricFunction:
+class DielectricFunctionData:
+    descriptors: DFDescriptors
+
+    def __post_init__(self):
+        self.qpd = self.descriptors.qpd
+        self.wd = self.descriptors.wd
+        self.wblocks = self.descriptors.wblocks
+
+
+@dataclass
+class InverseDielectricFunction(DielectricFunctionData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -211,16 +221,9 @@ class InverseDielectricFunction:
     Please remark that V(q) here refers to the bare Coulomb potential
     irregardless of whether χ(q,ω) was determined using a truncated analogue.
     """
-    dyson: Chi0DysonEquation
     Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
     Vchi_symm_wGG: np.ndarray
     V_G: np.ndarray
-
-    def __post_init__(self):
-        # Very ugly this... XXX
-        self.qpd = self.dyson.descriptors.qpd
-        self.wd = self.dyson.descriptors.wd
-        self.wblocks = self.dyson.descriptors.wblocks
 
     def _get_macroscopic_component(self, in_wGG):
         return self.wblocks.all_gather(in_wGG[:, 0, 0])
