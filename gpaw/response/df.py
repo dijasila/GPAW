@@ -129,19 +129,14 @@ class Chi0DysonEquation:
         return InverseDielectricFunction(
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
-    def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          **xckwargs):
-        r"""Returns the symmetrized dielectric matrix.
+    def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
+        r"""Returns the dielectric matrix.
 
         ::
 
-            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{1/2}_G',
+            epsilon_GG' = 1 - v_G * P_GG'
 
-        where::
-
-            epsilon_GG' = 1 - v_G * P_GG' and P_GG'
-
-        is the polarization.
+        where P is the polarization operator.
 
         ::
 
@@ -150,11 +145,7 @@ class Chi0DysonEquation:
 
         in addition to RPA one can use the kernels, ALDA, Bootstrap and
         LRalpha (long-range kerne), where alpha is a user specified parameter
-        (for example xc='LR0.25')
-
-        The head of the inverse symmetrized dielectric matrix is equal
-        to the head of the inverse dielectric matrix (inverse dielectric
-        function)"""
+        (for example xc='LR0.25')."""
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         qpd = self.chi0.qpd
 
@@ -175,11 +166,9 @@ class Chi0DysonEquation:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                             np.dot(chi0_GG, Kxc_GG)),
                               chi0_GG)
-            if symmetric:
-                e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
-            else:
-                K_GG = (K_G**2 * np.ones([nG, nG])).T
-                e_GG = np.eye(nG) - P_GG * K_GG
+
+            K_GG = (K_G**2 * np.ones([nG, nG])).T
+            e_GG = np.eye(nG) - P_GG * K_GG
 
             # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = e_GG
