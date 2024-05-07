@@ -267,18 +267,17 @@ class DielectricMatrixData:
         self.wblocks = self.dyson.df.blocks1d
 
     def dielectric_function(self):
-        eps_wGG = self.eps_wGG
-        df_NLFC_w = np.zeros(len(eps_wGG), dtype=complex)
-        df_LFC_w = np.zeros(len(eps_wGG), dtype=complex)
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+        # Ignoring local field effects
+        eps0_W = self.wblocks.all_gather(self.eps_wGG[:, 0, 0])
 
-        for w, e_GG in enumerate(eps_wGG):
-            df_NLFC_w[w] = e_GG[0, 0]
-            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+        # Accouting for local field effects
+        eps_w = np.zeros((self.wblocks.nlocal,), complex)
+        for w, eps_GG in enumerate(self.eps_wGG):
+            eps_w[w] = 1 / np.linalg.inv(eps_GG)[0, 0]
+        eps_W = self.wblocks.all_gather(eps_w)
 
-        df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
-        df_LFC_w = self.dyson.df.collect(df_LFC_w)
-
-        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
 class DielectricFunctionCalculator:
