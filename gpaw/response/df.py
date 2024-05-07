@@ -136,7 +136,7 @@ class Chi0DysonEquation:
 
             epsilon_GG' = 1 - v_G * P_GG'
 
-        where P is the polarization operator.
+        where P is the polarizability operator.
 
         ::
 
@@ -251,15 +251,8 @@ class DielectricMatrixData:
 
     and represented in a plane-wave basis.
 
-    In the optical limit of low-dimensional materials, one might truncate the
-    Coulomb interaction:
-        ˍ
-    V → V(G) = 0 for G=0, V(G) otherwise.
-
-    This implies that ε(q=0,ω) is replaced with the modified dielectric
-    function,
-    ˍ              ˍ
-    ε(q=0,ω) = 1 - V P(q,ω).
+    Please remark that the Coulomb potential may have been interchanged with
+    its truncated analogue.
     """
     dyson: Chi0DysonEquation
     e_wGG: np.ndarray
