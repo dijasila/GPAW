@@ -386,21 +386,17 @@ class DielectricFunctionCalculator:
         # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).inverse_dielectric_function(
-            xc=xc, **kwargs)
-
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
-        chi = self._new_chi(xc=xc, **kwargs)
-        return chi.dynamic_susceptibility()
+        return self.get_inverse_dielectric_function(
+            xc=xc, **kwargs).dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        eps = self.get_dielectric_matrix(*args, **kwargs)
-        return eps.dielectric_function()
+        return self.get_dielectric_matrix(
+            *args, **kwargs).dielectric_function()
 
-    def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
-        chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
-        return chi.eels_spectrum()
+    def _new_eels_spectrum(self, *args, **kwargs):
+        return self.get_inverse_dielectric_function(
+            *args, **kwargs).eels_spectrum()
 
     def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                             **kwargs):
@@ -450,10 +446,11 @@ class DielectricFunctionCalculator:
             # truncated Coulomb potential and eps_M = 1.0
 
             self.context.print('Using truncated Coulomb interaction')
-            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
+            epsinv = self.get_inverse_dielectric_function(
+                xc=xc, q_c=q_c, direction=direction, **kwargs)
 
-            alpha_w = -V / (4 * pi) * chi.Vchi_symm_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * chi.Vchi0_symm_wGG[:, 0, 0]
+            alpha_w = -V / (4 * pi) * epsinv.Vchi_symm_wGG[:, 0, 0]
+            alpha0_w = -V / (4 * pi) * epsinv.Vchi0_symm_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
@@ -467,6 +464,11 @@ class DielectricFunctionCalculator:
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
+            direction=direction, **xckwargs)
+
+    def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',
+                                        **xckwargs):
+        return self.calculate_chi0(q_c).inverse_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
