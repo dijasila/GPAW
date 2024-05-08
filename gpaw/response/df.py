@@ -386,9 +386,9 @@ class DielectricFunctionCalculator:
         # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
+    def _new_dynamic_susceptibility(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
-            xc=xc, **kwargs).dynamic_susceptibility()
+            *args, **kwargs).dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
         return self.get_dielectric_matrix(
@@ -544,9 +544,10 @@ class DielectricFunction(DielectricFunctionCalculator):
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
-    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
+    def get_dynamic_susceptibility(self, *args, xc='ALDA',
+                                   filename='chiM_w.csv',
                                    **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
+        dynsus = self._new_dynamic_susceptibility(*args, xc=xc, **kwargs)
         if filename:
             dynsus.write(filename)
         return dynsus.unpack()
