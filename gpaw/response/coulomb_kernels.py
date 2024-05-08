@@ -35,6 +35,12 @@ class CoulombKernel:
                              pbc_c=gs.atoms.get_pbc(),
                              kd=gs.kd)
 
+    def new(self, *, truncation):
+        return CoulombKernel(truncation,
+                             N_c=self.N_c,
+                             pbc_c=self.pbc_c,
+                             kd=self.kd)
+
     def description(self):
         if self.truncation is None:
             return 'No Coulomb truncation'

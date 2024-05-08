@@ -80,23 +80,31 @@ class Chi0DysonEquation:
             self.chi0.qpd, self.gs, self.context,
             functional=xc, chi0_wGG=chi0_wGG, **kwargs)
 
-    def get_coulomb_scaled_kernel(self, xc='RPA', **kwargs):
+    def get_coulomb_scaled_kernel(self, xc='RPA', **xckwargs):
+        """Get the Hxc kernel rescaled by the bare Coulomb potential V(q).
+
+        Calculates
+        ˷
+        K(q) = V^(-1/2)(q) K_Hxc(q) V^(-1/2)(q),
+
+        where V(q) is the bare Coulomb potential and
+                   ˍ
+        K_Hxc(q) = V(q) + K_xc(q),
+                                 ˍ
+        where the Hartree kernel V(q) might be truncated.
+        """
         qpd = self.chi0.qpd
-        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        V_G = coulomb_bare.V(qpd)  # np.ndarray
-        sqrtV_G = V_G**0.5
-
-        nG = len(sqrtV_G)
-
-        Vtrunc_G = self.coulomb.V(qpd)
-
         if self.coulomb.truncation is None:
-            K_GG = np.eye(nG, dtype=complex)
+            V_G = self.coulomb.V(qpd)
+            K_GG = np.eye(len(V_G), dtype=complex)
         else:
+            coulomb = self.coulomb.new(truncation=None)
+            V_G = coulomb.V(qpd)
+            Vtrunc_G = self.coulomb.V(qpd)
             K_GG = np.diag(Vtrunc_G / V_G)
-
         if xc != 'RPA':
-            Kxc_GG = self.get_Kxc_GG(xc=xc, **kwargs)
+            Kxc_GG = self.get_Kxc_GG(xc=xc, **xckwargs)
+            sqrtV_G = V_G**0.5
             K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
         return V_G, K_GG
 
