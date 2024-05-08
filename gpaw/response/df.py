@@ -80,6 +80,26 @@ class Chi0DysonEquation:
             self.chi0.qpd, self.gs, self.context,
             functional=xc, chi0_wGG=chi0_wGG, **kwargs)
 
+    def get_coulomb_scaled_kernel(self, xc='RPA', **kwargs):
+        qpd = self.chi0.qpd
+        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
+        V_G = coulomb_bare.V(qpd)  # np.ndarray
+        sqrtV_G = V_G**0.5
+
+        nG = len(sqrtV_G)
+
+        Vtrunc_G = self.coulomb.V(qpd)
+
+        if self.coulomb.truncation is None:
+            K_GG = np.eye(nG, dtype=complex)
+        else:
+            K_GG = np.diag(Vtrunc_G / V_G)
+
+        if xc != 'RPA':
+            Kxc_GG = self.get_Kxc_GG(xc=xc, **kwargs)
+            K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
+        return V_G, K_GG
+
     @staticmethod
     def invert_dyson_like_equation(in_wGG, K_GG):
         """Memory efficient Dyson invertion.
@@ -120,28 +140,10 @@ class Chi0DysonEquation:
         the head and wings of chi0, which is treated specially for q=0.
         """
         chi0_wGG = self.get_chi0_wGG(direction=direction)
-        qpd = self.chi0.qpd
-
-        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        V_G = coulomb_bare.V(qpd)  # np.ndarray
+        V_G, K_GG = self.get_coulomb_scaled_kernel(
+            xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         sqrtV_G = V_G**0.5
-
-        nG = len(sqrtV_G)
-
-        Vtrunc_G = self.coulomb.V(qpd)
-
-        if self.coulomb.truncation is None:
-            K_GG = np.eye(nG, dtype=complex)
-        else:
-            K_GG = np.diag(Vtrunc_G / V_G)
-
-        if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(qpd,
-                                           self.gs, self.context,
-                                           functional=xc,
-                                           chi0_wGG=chi0_wGG,
-                                           **xckwargs)
-            K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
+        nG = len(V_G)
 
         # Invert Dyson eq.
         chi_wGG = []
