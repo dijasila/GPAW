@@ -97,12 +97,8 @@ class Chi0DysonEquation:
 
     def rpa_density_response(self, direction='x', qinf_v=None):
         """Calculate the RPA susceptibility for (semi-)finite q."""
-        qpd = self.chi0.qpd
-        V_G = self.coulomb.V(qpd, q_v=qinf_v)
-        V_GG = np.diag(V_G)
-        nG = len(V_G)
-
         # Extract χ₀(q,ω)
+        qpd = self.chi0.qpd
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         if qpd.optical_limit:
             # Restore the q-dependence of the head and wings in the q→0 limit
@@ -111,14 +107,9 @@ class Chi0DysonEquation:
             chi0_wGG[:, 1:, 0] *= np.dot(qinf_v, d_v)
             chi0_wGG[:, 0, 1:] *= np.dot(qinf_v, d_v)
             chi0_wGG[:, 0, 0] *= np.dot(qinf_v, d_v)**2
-
-        # Invert Dyson equation
-        chi_wGG = np.zeros_like(chi0_wGG)
-        for w, chi0_GG in enumerate(chi0_wGG):
-            xi_GG = chi0_GG @ V_GG
-            enhancement_GG = np.linalg.inv(np.eye(nG) - xi_GG)
-            chi_wGG[w] = enhancement_GG @ chi0_GG
-
+        # Invert Dyson equation, χ(q,ω) = [1 - χ₀(q,ω) V(q)]⁻¹ χ₀(q,ω)
+        V_GG = self.coulomb.kernel(qpd, q_v=qinf_v)
+        chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
         return qpd, chi_wGG
 
     def Vchi(self, xc='RPA', direction='x', **xckwargs):
