@@ -143,12 +143,32 @@ class Chi0DysonEquation:
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
         return qpd, chi_wGG
 
-    def Vchi(self, xc='RPA', direction='x', **xckwargs):
-        """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
+    def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
 
-        The truncated Coulomb interaction is included as
-        v^-1/2 v_t v^-1/2. This is in order to conform with
-        the head and wings of chi0, which is treated specially for q=0.
+        Starting from the TDDFT Dyson equation
+
+        χ(q,ω) = χ₀(q,ω) + χ₀(q,ω) K_Hxc(q,ω) χ(q,ω),                (1)
+
+        the Coulomb scaled susceptibility,
+        ˷
+        χ(q,ω) = V^(1/2)(q) χ(q,ω) V^(1/2)(q)
+
+        can be calculated from the Dyson-like equation
+        ˷        ˷         ˷       ˷      ˷
+        χ(q,ω) = χ₀(q,ω) + χ₀(q,ω) K(q,ω) χ(q,ω)                     (2)
+
+        where
+        ˷
+        K(q,ω) = V^(-1/2)(q) K_Hxc(q,ω) V^(-1/2)(q).
+
+        Here V(q) refers to the bare Coulomb potential. It should be emphasized
+        that invertion of (2) rather than (1) is not merely a rescaling
+        excercise. In the optical q → 0 limit, the Coulomb kernel V(q) diverges
+        as 1/|G+q|² while the Kohn-Sham susceptibility χ₀(q,ω) vanishes as
+        |G+q|². Treating V^(1/2)(q) χ₀(q,ω) V^(1/2)(q) as a single variable,
+        the effects of this cancellation can be treated accurately within k.p
+        perturbation theory.
         """
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         V_G, K_GG = self.get_coulomb_scaled_kernel(
@@ -367,7 +387,8 @@ class DielectricFunctionCalculator:
         return self.blocks1d.all_gather(a_w)
 
     def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).Vchi(xc=xc, **kwargs)
+        return self.calculate_chi0(q_c).inverse_dielectric_function(
+            xc=xc, **kwargs)
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
         chi = self._new_chi(xc=xc, **kwargs)
