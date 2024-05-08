@@ -101,8 +101,8 @@ class Chi0DysonEquation:
         return V_G, K_GG
 
     @staticmethod
-    def invert_dyson_like_equation(in_wGG, K_GG):
-        """Memory efficient Dyson invertion.
+    def invert_dyson_like_equation(in_wGG, K_GG, reuse_buffer=True):
+        """Generalized Dyson equation invertion.
 
         Calculates
 
@@ -110,7 +110,10 @@ class Chi0DysonEquation:
 
         while storing the output B(q,ω) in the input A(q,ω) buffer.
         """
-        out_wGG = in_wGG
+        if reuse_buffer:
+            out_wGG = in_wGG
+        else:
+            out_wGG = np.zeros_like(in_wGG)
         for w, in_GG in enumerate(in_wGG):
             out_wGG[w] = DysonEquation(in_GG, in_GG @ K_GG).invert()
         return out_wGG
@@ -142,26 +145,16 @@ class Chi0DysonEquation:
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         V_G, K_GG = self.get_coulomb_scaled_kernel(
             xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
+        # Calculate V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
         sqrtV_G = V_G**0.5
-        nG = len(V_G)
-
-        # Invert Dyson eq.
-        chi_wGG = []
-        for chi0_GG in chi0_wGG:
-            """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
-            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                          np.dot(chi0_GG, K_GG)),
-                            chi0_GG)
-            chi_wGG.append(chi_GG)
-
-        if len(chi_wGG):
-            chi_wGG = np.array(chi_wGG)
-        else:
-            chi_wGG = np.zeros((0, nG, nG), complex)
-
+        Vchi0_symm_wGG = chi0_wGG  # reuse buffer
+        for w, chi0_GG in enumerate(chi0_wGG):
+            Vchi0_symm_wGG[w] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
+        # Invert Dyson equation
+        Vchi_symm_wGG = self.invert_dyson_like_equation(
+            Vchi0_symm_wGG, K_GG, reuse_buffer=False)
         return InverseDielectricFunction(
-            self.descriptors, chi0_wGG, np.array(chi_wGG), V_G)
+            self.descriptors, Vchi0_symm_wGG, Vchi_symm_wGG, V_G)
 
     def dielectric_matrix(self, *args, **kwargs):
         """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
