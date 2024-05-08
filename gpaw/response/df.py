@@ -70,6 +70,15 @@ class Chi0DysonEquation:
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
         return chi0_wGG
 
+    def get_Kxc_GG(self, *, xc, chi0_wGG, **kwargs):
+        """Get adiabatic xc kernel (TDDFT).
+
+        Choose between ALDA, Bootstrap and LRalpha (long-range kernel), where
+        alpha is a user specified parameter (for example xc='LR0.25')."""
+        return get_density_xc_kernel(
+            self.chi0.qpd, self.gs, self.context,
+            functional=xc, chi0_wGG=chi0_wGG, **kwargs)
+
     def rpa_density_response(self, direction='x', qinf_v=None):
         """Calculate the RPA susceptibility for (semi-)finite q."""
         qpd = self.chi0.qpd
@@ -145,48 +154,41 @@ class Chi0DysonEquation:
         return InverseDielectricFunction(
             self.descriptors, chi0_wGG, np.array(chi_wGG), V_G)
 
-    def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
-        r"""Returns the dielectric matrix.
-
-        ::
-
-            epsilon_GG' = 1 - v_G * P_GG'
-
-        where P is the polarizability operator.
-
-        ::
-
-            In RPA:   P = chi^0
-            In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
-
-        in addition to RPA one can use the kernels, ALDA, Bootstrap and
-        LRalpha (long-range kerne), where alpha is a user specified parameter
-        (for example xc='LR0.25')."""
-        chi0_wGG = self.get_chi0_wGG(direction=direction)
-        qpd = self.chi0.qpd
-
-        V_G = self.coulomb.V(qpd)
+    def dielectric_matrix(self, *args, **kwargs):
+        """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
+        V_G = self.coulomb.V(self.chi0.qpd)
         V_GG = np.diag(V_G)
         nG = len(V_G)
 
-        if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(qpd,
-                                           self.gs, self.context,
-                                           functional=xc,
-                                           chi0_wGG=chi0_wGG,
-                                           **xckwargs)
+        P_wGG = self.polarizability_operator(*args, **kwargs)
+        eps_wGG = P_wGG  # reuse buffer
+        for w, P_GG in enumerate(P_wGG):
+            eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
+        return DielectricMatrixData(self.descriptors, eps_wGG)
 
-        for chi0_GG in chi0_wGG:
-            if xc == 'RPA':
-                P_GG = chi0_GG
-            else:
-                P_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                            np.dot(chi0_GG, Kxc_GG)),
-                              chi0_GG)
-            # Reuse the chi0_wGG buffer for the output dielectric matrix
-            chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
+    def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate the polarizability operator P(q,ω).
 
-        return DielectricMatrixData(self.descriptors, eps_wGG=chi0_wGG)
+        Depending on the theory (RPA, TDDFT, MBPT etc.), the polarizability
+        operator is approximated in various ways see e.g.
+        [Rev. Mod. Phys. 74, 601 (2002)].
+
+        In RPA:
+            P(q,ω) = χ₀(q,ω)
+
+        In TDDFT:
+            P(q,ω) = [1 - χ₀(q,ω) K_xc(q,ω)]⁻¹ χ₀(q,ω)
+        """
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        if xc == 'RPA':
+            return chi0_wGG
+        # TDDFT (in adiabatic approximations to the kernel)
+        Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
+        nG = Kxc_GG.shape[0]
+        P_wGG = chi0_wGG  # reuse buffer
+        for w, chi0_GG in enumerate(chi0_wGG):
+            P_wGG[w] = np.linalg.inv(np.eye(nG) - chi0_GG @ Kxc_GG) @ chi0_GG
+        return P_wGG
 
 
 @dataclass
