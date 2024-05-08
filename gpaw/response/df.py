@@ -172,11 +172,9 @@ class Chi0DysonEquation:
 
     def dielectric_matrix(self, *args, **kwargs):
         """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
-        V_G = self.coulomb.V(self.chi0.qpd)
-        V_GG = np.diag(V_G)
-        nG = len(V_G)
-
+        V_GG = self.coulomb.kernel(self.chi0.qpd)
         P_wGG = self.polarizability_operator(*args, **kwargs)
+        nG = len(V_GG)
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG

@@ -50,6 +50,9 @@ class CoulombKernel:
             qpd, self.N_c, pbc_c=self.pbc_c, q_v=q_v,
             truncation=self.truncation)
 
+    def kernel(self, qpd, q_v=None):
+        return np.diag(self.V(qpd, q_v=q_v))
+
     def integrated_kernel(self, qpd, reduced):
         return get_integrated_kernel(
             qpd=qpd, N_c=self.N_c, pbc_c=self.pbc_c,
