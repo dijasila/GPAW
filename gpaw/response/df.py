@@ -10,6 +10,7 @@ import gpaw.mpi as mpi
 
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response.dyson import DysonEquation
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
@@ -78,6 +79,21 @@ class Chi0DysonEquation:
         return get_density_xc_kernel(
             self.chi0.qpd, self.gs, self.context,
             functional=xc, chi0_wGG=chi0_wGG, **kwargs)
+
+    @staticmethod
+    def invert_dyson_like_equation(in_wGG, K_GG):
+        """Memory efficient Dyson invertion.
+
+        Calculates
+
+        B(q,ω) = [1 - A(q,ω) K(q)]⁻¹ A(q,ω)
+
+        while storing the output B(q,ω) in the input A(q,ω) buffer.
+        """
+        out_wGG = in_wGG
+        for w, in_GG in enumerate(in_wGG):
+            out_wGG[w] = DysonEquation(in_GG, in_GG @ K_GG).invert()
+        return out_wGG
 
     def rpa_density_response(self, direction='x', qinf_v=None):
         """Calculate the RPA susceptibility for (semi-)finite q."""
@@ -184,11 +200,7 @@ class Chi0DysonEquation:
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
-        nG = Kxc_GG.shape[0]
-        P_wGG = chi0_wGG  # reuse buffer
-        for w, chi0_GG in enumerate(chi0_wGG):
-            P_wGG[w] = np.linalg.inv(np.eye(nG) - chi0_GG @ Kxc_GG) @ chi0_GG
-        return P_wGG
+        return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
 
 @dataclass
