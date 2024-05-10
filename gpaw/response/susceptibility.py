@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from ase.units import Hartree
@@ -9,9 +11,10 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
                                           get_pw_coordinates)
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
+from gpaw.response.coulomb_kernels import NewCoulombKernel
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
-from gpaw.response.dyson import DysonSolver, HXCKernel, HXCScaling
+from gpaw.response.dyson import (DysonSolver, HXCKernel, HXCScaling, PWKernel,
+                                 NoKernel)
 
 
 class ChiFactory:
@@ -89,22 +92,24 @@ class ChiFactory:
     def get_hxc_kernel(self, fxc: str | None, spincomponent: str,
                        qpd: SingleQPWDescriptor) -> HXCKernel:
         return HXCKernel(
-            Vbare_G=self.get_hartree_kernel(spincomponent, qpd),
-            fxc_kernel=self.get_xc_kernel(fxc, spincomponent, qpd))
+            hartree_kernel=self.get_hartree_kernel(spincomponent, qpd),
+            xc_kernel=self.get_xc_kernel(fxc, spincomponent, qpd))
 
-    def get_hartree_kernel(self, spincomponent, qpd):
+    def get_hartree_kernel(self, spincomponent: str,
+                           qpd: SingleQPWDescriptor) -> PWKernel:
         if spincomponent in ['+-', '-+']:
             # No Hartree term in Dyson equation
-            return None
+            return NoKernel.from_qpd(qpd)
         else:
-            return get_coulomb_kernel(qpd, self.gs.kd.N_c,
-                                      pbc_c=self.gs.atoms.get_pbc())
+            return NewCoulombKernel.from_qpd(
+                qpd, N_c=self.gs.kd.N_c, pbc_c=self.gs.atoms.get_pbc())
 
-    def get_xc_kernel(self, fxc, spincomponent, qpd):
+    def get_xc_kernel(self, fxc: str | None, spincomponent: str,
+                      qpd: SingleQPWDescriptor) -> PWKernel:
         """Get the requested xc-kernel object."""
         if fxc is None:
             # No xc-kernel
-            return None
+            return NoKernel.from_qpd(qpd)
 
         if qpd.gammacentered:
             # When using a gamma-centered plane-wave basis, we can reuse the
@@ -239,17 +244,15 @@ class EigendecomposedSpectrum:
 
     @classmethod
     def from_file(cls, filename):
-        """Construct the eigendecomposed spectrum from a .pckl file."""
-        import pickle
-        assert isinstance(filename, str) and filename[-5:] == '.pckl'
-        with open(filename, 'rb') as fd:
-            omega_w, G_Gc, s_we, v_wGe, A_w = pickle.load(fd)
-        return cls(omega_w, G_Gc, s_we, v_wGe, A_w=A_w)
+        """Construct the eigendecomposed spectrum from a .npz file."""
+        assert Path(filename).suffix == '.npz', filename
+        npz = np.load(filename)
+        return cls(npz['omega_w'], npz['G_Gc'],
+                   npz['s_we'], npz['v_wGe'], A_w=npz['A_w'])
 
     def write(self, filename):
-        """Write the eigendecomposed spectrum as a .pckl file."""
-        import pickle
-        assert isinstance(filename, str) and filename[-5:] == '.pckl'
+        """Write the eigendecomposed spectrum as a .npz file."""
+        assert Path(filename).suffix == '.npz', filename
 
         # Gather data from the different blocks of frequencies to root
         s_we = self.wblocks.gather(self.s_we)
@@ -258,8 +261,8 @@ class EigendecomposedSpectrum:
 
         # Let root write the spectrum to a pickle file
         if self.wblocks.blockcomm.rank == 0:
-            with open(filename, 'wb') as fd:
-                pickle.dump((self.omega_w, self.G_Gc, s_we, v_wGe, A_w), fd)
+            np.savez(filename, omega_w=self.omega_w, G_Gc=self.G_Gc,
+                     s_we=s_we, v_wGe=v_wGe, A_w=A_w)
 
     @property
     def nG(self):

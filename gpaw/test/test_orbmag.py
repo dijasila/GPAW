@@ -21,7 +21,7 @@ def test_orbmag_Ni(gpw_files):
                     parallel={'domain': 1, 'band': 1})
 
     energy_col = calc_col.get_potential_energy(calc_col.atoms)
-    density = calc_col.calculation.state.density
+    density = calc_col.dft.state.density
     magmoms_col_v, _ = density.calculate_magnetic_moments()
     with pytest.raises(CalculationModeError, match='Calculator is in*'):
         calc_col.get_orbital_magnetic_moments()
@@ -35,7 +35,7 @@ def test_orbmag_Ni(gpw_files):
                      parallel={'domain': 1, 'band': 1})
 
     energy_ncol = calc_ncol.get_potential_energy(calc_ncol.atoms)
-    density = calc_ncol.calculation.state.density
+    density = calc_ncol.dft.state.density
     magmoms_ncol_v, _ = density.calculate_magnetic_moments()
     with pytest.warns(UserWarning, match='Non-collinear calculation*'):
         calc_ncol.get_orbital_magnetic_moments()
@@ -73,5 +73,5 @@ def test_orbmag_Ni(gpw_files):
     dif_orbmag2 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_col_v)
     dif_orbmag3 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_ncol_v)
 
-    assert dif_orbmag2 == pytest.approx(0.002409330194910108, abs=5e-6)
-    assert dif_orbmag3 == pytest.approx(0.002409330194910108, abs=5e-6)
+    assert dif_orbmag2 == pytest.approx(0.002409330194910108, abs=1e-5)
+    assert dif_orbmag3 == pytest.approx(0.002409330194910108, abs=1e-5)

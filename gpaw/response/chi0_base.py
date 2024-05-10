@@ -166,7 +166,22 @@ class Chi0ComponentCalculator:
                  disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None):
-        """Set up attributes common to all chi0 related calculators."""
+        """Set up attributes common to all chi0 related calculators.
+
+        Parameters
+        ----------
+        nblocks : int
+            Divide response function memory allocation in nblocks.
+        disable_point_group : bool
+            Disable point group symmetry in k-integration and symmetrization.
+        disable_time_reversal : bool
+            Disable time reversal symmetry k-integration and symmetrization.
+        integrationmode : str or None
+            Integrator for the k-point integration.
+            If == 'tetrahedron integration' then the kpoint integral is
+            performed using the linear tetrahedron method. If None, point
+            integration is used.
+        """
         self.gs = gs
         self.context = context
         self.kptpair_factory = KPointPairFactory(gs, context)
@@ -327,17 +342,33 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
                  hilbert=True,
                  nbands=None,
                  timeordered=False,
-                 ecut=None,
+                 ecut=50.0,
                  eta=0.2,
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
+
+        Parameters
+        ----------
+        wd : FrequencyDescriptor
+            Frequencies for which the chi0 component is evaluated.
+        hilbert : bool
+            Hilbert transform flag. If True, the dissipative part of the chi0
+            component is evaluated, and the reactive part is calculated via a
+            hilbert transform. Only works for frequencies on the real axis and
+            requires a nonlinear frequency grid.
+        nbands : int
+            Number of bands to include.
+        timeordered : bool
+            Flag for calculating the time ordered chi0 component. Used for
+            G0W0, which performs its own hilbert transform.
+        ecut : float
+            Plane-wave energy cutoff in eV.
+        eta : float
+            Artificial broadening of the chi0 component in eV.
         """
         super().__init__(gs, context, **kwargs)
 
-        if ecut is None:
-            ecut = 50.0
-        ecut /= Ha
-        self.ecut = ecut
+        self.ecut = ecut / Ha
         self.nbands = nbands or self.gs.bd.nbands
 
         self.wd = wd

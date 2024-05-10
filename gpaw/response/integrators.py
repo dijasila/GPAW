@@ -5,7 +5,7 @@ from gpaw.response import timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D
@@ -134,10 +134,10 @@ class GenericUpdate(IntegralTask):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
-    def __init__(self, eta, blockcomm, eshift=0.0):
+    def __init__(self, eta, blockcomm, eshift=None):
         self.eta = eta
         self.blockcomm = blockcomm
-        self.eshift = eshift
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -164,9 +164,9 @@ class Hermitian(IntegralTask):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, blockcomm, eshift=0.0):
+    def __init__(self, blockcomm, eshift=None):
         self.blockcomm = blockcomm
-        self.eshift = eshift
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 hermetian update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -190,9 +190,9 @@ class Hilbert(IntegralTask):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, blockcomm, eshift=0.0):
+    def __init__(self, blockcomm, eshift=None):
         self.blockcomm = blockcomm
-        self.eshift = eshift
+        self.eshift = eshift or 0.0
 
     # @timer('CHI_0 spectral function update (new)')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -390,7 +390,7 @@ class KPointTesselation:
         simplices_s = self.pts_k[K]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.simplex_volumes[simplices_s]
-        _gpaw.tetrahedron_weight(
+        cgpaw.tetrahedron_weight(
             deps_k, self._td.simplices, K, simplices_s, W_w, omega_w, vol_s)
         return W_w
 
