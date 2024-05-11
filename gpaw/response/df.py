@@ -33,26 +33,12 @@ class Chi0DysonEquation:
         self.blocks1d = self.df.blocks1d
 
     def chi(self, xc='RPA', direction='x', return_VchiV=True, q_v=None,
-            rshelmax=-1, rshewmin=None):
+            **xckwargs):
         """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
-
-        Parameters
-        ----------
-        rshelmax : int or None
-            Expand kernel in real spherical harmonics inside augmentation
-            spheres. If None, the kernel will be calculated without
-            augmentation. The value of rshelmax indicates the maximum index l
-            to perform the expansion in (l < 6).
-        rshewmin : float or None
-            If None, the kernel correction will be fully expanded up to the
-            chosen lmax. Given as a float, (0 < rshewmin < 1) indicates what
-            coefficients to use in the expansion. If any coefficient
-            contributes with less than a fraction of rshewmin on average,
-            it will not be included.
         """
         chi0 = self.chi0
         qpd = chi0.qpd
@@ -90,7 +76,8 @@ class Chi0DysonEquation:
             Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
-                                           chi0_wGG=chi0_wGG)
+                                           chi0_wGG=chi0_wGG,
+                                           **xckwargs)
             K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
 
         # Invert Dyson eq.
@@ -114,7 +101,7 @@ class Chi0DysonEquation:
         return ChiData(self, qpd, chi0_wGG, np.array(chi_wGG))
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, q_v=None):
+                          calculate_chi=False, q_v=None, **xckwargs):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -170,7 +157,8 @@ class Chi0DysonEquation:
             Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
-                                           chi0_wGG=chi0_wGG)
+                                           chi0_wGG=chi0_wGG,
+                                           **xckwargs)
 
         if calculate_chi:
             chi_wGG = []
@@ -239,21 +227,17 @@ class ChiData:
         rf0_w = self.dyson.df.collect(rf0_w)
         rf_w = self.dyson.df.collect(rf_w)
 
-        return DynamicSusceptibility(self.wd, rf0_w, rf_w)
+        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
 
     @property
     def wd(self):
         return self.dyson.df.wd
 
     def eels_spectrum(self):
-        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+        r"""The EELS spectrum is obtained from the imaginary part of the
+        density response function as,
 
-        EELS spectrum is obtained from the imaginary part of the
-        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
-        Returns EELS spectrum without and with local field corrections:
-
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()"""
-
+        EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
         # Calculate V^1/2 \chi V^1/2
         Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
         Vchi_wGG = self.chi_wGG
@@ -264,37 +248,7 @@ class ChiData:
 
         eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
         eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return EELSSpectrum(self.wd, eels_NLFC_w, eels_LFC_w)
-
-
-@dataclass
-class DynamicSusceptibility:
-    wd: FrequencyDescriptor
-    rf0_w: np.ndarray
-    rf_w: np.ndarray
-
-    def unpack(self):
-        return self.rf0_w, self.rf_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(
-                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
-
-
-@dataclass
-class EELSSpectrum:
-    wd: FrequencyDescriptor
-    eels_NLFC_w: np.ndarray
-    eels_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.eels_NLFC_w, self.eels_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.eels_NLFC_w, self.eels_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eels_NLFC_w, eels_LFC_w)
 
 
 @dataclass
@@ -311,11 +265,6 @@ class DielectricMatrixData:
         return (self.qpd, self.chi0_wGG, self.chi_wGG)
 
     def dielectric_function(self):
-        """Calculate the dielectric function.
-
-        Returns dielectric function without and with local field correction:
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
-        """
         e_wGG = self.chi0_wGG  # XXX what's with the names here?
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
@@ -327,45 +276,7 @@ class DielectricMatrixData:
         df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
         df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
-        return DielectricFunctionData(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
-
-
-@dataclass
-class Polarizability:
-    wd: FrequencyDescriptor
-    alpha0_w: np.ndarray
-    alpha_w: np.ndarray
-
-    def unpack(self):
-        return self.alpha0_w, self.alpha_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.alpha0_w, self.alpha_w)
-
-
-@dataclass
-class DielectricFunctionData:
-    wd: FrequencyDescriptor
-    df_NLFC_w: np.ndarray
-    df_LFC_w: np.ndarray
-
-    def unpack(self):
-        return self.df_NLFC_w, self.df_LFC_w
-
-    def write(self, filename):
-        if mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    self.df_NLFC_w, self.df_LFC_w)
-
-    @property
-    def eps0(self):
-        return self.df_NLFC_w[0].real
-
-    @property
-    def eps(self):
-        return self.df_LFC_w[0].real
+        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
 
 
 class DielectricFunctionCalculator:
@@ -436,15 +347,8 @@ class DielectricFunctionCalculator:
         # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def get_frequencies(self) -> np.ndarray:
-        """ Return frequencies that Chi is evaluated on"""
-        return self.wd.omega_w * Hartree
-
     def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
-
-    def get_chi(self, *args, **kwargs):
-        return self._new_chi(*args, **kwargs).unpack()
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
         chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
@@ -458,60 +362,12 @@ class DielectricFunctionCalculator:
         chi0 = self.calculate_chi0(q_c)
         return chi0.dielectric_matrix(xc=xc, **kwargs)
 
-    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
-                                   **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
-        if filename:
-            dynsus.write(filename)
-        return dynsus.unpack()
-
-    def get_dielectric_matrix(self, *args, **kwargs):
-        return self._new_dielectric_matrix(*args, **kwargs).unpack()
-
-    def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
-        df = self._new_dielectric_function(*args, **kwargs)
-        if filename:
-            df.write(filename)
-        return df.unpack()
-
-    def get_macroscopic_dielectric_constant(self, xc='RPA',
-                                            direction='x', q_v=None):
-        """Calculate macroscopic dielectric constant.
-
-        Returns eM_NLFC and eM_LFC.
-
-        Macroscopic dielectric constant is defined as the real part
-        of dielectric function at w=0.
-
-        Parameters:
-
-        eM_LFC: float
-            Dielectric constant without local field correction. (RPA, ALDA)
-        eM2_NLFC: float
-            Dielectric constant with local field correction.
-        """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
-
-        self.context.print('', flush=False)
-        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
-        self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % df.eps0,
-                           flush=False)
-        self.context.print('    Include local field: %f' % df.eps)
-
-        return df.eps0, df.eps
-
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
         return chi.eels_spectrum()
 
-    def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
-        eels = self._new_eels_spectrum(*args, **kwargs)
-        if filename:
-            eels.write(filename)
-        return eels.unpack()
-
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0]):
+    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
+                            **kwargs):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -541,12 +397,9 @@ class DielectricFunctionCalculator:
         if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
             df = self._new_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction)
-
-            df0_w = df.df_NLFC_w
-            df_w = df.df_LFC_w
-            alpha_w = V * (df_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * pi)
+                xc=xc, q_c=q_c, direction=direction, **kwargs)
+            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
+            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
         else:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
@@ -561,7 +414,7 @@ class DielectricFunctionCalculator:
             # truncated Coulomb potential and eps_M = 1.0
 
             self.context.print('Using truncated Coulomb interaction')
-            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
+            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
 
             alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
             alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
@@ -574,14 +427,7 @@ class DielectricFunctionCalculator:
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
-        return Polarizability(self.wd, alpha0_w, alpha_w)
-
-    def get_polarizability(self, *args, filename='polarizability.csv',
-                           **kwargs):
-        pol = self._new_polarizability(*args, **kwargs)
-        if filename:
-            pol.write(filename)
-        return pol.unpack()
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -647,6 +493,109 @@ class DielectricFunction(DielectricFunctionCalculator):
         )
 
         super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+
+    def get_frequencies(self) -> np.ndarray:
+        """ Return frequencies that Chi is evaluated on"""
+        return self.wd.omega_w * Hartree
+
+    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
+                                   **kwargs):
+        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
+        if filename:
+            dynsus.write(filename)
+        return dynsus.unpack()
+
+    def get_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        """Calculate the dielectric function.
+
+        Generates a file 'df.csv', unless filename is set to None.
+
+        Returns
+        -------
+        df_NLFC_w: np.ndarray
+            Dielectric function without local field corrections.
+        df_LFC_w: np.ndarray
+            Dielectric functio with local field corrections.
+        """
+        df = self._new_dielectric_function(*args, **kwargs)
+        if filename:
+            df.write(filename)
+        return df.unpack()
+
+    def get_dielectric_matrix(self, *args, **kwargs):
+        return self._new_dielectric_matrix(*args, **kwargs).unpack()
+
+    def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
+        """Calculate the EELS spectrum.
+
+        Generates a file 'eels.csv', unless filename is set to None.
+
+        Returns
+        -------
+        eels0_w: np.ndarray
+            EELS spectrum calculated from chi0.
+        eels_w: np.ndarray
+            EELS spectrum calculated from chi.
+        """
+        eels = self._new_eels_spectrum(*args, **kwargs)
+        if filename:
+            eels.write(filename)
+        return eels.unpack()
+
+    def get_polarizability(self, *args, filename='polarizability.csv',
+                           **kwargs):
+        pol = self._new_polarizability(*args, **kwargs)
+        if filename:
+            pol.write(filename)
+        return pol.unpack()
+
+    def get_macroscopic_dielectric_constant(self, xc='RPA',
+                                            direction='x', q_v=None):
+        """Calculate the macroscopic dielectric constant.
+
+        The macroscopic dielectric constant is defined as the real part of the
+        dielectric function in the static limit.
+
+        Returns:
+        --------
+        eps0: float
+            Dielectric constant without local field corrections.
+        eps: float
+            Dielectric constant with local field correction. (RPA, ALDA)
+        """
+        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
+        return df.static_limit.real
+
+
+# ----- Serialized dataclasses and IO ----- #
+
+
+@dataclass
+class ScalarResponseFunctionSet:
+    """A set of scalar response functions rf₀(ω) and rf(ω)."""
+    wd: FrequencyDescriptor
+    rf0_w: np.ndarray
+    rf_w: np.ndarray
+
+    @property
+    def arrays(self):
+        return self.wd.omega_w * Hartree, self.rf0_w, self.rf_w
+
+    def unpack(self):
+        # Legacy feature to support old DielectricFunction output format
+        # ... to be deprecated ...
+        return self.rf0_w, self.rf_w
+
+    def write(self, filename):
+        if mpi.rank == 0:
+            write_response_function(filename, *self.arrays)
+
+    @property
+    def static_limit(self):
+        """Return the value of the response functions in the static limit."""
+        w0 = np.argmin(np.abs(self.wd.omega_w))
+        assert abs(self.wd.omega_w[w0]) < 1e-8
+        return np.array([self.rf0_w[w0], self.rf_w[w0]])
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
