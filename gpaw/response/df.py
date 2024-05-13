@@ -333,6 +333,14 @@ def nonperiodic_hypervolume(gs):
     if pbc_c.all():
         return 1.
     else:
+        if sum(pbc_c) > 0:
+            # In 1D and 2D, we assume the cartesian representation of the unit
+            # cell to be block diagonal, separating the periodic and
+            # nonperiodic cell vectors in different blocks.
+            assert np.allclose(cell_cv[~pbc_c][:, pbc_c], 0.) and \
+                np.allclose(cell_cv[pbc_c][:, ~pbc_c], 0.), \
+                "In 1D and 2D, please put the periodic/nonperiodic axis " \
+                "along a cartesian component"
         V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
         return V * Bohr**sum(~pbc_c)  # Bohr -> Å
 
