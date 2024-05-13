@@ -539,6 +539,14 @@ class GPWFiles(CachedFilesHandler):
         si.get_potential_energy()
         return si.calc
 
+    @gpwfile
+    def si_qpoint_rounding_bug(self):
+        atoms = bulk('Si')
+        calc = GPAW(mode=PW(340), kpts={'gamma':True, 'size':(6,1,1)})
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
+
     @property
     def testing_setup_path(self):
         # Some calculations in gpwfile fixture like to use funny setups.
