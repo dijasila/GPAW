@@ -542,8 +542,16 @@ class GPWFiles(CachedFilesHandler):
     @gpwfile
     def si_qpoint_rounding_bug(self):
         # Test system for guarding against inconsistent kpoints as in #1178.
+        from ase.calculators.calculator import kpts2kpts
         atoms = bulk('Si')
-        calc = GPAW(mode=PW(340), kpts={'gamma': True, 'size': (6, 1, 1)})
+        kpts = kpts2kpts(kpts={'gamma': True, 'size': (6, 1, 1)}, atoms=atoms)
+
+        # Error happened when qpoint was ~1e-17 yet was not considered gamma.
+        # Add a bit of noise on purpose so we are sure to hit such a case,
+        # even if the underlying implementation changes:
+        kpts.kpts += np.linspace(1e-16, 1e-15, 18).reshape(6, 3)
+
+        calc = GPAW(mode=PW(340), kpts=kpts)
         atoms.calc = calc
         atoms.get_potential_energy()
         return calc
