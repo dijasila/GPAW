@@ -187,13 +187,8 @@ class BuildingBlock:
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
-            qpd, chi0_wGG, \
-                chi_wGG = self.df.get_dielectric_matrix(
-                    symmetric=False,
-                    calculate_chi=True,
-                    q_c=q_c,
-                    q_v=q_inf,
-                    direction=self.direction)
+            qpd, chi_wGG = self.df.get_rpa_density_response(
+                q_c=q_c, qinf_v=q_inf, direction=self.direction)
             self.context.print('calculated chi!')
 
             nw = len(self.wd)
