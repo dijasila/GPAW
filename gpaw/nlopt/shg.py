@@ -332,23 +332,19 @@ def make_output(gauge, sum2_l, sum3_l):
     Output:
         chi_l       Output chi as an array
     """
-    # Make the output in SI unit
+
+    prefactor = 1
+    # 4 * pi from vacuum permittivty eps_0
+    prefactor *= 4.0 * np.pi
+    # Pi factors from BZ volume
+    prefactor /= (2.0 * np.pi)**3
+    # atomic units [Bohr * elementary charge / Hartee] to SI units [m / V]
+    prefactor *= (Bohr * 1e-10 * _e) / (Ha / J)
+
     if gauge == 'lg':
-        dim_ee = _e**3 / (_eps0 * (2.0 * np.pi)**3)
-        dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
-            (_e**5 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
-        dim_SI = dim_ee * dim_sum
-        # chi_l = dim_SI * (1j * sum2_l + sum3_l)
-        prefactor = 4.0 * np.pi / ((2.0 * np.pi)**3) * (Bohr * 1e-10 * _e) / (Ha / J)
         chi_l = prefactor * (1j * sum2_l + sum3_l)
     elif gauge == 'vg':
-        # Make the output in SI unit
-        dim_vg = _e**3 * _hbar**2 / (_me**3 * (2.0 * np.pi)**3)
-        dim_chi = 1j * _hbar / (_eps0 * 2.0 * _e)  # 2 beacuse of frequecny
-        dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
-            (_e**4 * (Bohr * 1e-10)**3)
-        dim_SI = dim_chi * dim_vg * dim_sum
-        chi_l = dim_SI * (sum2_l + sum3_l)
+        chi_l = prefactor * 1j / 2 * (sum2_l + sum3_l)
     else:
         parprint('Gauge ' + gauge + ' not implemented.')
         raise NotImplementedError
