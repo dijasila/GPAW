@@ -469,19 +469,6 @@ class DielectricFunctionCalculator:
 
     def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                             **kwargs):
-        r"""Calculate the polarizability alpha.
-        In 3D the imaginary part of the polarizability is related to the
-        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
-        with reduced dimensionality the converged value of alpha is
-        independent of the cell volume. This is not the case for eps_M,
-        which is ill-defined. A truncated Coulomb kernel will always give
-        eps_M = 1.0, whereas the polarizability maintains its structure.
-
-        By default, generate a file 'polarizability.csv'. The five columns are:
-        frequency (eV), Real(alpha0), Imag(alpha0), Real(alpha), Imag(alpha)
-        alpha0 is the result without local field effects and the
-        dimension of alpha is \AA to the power of non-periodic directions
-        """
         hypervol = nonperiodic_hypervolume(self.gs)
         if self.coulomb.truncation:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, use an
@@ -620,6 +607,17 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def get_polarizability(self, *args, filename='polarizability.csv',
                            **kwargs):
+        """Calculate the macroscopic polarizability.
+        
+        Generate a file 'polarizability.csv', unless filename is set to None.
+
+        Returns:
+        --------
+        alpha0_w: np.ndarray
+            Polarizability calculated without local-field corrections
+        alpha_w: np.ndarray
+            Polarizability calculated with local-field corrections.
+        """
         pol = self._new_polarizability(*args, **kwargs)
         if filename:
             pol.write(filename)
