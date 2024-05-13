@@ -543,7 +543,7 @@ class GPWFiles(CachedFilesHandler):
     def si_qpoint_rounding_bug(self):
         # Test system for guarding against inconsistent kpoints as in #1178.
         atoms = bulk('Si')
-        calc = GPAW(mode=PW(340), kpts={'gamma':True, 'size':(6,1,1)})
+        calc = GPAW(mode=PW(340), kpts={'gamma': True, 'size': (6, 1, 1)})
         atoms.calc = calc
         atoms.get_potential_energy()
         return calc
