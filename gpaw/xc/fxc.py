@@ -233,7 +233,12 @@ class FXCCorrelation:
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
-        if not qpd.kd.gamma:
+        # XXX Gamma-point code is NOT well tested!
+        # Changed from qpd.kd.gamma to qpd.optical_limit cf. #1178.
+        # This if/else was pasted from RPA where bug was also fixed.
+        # We have not added regression test for fxc and the change
+        # causes no test failures.
+        if not qpd.optical_limit:
             e = self.calculate_energy_fxc(qpd, chi0_swGG, gcut)
             self.context.print('%.3f eV' % (e * Ha))
         else:
