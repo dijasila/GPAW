@@ -327,7 +327,9 @@ class FXCCorrelation:
                         fv_sGsG[s1, :, s2, :] *= (
                             G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
-                        if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
+                        # XXX Gamma check changed cf. #1178 without
+                        # further testing.
+                        if np.prod(self.unit_cells) > 1 and qpd.optical_limit:
                             fv_sGsG[s1, 0, s2, :] = 0.0
                             fv_sGsG[s1, :, s2, 0] = 0.0
                             fv_sGsG[s1, 0, s2, 0] = 1.0
@@ -335,7 +337,7 @@ class FXCCorrelation:
         else:
             fv_GG = np.eye(nG)
 
-        if qpd.kd.gamma:
+        if qpd.optical_limit:
             G_G[0] = 1.0
 
         e_w = []
