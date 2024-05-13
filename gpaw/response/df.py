@@ -318,6 +318,25 @@ class DielectricMatrixData(DielectricFunctionData):
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
+def nonperiodic_hypervolume(gs):
+    """Get the hypervolume of the cell along nonperiodic directions.
+
+    Returns the hypervolume Λ in units of Å, where
+
+    Λ = 1        in 3D
+    Λ = L        in 2D, where L is the out-of-plane cell vector length
+    Λ = A        in 1D, where A is the transverse cell area
+    Λ = V        in 0D, where V is the cell volume
+    """
+    cell_cv = gs.gd.cell_cv
+    pbc_c = gs.pbc
+    if pbc_c.all():
+        return 1.
+    else:
+        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+        return V * Bohr**sum(~pbc_c)  # Bohr -> Å
+
+
 class DielectricFunctionCalculator:
     def __init__(self, wd: FrequencyDescriptor,
                  chi0calc: Chi0Calculator, truncation: str | None):
@@ -413,25 +432,12 @@ class DielectricFunctionCalculator:
         alpha0 is the result without local field effects and the
         dimension of alpha is \AA to the power of non-periodic directions
         """
-
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        # gd: GridDescriptor object from gpaw.grid_descriptor
-        cell_cv = self.gs.gd.cell_cv
-
-        # pbc_c: np.ndarray of type bool. Describes periodic directions.
-        pbc_c = self.gs.pbc
-
-        if pbc_c.all():
-            V = 1.0
-        else:
-            V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
-
         if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
             df = self._new_dielectric_function(
                 xc=xc, q_c=q_c, direction=direction, **kwargs)
-            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
+            alpha_w = (df.rf_w - 1.0) / (4 * pi)
+            alpha0_w = (df.rf0_w - 1.0) / (4 * pi)
         else:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
@@ -449,14 +455,14 @@ class DielectricFunctionCalculator:
             epsinv = self.get_inverse_dielectric_function(
                 xc=xc, q_c=q_c, direction=direction, **kwargs)
 
-            alpha_w = -V / (4 * pi) * epsinv.Vchi_symm_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * epsinv.Vchi0_symm_wGG[:, 0, 0]
+            alpha_w = -1 / (4 * pi) * epsinv.Vchi_symm_wGG[:, 0, 0]
+            alpha0_w = -1 / (4 * pi) * epsinv.Vchi0_symm_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
 
         # Convert to external units
-        hypervol = Bohr**sum(~pbc_c)
+        hypervol = nonperiodic_hypervolume(self.gs)
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
