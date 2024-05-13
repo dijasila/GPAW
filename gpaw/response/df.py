@@ -451,10 +451,6 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def collect(self, a_w: np.ndarray) -> np.ndarray:
-        # combines array from sub-processes into one.
-        return self.blocks1d.all_gather(a_w)
-
     def _new_dynamic_susceptibility(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
             *args, **kwargs).dynamic_susceptibility()
