@@ -343,6 +343,7 @@ def sort_orbitals_according_to_energies(
     """
 
     for kpt in wfs.kpt_u:
+        k = wfs.kd.nibzkpts * kpt.s + kpt.q
         if use_eps:
             orbital_energies = kpt.eps_n
         else:
@@ -357,12 +358,23 @@ def sort_orbitals_according_to_energies(
         if x > 0:
             # now sort wfs according to orbital energies
             if hasattr(wfs.eigensolver, 'dm_helper'):
-                wfs.eigensolver.dm_helper.sort_orbitals(wfs, kpt, ind)
+                dm_helper = wfs.eigensolver.dm_helper
+                dm_helper.sort_orbitals(wfs, kpt, ind)
             else:
                 sort_orbitals_kpt(wfs, kpt, ind, update_proj=True)
 
             kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
-            kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+            if use_eps:
+                kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+            else:
+                if dm_helper.func.name == 'PZ-SIC':
+                    # For SIC, we need to sort both the diagonal
+                    # elements of the Lagrangian and the self-interaction
+                    # energies
+                    n_occ, occupied = get_n_occ(kpt)
+                    dm_helper.func.lagr_diag_s[k] = orbital_energies[ind]
+                    dm_helper.func.e_sic_by_orbitals[k] = (
+                        dm_helper.func.e_sic_by_orbitals)[k][ind[occupied]]
 
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
@@ -370,7 +382,6 @@ def sort_orbitals_according_to_energies(
                 # after sorting
                 update_mom_numbers(wfs, kpt)
             if constraints:
-                k = wfs.kd.nibzkpts * kpt.s + kpt.q
                 # Identity if the constrained orbitals have
                 # changed and need to be updated
                 constraints[k] = update_constraints_kpt(

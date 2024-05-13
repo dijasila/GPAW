@@ -732,6 +732,10 @@ class WaveFunctions:
             Self-Har.  Self-XC   Hartree + XC  Scaling
             energy:    energy:   energy:       Factors:"""
                 log(header)
+
+                occupied = f_sn[s] > 1.0e-10
+                f_sn_occ = f_sn[s][occupied]
+                occupied_indices = np.where(occupied)[0]
                 u_s = 0.0
                 xc_s = 0.0
                 for i in range(len(sic_n[s])):
@@ -744,16 +748,16 @@ class WaveFunctions:
                         f = (pot.beta_c, pot.beta_x)
 
                     log('band: %3d ' %
-                        (i), end='')
+                        (occupied_indices[i]), end='')
                     log('%11.6f%11.6f%11.6f %8.3f%7.3f' %
-                        (-Ha * u / (f[0] * f_sn[s][i]),
-                         -Ha * xc / (f[1] * f_sn[s][i]),
-                         -Ha * (u / (f[0] * f_sn[s][i]) +
-                                xc / (f[1] * f_sn[s][i])),
+                        (-Ha * u / (f[0] * f_sn_occ[i]),
+                         -Ha * xc / (f[1] * f_sn_occ[i]),
+                         -Ha * (u / (f[0] * f_sn_occ[i]) +
+                                xc / (f[1] * f_sn_occ[i])),
                          f[0], f[1]), end='')
                     log(flush=True)
-                    u_s += u / (f[0] * f_sn[s][i])
-                    xc_s += xc / (f[1] * f_sn[s][i])
+                    u_s += u / (f[0] * f_sn_occ[i])
+                    xc_s += xc / (f[1] * f_sn_occ[i])
                 log('--------------------------------'
                     '-------------------------')
                 log('Total     ', end='')
