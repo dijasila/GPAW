@@ -617,12 +617,8 @@ class WaveFunctions:
                      "Occupancy"
             log(header)
 
-            lagr_labeled = {}
-            for c, x in enumerate(pot.lagr_diag_s[0]):
-                lagr_labeled[str(round(x, 12))] = c
-            lagr = sorted(pot.lagr_diag_s[0])
-            for x in lagr:
-                i = lagr_labeled[str(round(x, 12))]
+            lagr = pot.lagr_diag_s[0]
+            for i, x in enumerate(lagr):
                 log('%5d  %11.5f  %9.5f' % (
                     i, Ha * x, f_sn[0][i]))
 

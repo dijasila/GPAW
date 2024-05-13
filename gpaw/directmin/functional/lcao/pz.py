@@ -679,7 +679,6 @@ class PZSICLCAO:
             kpt.eps_n[0:n_occ] = eigval
             eigval, eigvec = np.linalg.eigh(fullham[n_occ:nbs, n_occ:nbs])
             kpt.eps_n[n_occ:nbs] = eigval
-            kpt.eps_n = np.sort(kpt.eps_n)
 
         return h_mm, l_odd
 
