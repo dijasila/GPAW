@@ -66,7 +66,7 @@ def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c)\
         if q_v is not None:
             assert qpd.optical_limit
             qG_Gv += q_v
-        if qpd.kd.gamma and q_v is None:
+        if qpd.optical_limit and q_v is None:
             v_G = np.zeros(len(qpd.G2_qG[0]))
             v_G[0] = 4 * np.pi
             v_G[1:] = 4 * np.pi / (qG_Gv[1:]**2).sum(axis=1)
@@ -75,7 +75,7 @@ def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c)\
 
     elif truncation == '2D':
         v_G = calculate_2D_truncated_coulomb(qpd, pbc_c=pbc_c, q_v=q_v)
-        if qpd.kd.gamma and q_v is None:
+        if qpd.optical_limit and q_v is None:
             v_G[0] = 0.0
 
     elif truncation == '0D':
@@ -95,7 +95,7 @@ def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c)\
 def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
     """ Simple 2D truncation of Coulomb kernel PRB 73, 205119.
 
-        Note: q_v is only added to qG_Gv if qpd.kd.gamma is True.
+        Note: q_v is only added to qG_Gv if qpd.optical_limit is True.
 
     """
 
@@ -120,7 +120,7 @@ def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
     qGn_G = qG_Gv[:, Nn_c[0]]
 
     v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
-    if np.allclose(qGn_G[0], 0) or qpd.kd.gamma:
+    if np.allclose(qGn_G[0], 0) or qpd.optical_limit:
         """sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0"""
         v_G *= 1.0 - np.exp(-qGp_G * R) * np.cos(qGn_G * R)
     else:

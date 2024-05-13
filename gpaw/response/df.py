@@ -58,7 +58,7 @@ class Chi0DysonEquation:
             K_GG = np.diag(Ktrunc_G / Kbare_G)
 
         # kd: KPointDescriptor object from gpaw.kpt_descriptor
-        if qpd.kd.gamma:
+        if qpd.optical_limit:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -134,7 +134,7 @@ class Chi0DysonEquation:
         K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
         nG = len(K_G)
 
-        if qpd.kd.gamma:
+        if qpd.optical_limit:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
