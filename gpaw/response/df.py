@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from math import pi
 import sys
 
 import numpy as np
@@ -290,7 +289,8 @@ class InverseDielectricFunction(DielectricFunctionData):
     def polarizability(self, L: float):
         """Get the macroscopic polarizability α_M(q,ω).
 
-        Recasting the polarizability,
+        Recasting the polarizability (where Λ, given as input L, is the
+        nonperiodic hypervolume of the unit cell)
 
         α(q,ω) = Λ/(4π) (ε(q,ω) - 1)
 
@@ -601,7 +601,7 @@ class DielectricFunction(DielectricFunctionCalculator):
     def get_polarizability(self, *args, filename='polarizability.csv',
                            **kwargs):
         """Calculate the macroscopic polarizability.
-        
+
         Generate a file 'polarizability.csv', unless filename is set to None.
 
         Returns:
