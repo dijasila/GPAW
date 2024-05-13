@@ -11,4 +11,5 @@ def workflow():
             run(script='plot_MoS2.py')
         with run(script='get_2d_eps.py', tmax='8h'):
             run(script='plot_2d_eps.py')
+            run(script='test_2d_eps.py')
         run(script='alpha_MoS2.py')
