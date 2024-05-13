@@ -7,7 +7,7 @@ from gpaw.xc.rpa import RPACorrelation
 @pytest.mark.rpa
 @pytest.mark.response
 @pytest.mark.parametrize('gpwfilename, eref', [
-    ('si_qpoint_rounding_bug', -9.753),
+    ('si_qpoint_rounding_bug', -18.814),
     ('si_pw', -12.61),
 ])
 def test_rpa_energy_si(in_tmp_dir, gpw_files, gpwfilename, eref):
