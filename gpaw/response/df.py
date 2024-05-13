@@ -13,7 +13,6 @@ from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context
-from gpaw.response.pair_functions import SingleQPWDescriptor
 
 from typing import TYPE_CHECKING
 
@@ -32,44 +31,77 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
-    def Vchi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
+    @staticmethod
+    def _normalize(direction):
+        if isinstance(direction, str):
+            d_v = {'x': [1, 0, 0],
+                   'y': [0, 1, 0],
+                   'z': [0, 0, 1]}[direction]
+        else:
+            d_v = direction
+        d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+        return d_v
+
+    def get_chi0_wGG(self, direction='x'):
+        chi0 = self.chi0
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        if chi0.qpd.optical_limit:
+            # Project head and wings along the input direction
+            d_v = self._normalize(direction)
+            W_w = self.blocks1d.myslice
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
+        return chi0_wGG
+
+    def rpa_density_response(self, direction='x', qinf_v=None):
+        """Calculate the RPA susceptibility for (semi-)finite q."""
+        qpd = self.chi0.qpd
+        V_G = self.coulomb.V(qpd, q_v=qinf_v)
+        V_GG = np.diag(V_G)
+        nG = len(V_G)
+
+        # Extract χ₀(q,ω)
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        if qpd.optical_limit:
+            # Restore the q-dependence of the head and wings in the q→0 limit
+            assert qinf_v is not None and np.linalg.norm(qinf_v) > 0.
+            d_v = self._normalize(direction)
+            chi0_wGG[:, 1:, 0] *= np.dot(qinf_v, d_v)
+            chi0_wGG[:, 0, 1:] *= np.dot(qinf_v, d_v)
+            chi0_wGG[:, 0, 0] *= np.dot(qinf_v, d_v)**2
+
+        # Invert Dyson equation
+        chi_wGG = np.zeros_like(chi0_wGG)
+        for w, chi0_GG in enumerate(chi0_wGG):
+            xi_GG = chi0_GG @ V_GG
+            enhancement_GG = np.linalg.inv(np.eye(nG) - xi_GG)
+            chi_wGG[w] = enhancement_GG @ chi0_GG
+
+        return qpd, chi_wGG
+
+    def Vchi(self, xc='RPA', direction='x', **xckwargs):
         """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
         """
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        qpd = self.chi0.qpd
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        V_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
+        V_G = coulomb_bare.V(qpd)  # np.ndarray
         sqrtV_G = V_G**0.5
 
         nG = len(sqrtV_G)
 
-        Vtrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
+        Vtrunc_G = self.coulomb.V(qpd)
 
         if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
         else:
             K_GG = np.diag(Vtrunc_G / V_G)
-
-        # kd: KPointDescriptor object from gpaw.kpt_descriptor
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice  # slice object for this process.
-            #  used to distribute the calculation when run in parallel.
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -98,7 +130,7 @@ class Chi0DysonEquation:
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, q_v=None, **xckwargs):
+                          **xckwargs):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -123,32 +155,11 @@ class Chi0DysonEquation:
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        qpd = self.chi0.qpd
 
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
-
-        K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
+        K_G = self.coulomb.sqrtV(qpd)
         nG = len(K_G)
-
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
-            if q_v is not None:
-                print('Restoring q dependence of head and wings of chi0')
-                chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -156,9 +167,6 @@ class Chi0DysonEquation:
                                            functional=xc,
                                            chi0_wGG=chi0_wGG,
                                            **xckwargs)
-
-        if calculate_chi:
-            chi_wGG = []
 
         for chi0_GG in chi0_wGG:
             if xc == 'RPA':
@@ -173,28 +181,9 @@ class Chi0DysonEquation:
                 K_GG = (K_G**2 * np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
 
-            if calculate_chi:
-                K_GG = np.diag(K_G**2)
-                if xc != 'RPA':
-                    K_GG += Kxc_GG
-                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
-                                                    np.dot(chi0_GG, K_GG)),
-                                      chi0_GG))
+            # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = e_GG
-
-        # chi0_wGG is now the dielectric matrix
-        if calculate_chi:
-            if len(chi_wGG):
-                chi_wGG = np.array(chi_wGG)
-            else:
-                chi_wGG = np.zeros((0, nG, nG), complex)
-
-        if not calculate_chi:
-            return DielectricMatrixData(self, chi0_wGG=chi0_wGG)
-        else:
-            # chi_wGG is the full density response function..
-            return DielectricMatrixData(self, qpd=qpd, chi0_wGG=chi0_wGG,
-                                        chi_wGG=chi_wGG)
+        return DielectricMatrixData(self, e_wGG=chi0_wGG)
 
 
 @dataclass
@@ -267,18 +256,14 @@ class InverseDielectricFunction:
 @dataclass
 class DielectricMatrixData:
     dyson: Chi0DysonEquation
-    qpd: SingleQPWDescriptor | None = None
-    chi0_wGG: np.ndarray | None = None
-    chi_wGG: np.ndarray | None = None
+    e_wGG: np.ndarray
 
     def unpack(self):
-        # (This has the (inconsistent) return types of the old API.)
-        if self.qpd is None:
-            return self.chi0_wGG
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+        # Kinda ugly still... XXX
+        return self.dyson.chi0.qpd, self.e_wGG
 
     def dielectric_function(self):
-        e_wGG = self.chi0_wGG  # XXX what's with the names here?
+        e_wGG = self.e_wGG
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
@@ -442,6 +427,10 @@ class DielectricFunctionCalculator:
 
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
+    def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
+        return self.calculate_chi0(q_c).rpa_density_response(
+            direction=direction, qinf_v=qinf_v)
+
 
 class DielectricFunction(DielectricFunctionCalculator):
     """This class defines dielectric function related physical quantities."""
@@ -562,8 +551,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             pol.write(filename)
         return pol.unpack()
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA',
-                                            direction='x', q_v=None):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate the macroscopic dielectric constant.
 
         The macroscopic dielectric constant is defined as the real part of the
@@ -576,7 +564,7 @@ class DielectricFunction(DielectricFunctionCalculator):
         eps: float
             Dielectric constant with local field correction. (RPA, ALDA)
         """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
+        df = self._new_dielectric_function(xc=xc, direction=direction)
         return df.static_limit.real
 
 
