@@ -41,10 +41,10 @@ class CoulombKernel:
         else:
             return f'{self.truncation} Coulomb truncation'
 
-    def sqrtV(self, qpd, q_v):
-        return self.V(qpd, q_v)**0.5
+    def sqrtV(self, qpd, q_v=None):
+        return self.V(qpd, q_v=q_v)**0.5
 
-    def V(self, qpd, q_v):
+    def V(self, qpd, q_v=None):
         assert isinstance(qpd, SingleQPWDescriptor)
         return get_coulomb_kernel(
             qpd, self.N_c, pbc_c=self.pbc_c, q_v=q_v,
