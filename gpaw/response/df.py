@@ -467,19 +467,16 @@ class DielectricFunctionCalculator:
         return self.get_inverse_dielectric_function(
             *args, **kwargs).eels_spectrum()
 
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                            **kwargs):
+    def _new_polarizability(self, *args, **kwargs):
         hypervol = nonperiodic_hypervolume(self.gs)
         if self.coulomb.truncation:
-            # Since eps_M = 1.0 for a truncated Coulomb interaction, use an
+            # Since eps_M = 1.0 for a truncated Coulomb interaction, use
             # alternative definition of the polarizability
             return self.get_inverse_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction,
-                **kwargs).polarizability(L=hypervol)
+                *args, **kwargs).polarizability(L=hypervol)
         else:
             return self.get_dielectric_matrix(
-                xc=xc, q_c=q_c, direction=direction,
-                **kwargs).polarizability(L=hypervol)
+                *args, **kwargs).polarizability(L=hypervol)
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
