@@ -287,6 +287,33 @@ class InverseDielectricFunction(DielectricFunctionData):
         eels_W = -Vchi_W.imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Recasting the polarizability,
+
+        α(q,ω) = Λ/(4π) (ε(q,ω) - 1)
+
+        in terms of Vχ,
+
+        α(q,ω) ε⁻¹(q,ω) = - Λ/(4π) V(q) χ(q,ω).
+
+        If we take the inverse dielectric function on the left-hand side to be
+        defined entirely via a truncated Coulomb interaction,
+                        ˍ
+        ε⁻¹(q,ω) = [1 - V(q) P(q,ω)]⁻¹,
+
+        and take the right-hand side only to include Coulomb truncation at the
+        level of χ(q,ω), we get a finite value for the macroscopic
+        polarizability via the expression
+
+        α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω).
+        """
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        alpha0_W = -L / (4 * np.pi) * Vchi0_W
+        alpha_W = -L / (4 * np.pi) * Vchi_W
+        return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
+
 
 @dataclass
 class DielectricMatrixData(DielectricFunctionData):
@@ -457,36 +484,15 @@ class DielectricFunctionCalculator:
         """
         hypervol = nonperiodic_hypervolume(self.gs)
         if self.coulomb.truncation:
-            # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
-            # not make sense to apply it here. Instead one should define the
-            # polarizability by
-            #
-            #     alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
-            #
-            # where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
-            # potential (relative to the strength of the  external potential).
-            # With the bare Coulomb potential, this expression is equivalent to
-            # the standard one. In a 2D system \chi should be calculated with a
-            # truncated Coulomb potential and eps_M = 1.0
-
-            self.context.print('Using truncated Coulomb interaction')
-            epsinv = self.get_inverse_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction, **kwargs)
-
-            alpha_w = -1 / (4 * pi) * epsinv.Vchi_symm_wGG[:, 0, 0]
-            alpha0_w = -1 / (4 * pi) * epsinv.Vchi0_symm_wGG[:, 0, 0]
-
-            alpha_w = self.collect(alpha_w)
-            alpha0_w = self.collect(alpha0_w)
-
-            # Convert to external units
-            alpha0_w *= hypervol
-            alpha_w *= hypervol
-
-            return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
-        return self.get_dielectric_matrix(
-            xc=xc, q_c=q_c, direction=direction,
-            **kwargs).polarizability(L=hypervol)
+            # Since eps_M = 1.0 for a truncated Coulomb interaction, use an
+            # alternative definition of the polarizability
+            return self.get_inverse_dielectric_function(
+                xc=xc, q_c=q_c, direction=direction,
+                **kwargs).polarizability(L=hypervol)
+        else:
+            return self.get_dielectric_matrix(
+                xc=xc, q_c=q_c, direction=direction,
+                **kwargs).polarizability(L=hypervol)
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
