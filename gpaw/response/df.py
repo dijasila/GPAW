@@ -129,19 +129,14 @@ class Chi0DysonEquation:
         return InverseDielectricFunction(
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
-    def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          **xckwargs):
-        r"""Returns the symmetrized dielectric matrix.
+    def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
+        r"""Returns the dielectric matrix.
 
         ::
 
-            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{1/2}_G',
+            epsilon_GG' = 1 - v_G * P_GG'
 
-        where::
-
-            epsilon_GG' = 1 - v_G * P_GG' and P_GG'
-
-        is the polarization.
+        where P is the polarizability operator.
 
         ::
 
@@ -150,16 +145,13 @@ class Chi0DysonEquation:
 
         in addition to RPA one can use the kernels, ALDA, Bootstrap and
         LRalpha (long-range kerne), where alpha is a user specified parameter
-        (for example xc='LR0.25')
-
-        The head of the inverse symmetrized dielectric matrix is equal
-        to the head of the inverse dielectric matrix (inverse dielectric
-        function)"""
+        (for example xc='LR0.25')."""
         chi0_wGG = self.get_chi0_wGG(direction=direction)
         qpd = self.chi0.qpd
 
-        K_G = self.coulomb.sqrtV(qpd)
-        nG = len(K_G)
+        V_G = self.coulomb.V(qpd)
+        V_GG = np.diag(V_G)
+        nG = len(V_G)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -175,15 +167,10 @@ class Chi0DysonEquation:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                             np.dot(chi0_GG, Kxc_GG)),
                               chi0_GG)
-            if symmetric:
-                e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
-            else:
-                K_GG = (K_G**2 * np.ones([nG, nG])).T
-                e_GG = np.eye(nG) - P_GG * K_GG
-
             # Reuse the chi0_wGG buffer for the output dielectric matrix
-            chi0_GG[:] = e_GG
-        return DielectricMatrixData(self, e_wGG=chi0_wGG)
+            chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
+
+        return DielectricMatrixData(self, eps_wGG=chi0_wGG)
 
 
 @dataclass
@@ -204,6 +191,9 @@ class InverseDielectricFunction:
     ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q),
 
     that is, in terms of V^(1/2)(q) χ(q,ω) V^(1/2)(q).
+
+    Please remark that V(q) here refers to the bare Coulomb potential
+    irregardless of whether χ(q,ω) was determined using a truncated analogue.
     """
     dyson: Chi0DysonEquation
     Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
@@ -255,26 +245,39 @@ class InverseDielectricFunction:
 
 @dataclass
 class DielectricMatrixData:
-    dyson: Chi0DysonEquation
-    e_wGG: np.ndarray
+    """Data class for the dielectric function ε(q,ω).
 
-    def unpack(self):
-        # Kinda ugly still... XXX
-        return self.dyson.chi0.qpd, self.e_wGG
+    The dielectric function is written in terms of the Coulomb potential V and
+    polarizability operator P [Rev. Mod. Phys. 74, 601 (2002)],
+
+    ε(q,ω) = 1 - V(q) P(q,ω),
+
+    and represented in a plane-wave basis.
+
+    Please remark that the Coulomb potential may have been interchanged with
+    its truncated analogue.
+    """
+    dyson: Chi0DysonEquation
+    eps_wGG: np.ndarray
+
+    def __post_init__(self):
+        # Very ugly this... XXX
+        self.qpd = self.dyson.chi0.qpd
+        self.wd = self.dyson.chi0.wd
+        self.wblocks = self.dyson.df.blocks1d
 
     def dielectric_function(self):
-        e_wGG = self.e_wGG
-        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
-        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+        # Ignoring local field effects
+        eps0_W = self.wblocks.all_gather(self.eps_wGG[:, 0, 0])
 
-        for w, e_GG in enumerate(e_wGG):
-            df_NLFC_w[w] = e_GG[0, 0]
-            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+        # Accouting for local field effects
+        eps_w = np.zeros((self.wblocks.nlocal,), complex)
+        for w, eps_GG in enumerate(self.eps_wGG):
+            eps_w[w] = 1 / np.linalg.inv(eps_GG)[0, 0]
+        eps_W = self.wblocks.all_gather(eps_w)
 
-        df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
-        df_LFC_w = self.dyson.df.collect(df_LFC_w)
-
-        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
 class DielectricFunctionCalculator:
@@ -353,12 +356,8 @@ class DielectricFunctionCalculator:
         return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        dm = self._new_dielectric_matrix(*args, **kwargs)
-        return dm.dielectric_function()
-
-    def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        chi0 = self.calculate_chi0(q_c)
-        return chi0.dielectric_matrix(xc=xc, **kwargs)
+        eps = self.get_dielectric_matrix(*args, **kwargs)
+        return eps.dielectric_function()
 
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
@@ -426,6 +425,10 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+    def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
+        return self.calculate_chi0(q_c).dielectric_matrix(
+            direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
         return self.calculate_chi0(q_c).rpa_density_response(
@@ -523,9 +526,6 @@ class DielectricFunction(DielectricFunctionCalculator):
         if filename:
             df.write(filename)
         return df.unpack()
-
-    def get_dielectric_matrix(self, *args, **kwargs):
-        return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
         """Calculate the macroscopic EELS spectrum.
