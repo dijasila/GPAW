@@ -605,13 +605,7 @@ class WaveFunctions:
             u = kpt.s * self.kd.nibzkpts + kpt.q
             f_sn[u] = kpt.f_n
 
-        log("For SIC calculations there are\n"
-            "diagonal elements of Lagrange matrix and "
-            "its eigenvalues.\n"
-            "Eigenvalues are printed above. \n"
-            "Labeling here corresponds "
-            "to how optimal orbitals are sorted "
-            "in array\n")
+        log("Diagonal elements of Lagrange matrix:")
         if self.nspins == 1:
             header = " Band         L_ii  " \
                      "Occupancy"
@@ -687,7 +681,6 @@ class WaveFunctions:
                          Ha * y,
                          f_sn[1][i1]))
 
-        log("\n")
         log(flush=True)
 
         sic_n = pot.e_sic_by_orbitals
@@ -723,7 +716,8 @@ class WaveFunctions:
 
         if self.kd.comm.rank == 0:
             for s in range(self.nspins):
-                log('Spin: %3d ' % (s))
+                if self.nspins == 2:
+                    log('Spin: %3d ' % (s))
                 header = """\
             Self-Har.  Self-XC   Hartree + XC  Scaling
             energy:    energy:   energy:       Factors:"""
