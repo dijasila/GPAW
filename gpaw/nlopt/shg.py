@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Bohr, J, Ha, _hbar, _e, _me, _eps0
+from ase.units import _e, Bohr, Ha, J
 from ase.utils.timing import Timer
 from ase.parallel import parprint
 from gpaw.mpi import world
@@ -323,7 +323,7 @@ def shg_length_gauge(
 
 def make_output(gauge, sum2_l, sum3_l):
     """
-    Make the output in SI unit and return chi
+    Multiply prefactors and return chi in SI units
 
     Input:
         gauge       Chosen gauge
@@ -333,9 +333,8 @@ def make_output(gauge, sum2_l, sum3_l):
         chi_l       Output chi as an array
     """
 
-    prefactor = 1
-    # 4 * pi from vacuum permittivty eps_0
-    prefactor *= 4.0 * np.pi
+    # 4 * pi from vacuum permittivty eps_0 in atomic units
+    prefactor = 4.0 * np.pi
     # Pi factors from BZ volume
     prefactor /= (2.0 * np.pi)**3
     # atomic units [Bohr * elementary charge / Hartee] to SI units [m / V]
