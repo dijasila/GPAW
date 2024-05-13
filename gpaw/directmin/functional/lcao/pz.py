@@ -674,14 +674,11 @@ class PZSICLCAO:
 
         self.lagr_diag_s[k] = np.diagonal(fullham).real
 
-        def updatecan(a, b):
-            eigval, eigvec = np.linalg.eigh(fullham[a:b, a:b])
-            if update_eigenvalues:
-                kpt.eps_n[a:b] = eigval
-
         if update_eigenvalues:
-            updatecan(0, n_occ)
-            updatecan(n_occ, nbs)
+            eigval, eigvec = np.linalg.eigh(fullham[0:n_occ, 0:n_occ])
+            kpt.eps_n[0:n_occ] = eigval
+            eigval, eigvec = np.linalg.eigh(fullham[n_occ:nbs, n_occ:nbs])
+            kpt.eps_n[n_occ:nbs] = eigval
             kpt.eps_n = np.sort(kpt.eps_n)
 
         return h_mm, l_odd
