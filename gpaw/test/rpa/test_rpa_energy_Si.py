@@ -3,6 +3,7 @@ from gpaw.mpi import serial_comm
 from gpaw import GPAW
 from gpaw.xc.rpa import RPACorrelation
 
+
 @pytest.mark.rpa
 @pytest.mark.response
 @pytest.mark.parametrize('gpwfilename, eref', [
