@@ -32,9 +32,8 @@ class Chi0DysonEquation:
         self.coulomb = self.df.coulomb
         self.blocks1d = self.df.blocks1d
 
-    def chi(self, xc='RPA', direction='x', return_VchiV=True, q_v=None,
-            **xckwargs):
-        """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
+    def Vchi(self, xc='RPA', direction='x', q_v=None, **xckwargs):
+        """Returns qpd, chi0 and chi0 in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -45,17 +44,17 @@ class Chi0DysonEquation:
         chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
-        sqrtV_G = Kbare_G**0.5
+        V_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
+        sqrtV_G = V_G**0.5
 
         nG = len(sqrtV_G)
 
-        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
+        Vtrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
 
         if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
         else:
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
+            K_GG = np.diag(Vtrunc_G / V_G)
 
         # kd: KPointDescriptor object from gpaw.kpt_descriptor
         if qpd.optical_limit:
@@ -88,9 +87,6 @@ class Chi0DysonEquation:
             chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                           np.dot(chi0_GG, K_GG)),
                             chi0_GG)
-            if not return_VchiV:
-                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
 
         if len(chi_wGG):
@@ -98,7 +94,8 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return ChiData(self, qpd, chi0_wGG, np.array(chi_wGG))
+        return InverseDielectricFunction(
+            self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
                           calculate_chi=False, q_v=None, **xckwargs):
@@ -201,54 +198,70 @@ class Chi0DysonEquation:
 
 
 @dataclass
-class ChiData:
-    dyson: Chi0DysonEquation
-    qpd: object
-    chi0_wGG: np.ndarray
-    chi_wGG: np.ndarray
+class InverseDielectricFunction:
+    """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
-    def unpack(self):
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+    The inverse dielectric function characterizes the longitudinal response
+
+    V (q,ω) = ε⁻¹(q,ω) V (q,ω),
+     tot                ext
+
+    where the induced potential due to the electronic system is given by Vχ,
+
+    ε⁻¹(q,ω) = 1 + V(q) χ(q,ω).
+
+    In this data class, ε⁻¹ is cast in terms if its symmetrized representation
+    ˷
+    ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q),
+
+    that is, in terms of V^(1/2)(q) χ(q,ω) V^(1/2)(q).
+    """
+    dyson: Chi0DysonEquation
+    Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
+    Vchi_symm_wGG: np.ndarray
+    V_G: np.ndarray
+
+    def __post_init__(self):
+        # Very ugly this... XXX
+        self.qpd = self.dyson.chi0.qpd
+        self.wd = self.dyson.chi0.wd
+        self.wblocks = self.dyson.df.blocks1d
+
+    def _get_macroscopic_component(self, in_wGG):
+        return self.wblocks.all_gather(in_wGG[:, 0, 0])
+
+    def macroscopic_components(self):
+        Vchi0_W = self._get_macroscopic_component(self.Vchi0_symm_wGG)
+        Vchi_W = self._get_macroscopic_component(self.Vchi_symm_wGG)
+        return Vchi0_W, Vchi_W
 
     def dynamic_susceptibility(self):
-        """Calculate the dynamic susceptibility.
-
-        Returns macroscopic(could be generalized?) dynamic susceptibility:
-        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
-        """
-        rf0_w = np.zeros(len(self.chi_wGG), dtype=complex)
-        rf_w = np.zeros(len(self.chi_wGG), dtype=complex)
-
-        for w, (chi0_GG, chi_GG) in enumerate(zip(self.chi0_wGG,
-                                                  self.chi_wGG)):
-            rf0_w[w] = chi0_GG[0, 0]
-            rf_w[w] = chi_GG[0, 0]
-
-        rf0_w = self.dyson.df.collect(rf0_w)
-        rf_w = self.dyson.df.collect(rf_w)
-
-        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
-
-    @property
-    def wd(self):
-        return self.dyson.df.wd
+        """Get the macroscopic component of χ(q,ω)."""
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        V0 = self.V_G[0]  # Macroscopic Coulomb potential (4π/q²)
+        return ScalarResponseFunctionSet(self.wd, Vchi0_W / V0, Vchi_W / V0)
 
     def eels_spectrum(self):
-        r"""The EELS spectrum is obtained from the imaginary part of the
-        density response function as,
+        """Get the macroscopic EELS spectrum.
 
-        EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
-        # Calculate V^1/2 \chi V^1/2
-        Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
-        Vchi_wGG = self.chi_wGG
+        Here, we define the EELS spectrum to be the spectral part of the
+        inverse dielectric function. In the plane-wave representation,
 
-        # Calculate eels = -Im 4 \pi / q^2  \chi
-        eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
-        eels_LFC_w = -Vchi_wGG[:, 0, 0].imag
+        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω),
 
-        eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
-        eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return ScalarResponseFunctionSet(self.wd, eels_NLFC_w, eels_LFC_w)
+        where ε⁻¹(G+q,ω) denotes the G'th diagonal element.
+
+        In addition to the many-body spectrum, we also calculate the
+        macroscopic EELS spectrum in the independent-particle random-phase
+        approximation, that is, using the RPA dielectric function ε = 1 - Vχ₀
+        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)]:
+
+        EELS₀(ω) = -Im 1 / (1 - V(q) χ₀(q,ω)).
+        """
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        eels0_W = -(1. / (1. - Vchi0_W)).imag
+        eels_W = -Vchi_W.imag
+        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
 @dataclass
@@ -348,10 +361,10 @@ class DielectricFunctionCalculator:
         return self.blocks1d.all_gather(a_w)
 
     def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
+        return self.calculate_chi0(q_c).Vchi(xc=xc, **kwargs)
 
     def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
-        chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
+        chi = self._new_chi(xc=xc, **kwargs)
         return chi.dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
@@ -416,8 +429,8 @@ class DielectricFunctionCalculator:
             self.context.print('Using truncated Coulomb interaction')
             chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
 
-            alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
+            alpha_w = -V / (4 * pi) * chi.Vchi_symm_wGG[:, 0, 0]
+            alpha0_w = -V / (4 * pi) * chi.Vchi0_symm_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
@@ -526,16 +539,16 @@ class DielectricFunction(DielectricFunctionCalculator):
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
-        """Calculate the EELS spectrum.
+        """Calculate the macroscopic EELS spectrum.
 
         Generates a file 'eels.csv', unless filename is set to None.
 
         Returns
         -------
         eels0_w: np.ndarray
-            EELS spectrum calculated from chi0.
+            Spectrum in the independent-particle random-phase approximation.
         eels_w: np.ndarray
-            EELS spectrum calculated from chi.
+            Fully screened EELS spectrum.
         """
         eels = self._new_eels_spectrum(*args, **kwargs)
         if filename:
