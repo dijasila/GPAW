@@ -1,6 +1,6 @@
 """This module defines Coulomb and XC kernels for the response model.
 """
-
+import warnings
 import numpy as np
 from ase.dft import monkhorst_pack
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -150,7 +150,8 @@ def get_integrated_kernel(qpd, N_c, truncation=None,
 
     if truncation is None:
         V_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
-        assert len(Np_c) == 3
+        if len(Np_c) < 3:
+            warnings.warn(f"You should be using truncation='{len(Np_c)}D'")
     elif truncation == '2D':
         assert len(Np_c) == 2
 
