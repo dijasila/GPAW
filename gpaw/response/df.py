@@ -317,6 +317,21 @@ class DielectricMatrixData(DielectricFunctionData):
 
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
 
 def nonperiodic_hypervolume(gs):
     """Get the hypervolume of the cell along nonperiodic directions.
@@ -440,13 +455,8 @@ class DielectricFunctionCalculator:
         alpha0 is the result without local field effects and the
         dimension of alpha is \AA to the power of non-periodic directions
         """
-        if not self.coulomb.truncation:
-            """Standard expression for the polarizability"""
-            df = self._new_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction, **kwargs)
-            alpha_w = (df.rf_w - 1.0) / (4 * pi)
-            alpha0_w = (df.rf0_w - 1.0) / (4 * pi)
-        else:
+        hypervol = nonperiodic_hypervolume(self.gs)
+        if self.coulomb.truncation:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
             # polarizability by
@@ -469,12 +479,14 @@ class DielectricFunctionCalculator:
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
 
-        # Convert to external units
-        hypervol = nonperiodic_hypervolume(self.gs)
-        alpha0_w *= hypervol
-        alpha_w *= hypervol
+            # Convert to external units
+            alpha0_w *= hypervol
+            alpha_w *= hypervol
 
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+            return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+        return self.get_dielectric_matrix(
+            xc=xc, q_c=q_c, direction=direction,
+            **kwargs).polarizability(L=hypervol)
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
