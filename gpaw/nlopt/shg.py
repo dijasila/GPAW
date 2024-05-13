@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Bohr, _hbar, _e, _me, _eps0
+from ase.units import Bohr, J, Ha, _hbar, _e, _me, _eps0
 from ase.utils.timing import Timer
 from ase.parallel import parprint
 from gpaw.mpi import world
@@ -50,11 +50,16 @@ def get_shg(
     timer = Timer()
     parprint(f'Calculating SHG spectrum (in {world.size:d} cores).')
 
-    # Useful variables
-    pol_v = ['xyz'.index(ii) for ii in pol]
+    # Convert input eV to Ha
     freqs = np.array(freqs)
     nw = len(freqs)
-    w_lc = freqs + 1e-12 + 1j * eta  # Add small value to avoid 0
+    w_lc = (freqs + 1e-12 + 1j * eta) / Ha  # Add small value to avoid 0
+    Etol /= Ha
+    eshift /= Ha
+
+    # Useful variables
+    pol_v = ['xyz'.index(ii) for ii in pol]
+
     # Use the TRS to reduce calculation time
     w_l = np.hstack((-w_lc[-1::-1], w_lc))
     nw = 2 * nw
@@ -237,7 +242,7 @@ def shg_length_gauge(
         pol_v           Tensor element
         band_n          Band list
         Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        eshift          Bandgap correction
+        eshift          Band gap correction in eV
     Output:
         sum2_l, sum3_l  Output 2 and 3 bands terms
     """
@@ -333,7 +338,9 @@ def make_output(gauge, sum2_l, sum3_l):
         dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
             (_e**5 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
         dim_SI = dim_ee * dim_sum
-        chi_l = dim_SI * (1j * sum2_l + sum3_l)
+        # chi_l = dim_SI * (1j * sum2_l + sum3_l)
+        prefactor = 4.0 * np.pi / ((2.0 * np.pi)**3) * (Bohr * 1e-10 * _e) / (Ha / J)
+        chi_l = prefactor * (1j * sum2_l + sum3_l)
     elif gauge == 'vg':
         # Make the output in SI unit
         dim_vg = _e**3 * _hbar**2 / (_me**3 * (2.0 * np.pi)**3)
