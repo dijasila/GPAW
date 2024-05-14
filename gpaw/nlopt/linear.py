@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Ha, Bohr, _hbar, _e, _me, _eps0
+from ase.units import Ha
 
 from gpaw.mpi import world
 
