@@ -324,7 +324,7 @@ def shg_length_gauge(
 
 def make_output(gauge, sum2_l, sum3_l):
     """
-    Multiply prefactors and return chi in SI units
+    Multiply prefactors and return second-order chi in SI units [m / V]
 
     Input:
         gauge       Chosen gauge
