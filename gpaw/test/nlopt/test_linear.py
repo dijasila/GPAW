@@ -37,11 +37,6 @@ def test_chi_spinpol(mme_files):
 
         assert chi_xx[spinpol] == pytest.approx(chi_values, abs=5e-2)
 
-    # import matplotlib.pyplot as plt
-    # plt.plot(freqs, chi_xx['spinpaired'][1])
-    # plt.plot(freqs, chi_xx['spinpol'][1])
-    # plt.show()
-
     # Assert that the difference between spectra from spinpaired and
     # spinpolarised calculations is small
 
@@ -52,7 +47,5 @@ def test_chi_spinpol(mme_files):
     # Relative error
     assert chi_xx['spinpol'].real == pytest.approx(
         chi_xx['spinpaired'].real, rel=1e-3)
-
-    # Imaginary value should've been removed
     assert chi_xx['spinpol'].imag == pytest.approx(
         chi_xx['spinpaired'].imag, abs=1e-4)
