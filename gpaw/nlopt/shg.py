@@ -50,7 +50,7 @@ def get_shg(
     timer = Timer()
     parprint(f'Calculating SHG spectrum (in {world.size:d} cores).')
 
-    # Convert input eV to Ha
+    # Covert inputs in eV to Ha
     freqs = np.array(freqs)
     nw = len(freqs)
     w_lc = (freqs + 1e-12 + 1j * eta) / Ha  # Add small value to avoid 0
