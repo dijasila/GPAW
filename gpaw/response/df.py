@@ -362,15 +362,10 @@ class DielectricFunctionCalculator:
         self.chi0calc = chi0calc
         self.coulomb = coulomb
 
-        # context: ResponseContext object from gpaw.response.context
+        self.gs = chi0calc.gs
         self.context = chi0calc.context
 
         self._chi0cache: dict = {}
-
-    @property
-    def gs(self):
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        return self.chi0calc.gs
 
     def calculate_chi0(self, q_c: list | np.ndarray):
         """Calculates the response function.
