@@ -135,11 +135,25 @@ class ScreenedPotential:
     qpd_q: list
 
 
-@dataclass
 class SpinorData:
-    e_mk: np.ndarray
-    v0_kmn: np.ndarray
-    v1_kmn: np.ndarray
+    def __init__(self, con_sn, val_sn, e_mk, v0_kmn, v1_kmn):
+        self.con_sn = con_sn
+        self.val_sn = val_sn
+        self.e_mk = e_mk
+        self.v0_kmn = v0_kmn
+        self.v1_kmn = v1_kmn
+
+        self.vi_s = [2 * val_sn[0, 0] - val_sn[0, -1] - 1]
+        self.vf_s = [2 * con_sn[0, -1] - con_sn[0, 0] + 2]
+        if self.vi_s[0] < 0:
+            self.vi_s[0] = 0
+        self.ci_s, self.cf_s = self.vi_s, self.vf_s
+        self.ni, self.nf = self.vi_s[0], self.vf_s[0]
+
+        self.mvi = 2 * val_sn[0, 0]
+        self.mvf = 2 * (val_sn[0, -1] + 1)
+        self.mci = 2 * con_sn[0, 0]
+        self.mcf = 2 * (con_sn[0, -1] + 1)
 
 
 class BSEBackend:
@@ -292,7 +306,8 @@ class BSEBackend:
         e_mk = soc.eigenvalues().T
         v_kmn = soc.eigenvectors()
         e_mk /= Hartree
-        return SpinorData(e_mk, v_kmn[:, :, ::2], v_kmn[:, :, 1::2])
+        return SpinorData(self.con_sn, self.val_sn,
+                          e_mk, v_kmn[:, :, ::2], v_kmn[:, :, 1::2])
 
     @timer('BSE calculate')
     def calculate(self, optical):
