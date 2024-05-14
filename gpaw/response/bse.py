@@ -393,11 +393,6 @@ class BSEBackend:
         get_pair = kptpair_factory.get_kpoint_pair
         get_pair_density = pair_calc.get_pair_density
 
-        mvi = None
-        mvf = None
-        mci = None
-        mcf = None
-
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -411,10 +406,6 @@ class BSEBackend:
             vf_s = spinors.vf_s
             ci_s = spinors.ci_s
             cf_s = spinors.cf_s
-            mvi = spinors.mvi
-            mvf = spinors.mvf
-            mci = spinors.mci
-            mcf = spinors.mcf
         else:
             vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
@@ -520,11 +511,13 @@ class BSEBackend:
 
                             rho3_mmG, iq = self.get_density_matrix(
                                 pair_calc, screened_potential, kptv1, kptv2,
-                                mi=mvi, mf=mvf, spinors=spinors)
+                                mi=spinors.mvi, mf=spinors.mvf,
+                                spinors=spinors)
 
                             rho4_nnG, iq = self.get_density_matrix(
                                 pair_calc, screened_potential, kptc1, kptc2,
-                                mi=mci, mf=mcf, spinors=spinors)
+                                mi=spinors.mci, mf=spinors.mcf,
+                                spinors=spinors)
 
                             self.context.timer.start('Screened exchange')
                             W_mnmn = np.einsum(
