@@ -438,6 +438,7 @@ class BSEBackend:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
                         rho_mnG[:, :, 0] *= deps0_mn
+
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
@@ -510,14 +511,19 @@ class BSEBackend:
                                 s1, ikq, ci_s[s1], cf_s[s1])
 
                             rho3_mmG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptv1, kptv2,
-                                mi=spinors.mvi, mf=spinors.mvf,
-                                spinors=spinors)
+                                pair_calc, screened_potential, kptv1, kptv2)
 
                             rho4_nnG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptc1, kptc2,
-                                mi=spinors.mci, mf=spinors.mcf,
-                                spinors=spinors)
+                                pair_calc, screened_potential, kptc1, kptc2)
+
+                            if spinors is not None:
+                                rho3_mmG = spinors.spinor_rho_mnG(
+                                    rho3_mmG, kptv1.K, kptv2.K,
+                                    spinors.mvi, spinors.mvf)
+
+                                rho4_nnG = spinors.spinor_rho_mnG(
+                                    rho4_nnG, kptc1.K, kptc2.K,
+                                    spinors.mci, spinors.mcf)
 
                             self.context.timer.start('Screened exchange')
                             W_mnmn = np.einsum(
@@ -558,8 +564,7 @@ class BSEBackend:
         return BSEMatrix(rhoG0_S, df_S, H_sS)
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2,
-                           mi=None, mf=None, spinors=None):
+    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -575,9 +580,6 @@ class BSEBackend:
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
                                  pair_calc, timer=self.context.timer)
-
-        if spinors is not None:
-            rho_mnG = spinors.spinor_rho_mnG(rho_mnG, kpt1.K, kpt2.K, mi, mf)
 
         return rho_mnG, iq
 
