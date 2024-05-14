@@ -169,6 +169,20 @@ class SpinorData:
         rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
         return rho_0mnG + rho_1mnG
 
+    def process_rho_somehow(self, rho_mnG, iK, iKq):
+        # Is this the same as spinor_rho_mnG() above but for particular mi/mf?
+        mvi, mvf = self.mvi, self.mvf
+        mci, mcf = self.mci, self.mcf
+        ni, nf = self.ni, self.nf
+
+        vecv0_mn = self.v0_kmn[iK, mvi:mvf, ni:nf]
+        vecc0_mn = self.v0_kmn[iKq, mci:mcf, ni:nf]
+        rho_0mnG = np.dot(vecv0_mn.conj(), np.dot(vecc0_mn, rho_mnG))
+        vecv1_mn = self.v1_kmn[iK, mvi:mvf, ni:nf]
+        vecc1_mn = self.v1_kmn[iKq, mci:mcf, ni:nf]
+        rho_1mnG = np.dot(vecv1_mn.conj(), np.dot(vecc1_mn, rho_mnG))
+        return rho_0mnG + rho_1mnG
+
 
 class BSEBackend:
     def __init__(self, *, gs, context,
@@ -436,15 +450,8 @@ class BSEBackend:
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
-                    vecv0_mn = spinors.v0_kmn[iK, mvi:mvf, ni:nf]
-                    vecc0_mn = spinors.v0_kmn[iKq, mci:mcf, ni:nf]
-                    rho_0mnG = np.dot(vecv0_mn.conj(),
-                                      np.dot(vecc0_mn, rho_mnG))
-                    vecv1_mn = spinors.v1_kmn[iK, mvi:mvf, ni:nf]
-                    vecc1_mn = spinors.v1_kmn[iKq, mci:mcf, ni:nf]
-                    rho_1mnG = np.dot(vecv1_mn.conj(),
-                                      np.dot(vecc1_mn, rho_mnG))
-                    rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
+
+                    rhoex_KsmnG[iK, s] = spinors.process_rho_somehow(rho_mnG, iK, iKq)
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
                 else:
