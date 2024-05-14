@@ -72,7 +72,7 @@ class BuildingBlock:
 
         self.df = df  # dielectric function object
         assert self.df.coulomb.truncation == '2D'
-        self.wd = self.df.wd
+        self.wd = self.df.chi0calc.chi0_body_calc.wd
 
         self.context = self.df.context.with_txt(txt)
 

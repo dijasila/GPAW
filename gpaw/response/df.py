@@ -358,10 +358,8 @@ def nonperiodic_hypervolume(gs):
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, wd: FrequencyDescriptor,
-                 chi0calc: Chi0Calculator, truncation: str | None):
+    def __init__(self, chi0calc: Chi0Calculator, truncation: str | None):
         from gpaw.response.pw_parallelization import Blocks1D
-        self.wd = wd
 
         self.chi0calc = chi0calc
 
@@ -371,7 +369,8 @@ class DielectricFunctionCalculator:
         self.context = chi0calc.context
 
         # context.comm : _Communicator object from gpaw.mpi
-        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
+        self.blocks1d = Blocks1D(self.context.comm,
+                                 len(chi0calc.chi0_body_calc.wd))
 
         self._chi0cache: dict = {}
 
@@ -521,11 +520,11 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+        super().__init__(chi0calc=chi0calc, truncation=truncation)
 
     def get_frequencies(self) -> np.ndarray:
         """ Return frequencies that Chi is evaluated on"""
-        return self.wd.omega_w * Hartree
+        return self.chi0calc.chi0_body_calc.wd.omega_w * Hartree
 
     def get_dynamic_susceptibility(self, *args, xc='ALDA',
                                    filename='chiM_w.csv',
