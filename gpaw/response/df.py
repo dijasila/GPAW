@@ -358,9 +358,9 @@ def nonperiodic_hypervolume(gs):
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc: Chi0Calculator, truncation: str | None):
+    def __init__(self, chi0calc: Chi0Calculator, coulomb: CoulombKernel):
         self.chi0calc = chi0calc
-        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
+        self.coulomb = coulomb
 
         # context: ResponseContext object from gpaw.response.context
         self.context = chi0calc.context
@@ -512,8 +512,9 @@ class DielectricFunction(DielectricFunctionCalculator):
             integrationmode=integrationmode,
             rate=rate, eshift=eshift
         )
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
 
-        super().__init__(chi0calc=chi0calc, truncation=truncation)
+        super().__init__(chi0calc, coulomb)
 
     def get_frequencies(self) -> np.ndarray:
         """ Return frequencies that Chi is evaluated on"""
