@@ -359,7 +359,7 @@ class BSEBackend:
             # (vv, vc, cv, and cc) in this 10x10 basis
             # from which they are then transformed into
             # to SOC basis.
-            
+
             vi_s = [2 * self.val_sn[0, 0] - self.val_sn[0, -1] - 1]
             vf_s = [2 * self.con_sn[0, -1] - self.con_sn[0, 0] + 2]
             if vi_s[0] < 0:
@@ -440,7 +440,8 @@ class BSEBackend:
         self.context.print('Calculating {} matrix elements at q_c = {}'.format(
             self.mode, self.q_c))
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
-        indirect_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
+        indirect_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc),
+                                     complex)
 
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
@@ -457,9 +458,10 @@ class BSEBackend:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
                         self.context.timer.start('Coulomb')
-                        indirect_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
-                            'ijG,mnG->ijmn', rho1ccV_mnG, rho2_mnG,
-                            optimize='optimal')
+                        indirect_ksmnKsmn[
+                            ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
+                                'ijG,mnG->ijmn', rho1ccV_mnG, rho2_mnG,
+                                optimize='optimal')
                         self.context.timer.stop('Coulomb')
 
         H_ksmnKsmn += indirect_ksmnKsmn
@@ -527,7 +529,8 @@ class BSEBackend:
         return BSEMatrix(rhoG0_S, df_S, H_sS)
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2, mi=None, mf=None, spinors=None):
+    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2,
+                           mi=None, mf=None, spinors=None):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
