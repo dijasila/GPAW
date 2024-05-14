@@ -276,29 +276,9 @@ class InverseDielectricFunction(DielectricFunctionData):
         eels_W = -Vchi_W.imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
-    def polarizability(self, L: float):
-        """Get the macroscopic polarizability α_M(q,ω).
-
-        Recasting the polarizability (where Λ, given as input L, is the
-        nonperiodic hypervolume of the unit cell)
-
-        α(q,ω) = Λ/(4π) (ε(q,ω) - 1)
-
-        in terms of Vχ,
-
-        α(q,ω) ε⁻¹(q,ω) = - Λ/(4π) V(q) χ(q,ω).
-
-        If we take the inverse dielectric function on the left-hand side to be
-        defined entirely via a truncated Coulomb interaction,
-                        ˍ
-        ε⁻¹(q,ω) = [1 - V(q) P(q,ω)]⁻¹,
-
-        and take the right-hand side only to include Coulomb truncation at the
-        level of χ(q,ω), we get a finite value for the macroscopic
-        polarizability via the expression
-
-        α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω).
-        """
+    def _suspicious_polarizability(self, L: float):
+        # thosk notes:
+        # This expression might be valid only for RPA in 2D for q == 0...
         Vchi0_W, Vchi_W = self.macroscopic_components()
         alpha0_W = -L / (4 * np.pi) * Vchi0_W
         alpha_W = -L / (4 * np.pi) * Vchi_W
@@ -457,9 +437,10 @@ class DielectricFunctionCalculator:
         hypervol = nonperiodic_hypervolume(self.gs)
         if self.coulomb.truncation:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, use
-            # alternative definition of the polarizability
+            # alternative definition of the polarizability, namely
+            # α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω)
             return self.get_inverse_dielectric_function(
-                *args, **kwargs).polarizability(L=hypervol)
+                *args, **kwargs)._suspicious_polarizability(L=hypervol)
         else:
             return self.get_dielectric_matrix(
                 *args, **kwargs).polarizability(L=hypervol)
