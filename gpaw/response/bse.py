@@ -155,33 +155,25 @@ class SpinorData:
         self.mci = 2 * con_sn[0, 0]
         self.mcf = 2 * (con_sn[0, -1] + 1)
 
-    def spinor_rho_mnG(self, rho_mnG, K1, K2, mi, mf):
-        v0_kmn = self.v0_kmn
-        v1_kmn = self.v1_kmn
-
+    def _process_rho(self, rho_mnG, K1, K2, slice1, slice2):
         ni = self.ni
         nf = self.nf
-        vec0_mn = v0_kmn[K1, mi:mf, ni:nf]
-        vec1_mn = v1_kmn[K1, mi:mf, ni:nf]
-        vec2_mn = v0_kmn[K2, mi:mf, ni:nf]
-        vec3_mn = v1_kmn[K2, mi:mf, ni:nf]
+        vec0_mn = self.v0_kmn[K1, slice1, ni:nf]
+        vec1_mn = self.v1_kmn[K1, slice1, ni:nf]
+        vec2_mn = self.v0_kmn[K2, slice2, ni:nf]
+        vec3_mn = self.v1_kmn[K2, slice2, ni:nf]
         rho_0mnG = np.dot(vec0_mn.conj(), np.dot(vec2_mn, rho_mnG))
         rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
         return rho_0mnG + rho_1mnG
 
-    def process_rho_somehow(self, rho_mnG, iK, iKq):
-        # Is this the same as spinor_rho_mnG() above but for particular mi/mf?
-        mvi, mvf = self.mvi, self.mvf
-        mci, mcf = self.mci, self.mcf
-        ni, nf = self.ni, self.nf
+    def spinor_rho_mnG(self, rho_mnG, K1, K2, mi, mf):
+        myslice = slice(mi, mf)
+        return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
 
-        vecv0_mn = self.v0_kmn[iK, mvi:mvf, ni:nf]
-        vecc0_mn = self.v0_kmn[iKq, mci:mcf, ni:nf]
-        rho_0mnG = np.dot(vecv0_mn.conj(), np.dot(vecc0_mn, rho_mnG))
-        vecv1_mn = self.v1_kmn[iK, mvi:mvf, ni:nf]
-        vecc1_mn = self.v1_kmn[iKq, mci:mcf, ni:nf]
-        rho_1mnG = np.dot(vecv1_mn.conj(), np.dot(vecc1_mn, rho_mnG))
-        return rho_0mnG + rho_1mnG
+    def process_rho_somehow(self, rho_mnG, iK, iKq):
+        return self._process_rho(
+            rho_mnG, iK, iKq, slice(self.mvi, self.mvf),
+            slice(self.mci, self.mcf))
 
     def get_deps(self, iK, iKq):
         epsv_m = self.e_mk[self.mvi:self.mvf, iK]
