@@ -293,7 +293,7 @@ class RPACalculator:
         chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
-        if not chi0.qpd.kd.gamma:
+        if not chi0.qpd.optical_limit:
             e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut)
             self.context.print('%.3f eV' % (e * Hartree))
         else:
