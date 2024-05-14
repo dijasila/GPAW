@@ -23,21 +23,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class DFDescriptors:
-    qpd: SingleQPWDescriptor
-    wd: FrequencyDescriptor
-    wblocks: Blocks1D
-
-    @classmethod
-    def from_chi0(cls, chi0):
-        # Frequecies distributed globally
-        blockdist = chi0.body.blockdist.new_distributor(nblocks='max')
-        wblocks = Blocks1D(blockdist.blockcomm, len(chi0.wd))
-        return cls(chi0.qpd, chi0.wd, wblocks)
-
-
-@dataclass
-class Chi0DysonEquation:
+class Chi0DysonEquations:
     chi0: Chi0Data
     df: 'DielectricFunctionCalculator'
 
@@ -45,7 +31,9 @@ class Chi0DysonEquation:
         self.gs = self.df.gs
         self.context = self.df.context
         self.coulomb = self.df.coulomb
-        self.descriptors = DFDescriptors.from_chi0(self.chi0)
+        # When inverting the Dyson equation, we distribute frequencies globally
+        blockdist = self.chi0.body.blockdist.new_distributor(nblocks='max')
+        self.wblocks = Blocks1D(blockdist.blockcomm, len(self.chi0.wd))
 
     @staticmethod
     def _normalize(direction):
@@ -64,7 +52,7 @@ class Chi0DysonEquation:
         if chi0.qpd.optical_limit:
             # Project head and wings along the input direction
             d_v = self._normalize(direction)
-            W_w = self.descriptors.wblocks.myslice
+            W_w = self.wblocks.myslice
             chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
@@ -142,8 +130,8 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return InverseDielectricFunction(
-            self.descriptors, chi0_wGG, np.array(chi_wGG), V_G)
+        return InverseDielectricFunction.from_chi0_dyson_eqs(
+            self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
         r"""Returns the dielectric matrix.
@@ -186,17 +174,19 @@ class Chi0DysonEquation:
             # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
 
-        return DielectricMatrixData(self.descriptors, eps_wGG=chi0_wGG)
+        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG=chi0_wGG)
 
 
 @dataclass
 class DielectricFunctionData:
-    descriptors: DFDescriptors
+    qpd: SingleQPWDescriptor
+    wd: FrequencyDescriptor
+    wblocks: Blocks1D
 
-    def __post_init__(self):
-        self.qpd = self.descriptors.qpd
-        self.wd = self.descriptors.wd
-        self.wblocks = self.descriptors.wblocks
+    @classmethod
+    def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
+        chi0 = chi0_dyson_eqs.chi0
+        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
 
 
 @dataclass
@@ -350,7 +340,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = Chi0DysonEquation(
+            self._chi0cache[key] = Chi0DysonEquations(
                 self.chi0calc.calculate(q_c), self)
             self.context.write_timer()
 
