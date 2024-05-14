@@ -183,6 +183,11 @@ class SpinorData:
         rho_1mnG = np.dot(vecv1_mn.conj(), np.dot(vecc1_mn, rho_mnG))
         return rho_0mnG + rho_1mnG
 
+    def get_deps(self, iK, iKq):
+        epsv_m = self.e_mk[self.mvi:self.mvf, iK]
+        epsc_n = self.e_mk[self.mci:self.mcf, iKq]
+        return -(epsv_m[:, np.newaxis] - epsc_n)
+
 
 class BSEBackend:
     def __init__(self, *, gs, context,
@@ -410,8 +415,6 @@ class BSEBackend:
             mvf = spinors.mvf
             mci = spinors.mci
             mcf = spinors.mcf
-            ni = spinors.ni
-            nf = spinors.nf
         else:
             vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
@@ -428,9 +431,7 @@ class BSEBackend:
                     deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
                 elif self.spinors:
                     iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
-                    epsv_m = spinors.e_mk[mvi:mvf, iK]
-                    epsc_n = spinors.e_mk[mci:mcf, iKq]
-                    deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
+                    deps_ksmn[ik, s] = spinors.get_deps(iK, iKq)
                 else:
                     deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
 
@@ -451,7 +452,8 @@ class BSEBackend:
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
 
-                    rhoex_KsmnG[iK, s] = spinors.process_rho_somehow(rho_mnG, iK, iKq)
+                    rhoex_KsmnG[iK, s] = spinors.process_rho_somehow(
+                        rho_mnG, iK, iKq)
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
                 else:
