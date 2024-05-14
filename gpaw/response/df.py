@@ -128,7 +128,7 @@ class Chi0DysonEquations:
         # Invert Dyson equation, χ(q,ω) = [1 - χ₀(q,ω) V(q)]⁻¹ χ₀(q,ω)
         V_GG = self.coulomb.kernel(qpd, q_v=qinf_v)
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
-        return qpd, chi_wGG
+        return qpd, chi_wGG, self.wblocks
 
     def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
         """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
@@ -359,18 +359,11 @@ def nonperiodic_hypervolume(gs):
 
 class DielectricFunctionCalculator:
     def __init__(self, chi0calc: Chi0Calculator, truncation: str | None):
-        from gpaw.response.pw_parallelization import Blocks1D
-
         self.chi0calc = chi0calc
-
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
 
         # context: ResponseContext object from gpaw.response.context
         self.context = chi0calc.context
-
-        # context.comm : _Communicator object from gpaw.mpi
-        self.blocks1d = Blocks1D(self.context.comm,
-                                 len(chi0calc.chi0_body_calc.wd))
 
         self._chi0cache: dict = {}
 
