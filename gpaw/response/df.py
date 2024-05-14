@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from math import pi
 import sys
 
 import numpy as np
@@ -277,6 +276,14 @@ class InverseDielectricFunction(DielectricFunctionData):
         eels_W = -Vchi_W.imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
+    def _suspicious_polarizability(self, L: float):
+        # thosk notes:
+        # This expression might be valid only for RPA in 2D for q == 0...
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        alpha0_W = -L / (4 * np.pi) * Vchi0_W
+        alpha_W = -L / (4 * np.pi) * Vchi_W
+        return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
+
 
 @dataclass
 class DielectricMatrixData(DielectricFunctionData):
@@ -306,6 +313,48 @@ class DielectricMatrixData(DielectricFunctionData):
         eps_W = self.wblocks.all_gather(eps_w)
 
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
+
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+
+def nonperiodic_hypervolume(gs):
+    """Get the hypervolume of the cell along nonperiodic directions.
+
+    Returns the hypervolume Λ in units of Å, where
+
+    Λ = 1        in 3D
+    Λ = L        in 2D, where L is the out-of-plane cell vector length
+    Λ = A        in 1D, where A is the transverse cell area
+    Λ = V        in 0D, where V is the cell volume
+    """
+    cell_cv = gs.gd.cell_cv
+    pbc_c = gs.pbc
+    if pbc_c.all():
+        return 1.
+    else:
+        if sum(pbc_c) > 0:
+            # In 1D and 2D, we assume the cartesian representation of the unit
+            # cell to be block diagonal, separating the periodic and
+            # nonperiodic cell vectors in different blocks.
+            assert np.allclose(cell_cv[~pbc_c][:, pbc_c], 0.) and \
+                np.allclose(cell_cv[pbc_c][:, ~pbc_c], 0.), \
+                "In 1D and 2D, please put the periodic/nonperiodic axis " \
+                "along a cartesian component"
+        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+        return V * Bohr**sum(~pbc_c)  # Bohr -> Å
 
 
 class DielectricFunctionCalculator:
@@ -372,10 +421,6 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def collect(self, a_w: np.ndarray) -> np.ndarray:
-        # combines array from sub-processes into one.
-        return self.blocks1d.all_gather(a_w)
-
     def _new_dynamic_susceptibility(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
             *args, **kwargs).dynamic_susceptibility()
@@ -388,69 +433,17 @@ class DielectricFunctionCalculator:
         return self.get_inverse_dielectric_function(
             *args, **kwargs).eels_spectrum()
 
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                            **kwargs):
-        r"""Calculate the polarizability alpha.
-        In 3D the imaginary part of the polarizability is related to the
-        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
-        with reduced dimensionality the converged value of alpha is
-        independent of the cell volume. This is not the case for eps_M,
-        which is ill-defined. A truncated Coulomb kernel will always give
-        eps_M = 1.0, whereas the polarizability maintains its structure.
-
-        By default, generate a file 'polarizability.csv'. The five columns are:
-        frequency (eV), Real(alpha0), Imag(alpha0), Real(alpha), Imag(alpha)
-        alpha0 is the result without local field effects and the
-        dimension of alpha is \AA to the power of non-periodic directions
-        """
-
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        # gd: GridDescriptor object from gpaw.grid_descriptor
-        cell_cv = self.gs.gd.cell_cv
-
-        # pbc_c: np.ndarray of type bool. Describes periodic directions.
-        pbc_c = self.gs.pbc
-
-        if pbc_c.all():
-            V = 1.0
+    def _new_polarizability(self, *args, **kwargs):
+        hypervol = nonperiodic_hypervolume(self.gs)
+        if self.coulomb.truncation:
+            # Since eps_M = 1.0 for a truncated Coulomb interaction, use
+            # alternative definition of the polarizability, namely
+            # α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω)
+            return self.get_inverse_dielectric_function(
+                *args, **kwargs)._suspicious_polarizability(L=hypervol)
         else:
-            V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
-
-        if not self.coulomb.truncation:
-            """Standard expression for the polarizability"""
-            df = self._new_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction, **kwargs)
-            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
-        else:
-            # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
-            # not make sense to apply it here. Instead one should define the
-            # polarizability by
-            #
-            #     alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
-            #
-            # where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
-            # potential (relative to the strength of the  external potential).
-            # With the bare Coulomb potential, this expression is equivalent to
-            # the standard one. In a 2D system \chi should be calculated with a
-            # truncated Coulomb potential and eps_M = 1.0
-
-            self.context.print('Using truncated Coulomb interaction')
-            epsinv = self.get_inverse_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction, **kwargs)
-
-            alpha_w = -V / (4 * pi) * epsinv.Vchi_symm_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * epsinv.Vchi0_symm_wGG[:, 0, 0]
-
-            alpha_w = self.collect(alpha_w)
-            alpha0_w = self.collect(alpha0_w)
-
-        # Convert to external units
-        hypervol = Bohr**sum(~pbc_c)
-        alpha0_w *= hypervol
-        alpha_w *= hypervol
-
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+            return self.get_dielectric_matrix(
+                *args, **kwargs).polarizability(L=hypervol)
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
@@ -578,6 +571,17 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def get_polarizability(self, *args, filename='polarizability.csv',
                            **kwargs):
+        """Calculate the macroscopic polarizability.
+
+        Generate a file 'polarizability.csv', unless filename is set to None.
+
+        Returns:
+        --------
+        alpha0_w: np.ndarray
+            Polarizability calculated without local-field corrections
+        alpha_w: np.ndarray
+            Polarizability calculated with local-field corrections.
+        """
         pol = self._new_polarizability(*args, **kwargs)
         if filename:
             pol.write(filename)
