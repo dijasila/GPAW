@@ -155,6 +155,20 @@ class SpinorData:
         self.mci = 2 * con_sn[0, 0]
         self.mcf = 2 * (con_sn[0, -1] + 1)
 
+    def spinor_rho_mnG(self, rho_mnG, K1, K2, mi, mf):
+        v0_kmn = self.v0_kmn
+        v1_kmn = self.v1_kmn
+
+        ni = self.ni
+        nf = self.nf
+        vec0_mn = v0_kmn[K1, mi:mf, ni:nf]
+        vec1_mn = v1_kmn[K1, mi:mf, ni:nf]
+        vec2_mn = v0_kmn[K2, mi:mf, ni:nf]
+        vec3_mn = v1_kmn[K2, mi:mf, ni:nf]
+        rho_0mnG = np.dot(vec0_mn.conj(), np.dot(vec2_mn, rho_mnG))
+        rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
+        return rho_0mnG + rho_1mnG
+
 
 class BSEBackend:
     def __init__(self, *, gs, context,
@@ -560,21 +574,8 @@ class BSEBackend:
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
                                  pair_calc, timer=self.context.timer)
 
-        if self.spinors:
-            ni, nf = spinors.ni, spinors.nf
-            v0_kmn = spinors.v0_kmn
-            v1_kmn = spinors.v1_kmn
-
-            # len(ni:nf) == 16, len(mvi:mvf) == 8
-            vec0_mn = v0_kmn[kpt1.K, mi:mf, ni:nf]
-            vec1_mn = v1_kmn[kpt1.K, mi:mf, ni:nf]
-            vec2_mn = v0_kmn[kpt2.K, mi:mf, ni:nf]
-            vec3_mn = v1_kmn[kpt2.K, mi:mf, ni:nf]
-            rho_0mnG = np.dot(vec0_mn.conj(),
-                              np.dot(vec2_mn, rho_mnG))
-            rho_1mnG = np.dot(vec1_mn.conj(),
-                              np.dot(vec3_mn, rho_mnG))
-            rho_mnG = rho_0mnG + rho_1mnG
+        if spinors is not None:
+            rho_mnG = spinors.spinor_rho_mnG(rho_mnG, kpt1.K, kpt2.K, mi, mf)
 
         return rho_mnG, iq
 
