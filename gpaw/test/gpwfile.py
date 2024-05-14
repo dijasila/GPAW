@@ -247,6 +247,20 @@ class GPWFiles(CachedFilesHandler):
         return h.calc
 
     @gpwfile
+    def h_shift(self):
+        # Check for Hydrogen atom
+        atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
+
+        # Do a GS and save it
+        calc = GPAW(
+            mode=PW(600), symmetry={'point_group': False},
+            kpts={'size': (2, 2, 2)}, nbands=5, txt=None)
+        atoms.calc = calc
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    @gpwfile
     def h2_chain(self):
         a = 2.5
         k = 4
@@ -363,6 +377,26 @@ class GPWFiles(CachedFilesHandler):
                     kpts=kpts,
                     txt=self.folder / 'Cu3Au_qna.txt')
         atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def co_mom(self):
+        atoms = molecule('CO')
+        atoms.center(vacuum=2)
+
+        calc = GPAW(mode='lcao',
+                    basis='dzp',
+                    nbands=7,
+                    h=0.24,
+                    xc='PBE',
+                    spinpol=True,
+                    symmetry='off',
+                    convergence={'energy': 100,
+                                 'density': 1e-3})
+
+        atoms.calc = calc
+        # Ground-state calculation
         atoms.get_potential_energy()
         return atoms.calc
 
@@ -504,6 +538,23 @@ class GPWFiles(CachedFilesHandler):
         si.calc = calc
         si.get_potential_energy()
         return si.calc
+
+    @gpwfile
+    def si_qpoint_rounding_bug(self):
+        # Test system for guarding against inconsistent kpoints as in #1178.
+        from ase.calculators.calculator import kpts2kpts
+        atoms = bulk('Si')
+        kpts = kpts2kpts(kpts={'gamma': True, 'size': (6, 1, 1)}, atoms=atoms)
+
+        # Error happened when qpoint was ~1e-17 yet was not considered gamma.
+        # Add a bit of noise on purpose so we are sure to hit such a case,
+        # even if the underlying implementation changes:
+        kpts.kpts += np.linspace(1e-16, 1e-15, 18).reshape(6, 3)
+
+        calc = GPAW(mode=PW(340), kpts=kpts)
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
 
     @property
     def testing_setup_path(self):

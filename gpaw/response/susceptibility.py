@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from ase.units import Hartree
@@ -242,17 +244,15 @@ class EigendecomposedSpectrum:
 
     @classmethod
     def from_file(cls, filename):
-        """Construct the eigendecomposed spectrum from a .pckl file."""
-        import pickle
-        assert isinstance(filename, str) and filename[-5:] == '.pckl'
-        with open(filename, 'rb') as fd:
-            omega_w, G_Gc, s_we, v_wGe, A_w = pickle.load(fd)
-        return cls(omega_w, G_Gc, s_we, v_wGe, A_w=A_w)
+        """Construct the eigendecomposed spectrum from a .npz file."""
+        assert Path(filename).suffix == '.npz', filename
+        npz = np.load(filename)
+        return cls(npz['omega_w'], npz['G_Gc'],
+                   npz['s_we'], npz['v_wGe'], A_w=npz['A_w'])
 
     def write(self, filename):
-        """Write the eigendecomposed spectrum as a .pckl file."""
-        import pickle
-        assert isinstance(filename, str) and filename[-5:] == '.pckl'
+        """Write the eigendecomposed spectrum as a .npz file."""
+        assert Path(filename).suffix == '.npz', filename
 
         # Gather data from the different blocks of frequencies to root
         s_we = self.wblocks.gather(self.s_we)
@@ -261,8 +261,8 @@ class EigendecomposedSpectrum:
 
         # Let root write the spectrum to a pickle file
         if self.wblocks.blockcomm.rank == 0:
-            with open(filename, 'wb') as fd:
-                pickle.dump((self.omega_w, self.G_Gc, s_we, v_wGe, A_w), fd)
+            np.savez(filename, omega_w=self.omega_w, G_Gc=self.G_Gc,
+                     s_we=s_we, v_wGe=v_wGe, A_w=A_w)
 
     @property
     def nG(self):

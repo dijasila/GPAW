@@ -8,9 +8,10 @@ import pytest
 from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
-from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.frequencies import (ComplexFrequencyDescriptor,
+                                       FrequencyDescriptor)
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.pair_functions import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 from gpaw.test.gpwfile import response_band_cutoff
@@ -282,7 +283,8 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs])
     nbands = response_band_cutoff[wfs]
 
-    # Set up complex frequency descriptor
+    # Set up frequency descriptors
+    wd = FrequencyDescriptor.from_array_or_dict(frequencies)
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
     # Calculate chiks
@@ -292,10 +294,9 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     chiks_calc.context.write_timer()
 
     # Part 2: chi0 calculation
-    chi0_calc = Chi0(gpw_files[wfs],
-                     frequencies=frequencies, eta=eta,
-                     ecut=ecut, nbands=nbands,
-                     hilbert=False, intraband=False)
+    chi0_calc = Chi0Calculator(gs, wd=wd, eta=eta,
+                               ecut=ecut, nbands=nbands,
+                               hilbert=False, intraband=False)
     chi0 = chi0_calc.calculate(q_c)
     chi0_wGG = chi0.body.get_distributed_frequencies_array()
     chi0_calc.context.write_timer()

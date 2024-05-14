@@ -157,7 +157,7 @@ class BSEBackend:
         self.spinors = spinors
         self.scale = scale
 
-        assert mode in ['RPA', 'TDHF', 'BSE']
+        assert mode in ['RPA', 'BSE']
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -313,16 +313,10 @@ class BSEBackend:
             context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
         pair_calc = kptpair_factory.pair_calculator()
+        pawcorr = self.gs.pair_density_paw_corrections(qpd0)
 
-        # Calculate direct (screened) interaction and PAW corrections
-        if self.mode == 'RPA':
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            pawcorr = pairden_paw_corr(qpd0)
-        else:
+        if self.mode != 'RPA':
             screened_potential = self.calculate_screened_potential()
-
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            pawcorr = pairden_paw_corr(qpd0)
 
         # Calculate pair densities, eigenvalues and occupations
         self.context.timer.start('Pair densities')
@@ -331,7 +325,6 @@ class BSEBackend:
         Nc = self.Nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
-        # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
         df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
         deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
 
@@ -446,7 +439,6 @@ class BSEBackend:
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
                 # rhoex_KsnmG
 
-                # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
                 rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
@@ -469,7 +461,7 @@ class BSEBackend:
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
-                        if not self.mode == 'RPA' and s1 == s2:
+                        if self.mode != 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
                             kptv2 = kptpair_factory.get_k_point(
                                 s1, iK2, vi_s[s1], vf_s[s1])
@@ -500,9 +492,6 @@ class BSEBackend:
                     % ((iK1 + 1) * Nv * Nc * Ns * world.size, timedelta(
                         seconds=round(dt)), timedelta(seconds=round(tleft))))
 
-        # if self.mode == 'BSE':
-        #     del self.Q_qaGii, self.W_qGG, self.qpd_q
-
         H_ksmnKsmn /= self.gs.volume
         self.context.timer.stop('Calculate Hamiltonian')
 
@@ -510,9 +499,6 @@ class BSEBackend:
         if myKsize > 0:
             iS0 = myKrange[0] * Nv * Nc * Ns
 
-        # XXX mutable stuff here:
-
-        # world.sum(rhoG0_Ksmn)
         df_S = np.reshape(df_Ksmn, -1)
         # multiply by 2 when spin-paired and no SOC
         df_S *= 2.0 / nK / Ns / so
