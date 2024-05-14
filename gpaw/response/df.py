@@ -100,9 +100,11 @@ class Chi0DysonEquations:
     def invert_dyson_like_equation(in_wGG, K_GG, reuse_buffer=True):
         """Generalized Dyson equation invertion.
 
+        Calculates
+
         B(q,ω) = [1 - A(q,ω) K(q)]⁻¹ A(q,ω)
 
-        while storing the output B(q,ω) in the input A(q,ω) buffer.
+        while possibly storing the output B(q,ω) in the input A(q,ω) buffer.
         """
         if reuse_buffer:
             out_wGG = in_wGG
