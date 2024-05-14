@@ -273,7 +273,7 @@ class ResponseGroundStateAdapter:
         # Does the number of filled bands equal the number of non-empty bands?
         return self.nocc1 != self.nocc2
 
-    @property
+    @cached_property
     def ibzq_qc(self):
         # For G0W0Kernel
         kd = self.kd
