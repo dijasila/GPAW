@@ -135,6 +135,7 @@ class FFTPlans:
         raise NotImplementedError
 
     def ifft_sphere(self, coef_G, pw, out_R):
+        assert (out_R.desc.size_c > 3).all(), out_R
         if coef_G is None:
             out_R.scatter_from(None)
             return
