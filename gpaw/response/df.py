@@ -8,6 +8,7 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
@@ -18,10 +19,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gpaw.response.frequencies import FrequencyDescriptor
+    from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 @dataclass
-class Chi0DysonEquation:
+class Chi0DysonEquations:
     chi0: Chi0Data
     df: 'DielectricFunctionCalculator'
 
@@ -29,7 +31,9 @@ class Chi0DysonEquation:
         self.gs = self.df.gs
         self.context = self.df.context
         self.coulomb = self.df.coulomb
-        self.blocks1d = self.df.blocks1d
+        # When inverting the Dyson equation, we distribute frequencies globally
+        blockdist = self.chi0.body.blockdist.new_distributor(nblocks='max')
+        self.wblocks = Blocks1D(blockdist.blockcomm, len(self.chi0.wd))
 
     @staticmethod
     def _normalize(direction):
@@ -48,7 +52,7 @@ class Chi0DysonEquation:
         if chi0.qpd.optical_limit:
             # Project head and wings along the input direction
             d_v = self._normalize(direction)
-            W_w = self.blocks1d.myslice
+            W_w = self.wblocks.myslice
             chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
@@ -126,7 +130,7 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return InverseDielectricFunction(
+        return InverseDielectricFunction.from_chi0_dyson_eqs(
             self, chi0_wGG, np.array(chi_wGG), V_G)
 
     def dielectric_matrix(self, xc='RPA', direction='x', **xckwargs):
@@ -170,11 +174,23 @@ class Chi0DysonEquation:
             # Reuse the chi0_wGG buffer for the output dielectric matrix
             chi0_GG[:] = np.eye(nG) - V_GG @ P_GG
 
-        return DielectricMatrixData(self, eps_wGG=chi0_wGG)
+        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG=chi0_wGG)
 
 
 @dataclass
-class InverseDielectricFunction:
+class DielectricFunctionData:
+    qpd: SingleQPWDescriptor
+    wd: FrequencyDescriptor
+    wblocks: Blocks1D
+
+    @classmethod
+    def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
+        chi0 = chi0_dyson_eqs.chi0
+        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
+
+
+@dataclass
+class InverseDielectricFunction(DielectricFunctionData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -195,16 +211,9 @@ class InverseDielectricFunction:
     Please remark that V(q) here refers to the bare Coulomb potential
     irregardless of whether χ(q,ω) was determined using a truncated analogue.
     """
-    dyson: Chi0DysonEquation
     Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
     Vchi_symm_wGG: np.ndarray
     V_G: np.ndarray
-
-    def __post_init__(self):
-        # Very ugly this... XXX
-        self.qpd = self.dyson.chi0.qpd
-        self.wd = self.dyson.chi0.wd
-        self.wblocks = self.dyson.df.blocks1d
 
     def _get_macroscopic_component(self, in_wGG):
         return self.wblocks.all_gather(in_wGG[:, 0, 0])
@@ -244,7 +253,7 @@ class InverseDielectricFunction:
 
 
 @dataclass
-class DielectricMatrixData:
+class DielectricMatrixData(DielectricFunctionData):
     """Data class for the dielectric function ε(q,ω).
 
     The dielectric function is written in terms of the Coulomb potential V and
@@ -257,14 +266,7 @@ class DielectricMatrixData:
     Please remark that the Coulomb potential may have been interchanged with
     its truncated analogue.
     """
-    dyson: Chi0DysonEquation
     eps_wGG: np.ndarray
-
-    def __post_init__(self):
-        # Very ugly this... XXX
-        self.qpd = self.dyson.chi0.qpd
-        self.wd = self.dyson.chi0.wd
-        self.wblocks = self.dyson.df.blocks1d
 
     def dielectric_function(self):
         """Get the macroscopic dielectric function ε_M(q,ω)."""
@@ -338,7 +340,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = Chi0DysonEquation(
+            self._chi0cache[key] = Chi0DysonEquations(
                 self.chi0calc.calculate(q_c), self)
             self.context.write_timer()
 
