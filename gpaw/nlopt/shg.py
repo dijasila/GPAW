@@ -1,9 +1,10 @@
 import numpy as np
+from ase.parallel import parprint
 from ase.units import _e, Bohr, Ha, J
 from ase.utils.timing import Timer
-from ase.parallel import parprint
+
 from gpaw.mpi import world
-from gpaw.nlopt.matrixel import get_rml, get_derivative
+from gpaw.nlopt.matrixel import get_derivative, get_rml
 from gpaw.utilities.progressbar import ProgressBar
 
 
