@@ -374,18 +374,16 @@ class BSEBackend:
             # (vv, vc, cv, and cc) in this 10x10 basis
             # from which they are then transformed into
             # to SOC basis.
-
-            vi_s = [2 * self.val_sn[0, 0] - self.val_sn[0, -1] - 1]
-            vf_s = [2 * self.con_sn[0, -1] - self.con_sn[0, 0] + 2]
-            if vi_s[0] < 0:
-                vi_s[0] = 0
-            ci_s, cf_s = vi_s, vf_s
-            ni, nf = vi_s[0], vf_s[0]
-            self.ni, self.nf = ni, nf
-            mvi = 2 * self.val_sn[0, 0]
-            mvf = 2 * (self.val_sn[0, -1] + 1)
-            mci = 2 * self.con_sn[0, 0]
-            mcf = 2 * (self.con_sn[0, -1] + 1)
+            vi_s = spinors.vi_s
+            vf_s = spinors.vf_s
+            ci_s = spinors.ci_s
+            cf_s = spinors.cf_s
+            mvi = spinors.mvi
+            mvf = spinors.mvf
+            mci = spinors.mci
+            mcf = spinors.mcf
+            ni = spinors.ni
+            nf = spinors.nf
         else:
             vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
@@ -563,7 +561,7 @@ class BSEBackend:
                                  pair_calc, timer=self.context.timer)
 
         if self.spinors:
-            ni, nf = self.ni, self.nf
+            ni, nf = spinors.ni, spinors.nf
             v0_kmn = spinors.v0_kmn
             v1_kmn = spinors.v1_kmn
 
