@@ -75,10 +75,10 @@ class Chi0DysonEquations:
         K(q) = V^(-1/2)(q) K_Hxc(q) V^(-1/2)(q),
 
         where V(q) is the bare Coulomb potential and
-                   ˍ
-        K_Hxc(q) = V(q) + K_xc(q),
-                                 ˍ
-        where the Hartree kernel V(q) might be truncated.
+
+        K_Hxc(q) = K_H(q) + K_xc(q),
+
+        where the Hartree kernel itself might be truncated.
         """
         qpd = self.chi0.qpd
         if self.coulomb.truncation is None:
@@ -185,6 +185,39 @@ class Chi0DysonEquations:
         P_wGG = self.polarizability_operator(*args, **kwargs)
         eps_wGG = self._calculate_dielectric_function(V_GG, P_wGG)
         return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+
+    def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
+        """Calculate ε(q,ω) using modified response functions.
+
+        When using a modified Coulomb potential
+
+        ˍ      ( 0       for G = 0
+        V(q) = <
+               ( V(q)    for G > 0
+
+        one can introduce the local-field corrected dielectric function
+        ˍ                 ˍ
+        ϵ(q,ω) = 1 - V(q) P(q,ω)
+
+        defined so as to yield the correct macroscopic dielectric function
+        ε_M(q,ω) for G=G'=0, including all local-field effects according to the
+        unmodified Coulomb potential V(q) [Rev. Mod. Phys. 74, 601 (2002)].
+                                             ˍ
+        The modified polarizability operator P(q,ω) is itself given by the
+        Dyson-like equation
+        ˍ                        ˍ    ˍ
+        P(q,ω) = P(q,ω) + P(q,ω) V(q) P(q,ω).                        (3)
+
+        In the special of RPA, where P(q,ω) = χ₀(q,ω), one may notice that the
+        Dyson-like equation (3) is exactly identical to the TDDFT Dyson
+        equation (1) when replacing the Hartree kernel with the modified
+        Coulomb interaction:
+                  ˍ
+        K_H(q) -> V(q).
+                     ˍ
+        To calculate ϵ(q,ω), we may therefore reuse that functionality.
+        """
+        assert xc == 'RPA'
 
     @staticmethod
     def _calculate_dielectric_function(V_GG, P_wGG):
@@ -341,6 +374,14 @@ class DielectricMatrixData(DielectricFunctionData):
         alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
         alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+
+class ModifiedDielectricFunction(DielectricMatrixData):
+    """
+               ˍ
+    ε_M(q,ω) = ϵ (q,ω)
+                00
+    """
 
 
 def nonperiodic_hypervolume(gs):
