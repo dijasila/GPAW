@@ -364,7 +364,6 @@ class BSEBackend:
                 else:
                     deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
 
-                df_mn = pair.get_occupation_differences()
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
@@ -377,6 +376,13 @@ class BSEBackend:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
                         rho_mnG[:, :, 0] *= deps0_mn
+
+                    # This recreates the old behaviour of
+                    # get_occupation_differences(self.val_sn[s],self.con_sn[s])
+                    df_mn = (pair.kpt1.f_n[self.val_sn[s] -
+                                           pair.kpt1.n1][:, np.newaxis] -
+                             pair.kpt2.f_n[self.con_sn[s] - pair.kpt2.n1])
+
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
