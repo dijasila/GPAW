@@ -239,6 +239,13 @@ class Chi0DysonEquations:
         if xc == 'RPA':
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
+        # WARNING: The TDDFT implementation seems to be invalid in the optical
+        # limit... Namely, the Coulomb interaction V(q) is only well-defined
+        # in products of V(q) χ₀(q,ω) or V^(1/2)(q) χ₀(q,ω) V^(1/2)(q), why a
+        # literal evaluation of V(q) P(q,ω) does not seem sensible.
+        # Furthermore, one should use the χ₀ body when calculating P(q,ω) and
+        # not usual version with head and wings which are only well defined up
+        # to factors of V(q).
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
