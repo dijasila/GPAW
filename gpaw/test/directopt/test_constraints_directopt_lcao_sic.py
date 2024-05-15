@@ -40,7 +40,7 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir, needs_ase_master):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    test_restart = False
+    test_restart = True
     if test_restart:
         from gpaw import restart
         calc.write('h2o.gpw', mode='all')
