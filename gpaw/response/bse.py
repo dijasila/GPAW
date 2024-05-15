@@ -137,8 +137,6 @@ class ScreenedPotential:
 
 class SpinorData:
     def __init__(self, con_sn, val_sn, e_mk, v0_kmn, v1_kmn):
-        self.con_sn = con_sn
-        self.val_sn = val_sn
         self.e_mk = e_mk
         self.v0_kmn = v0_kmn
         self.v1_kmn = v1_kmn
