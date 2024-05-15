@@ -183,7 +183,10 @@ class Chi0DysonEquations:
         """Calculate ε(q,ω) = 1 - V(q) P(q,ω) literally."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
         P_wGG = self.polarizability_operator(*args, **kwargs)
-        eps_wGG = self._calculate_dielectric_function(V_GG, P_wGG)
+        nG = len(V_GG)
+        eps_wGG = P_wGG  # reuse buffer
+        for w, P_GG in enumerate(P_wGG):
+            eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
         return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
 
     def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
@@ -218,14 +221,6 @@ class Chi0DysonEquations:
         To calculate ϵ(q,ω), we may therefore reuse that functionality.
         """
         assert xc == 'RPA'
-
-    @staticmethod
-    def _calculate_dielectric_function(V_GG, P_wGG):
-        nG = len(V_GG)
-        eps_wGG = P_wGG  # reuse buffer
-        for w, P_GG in enumerate(P_wGG):
-            eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
-        return eps_wGG
 
     def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
         """Calculate the polarizability operator P(q,ω).
