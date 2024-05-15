@@ -172,14 +172,27 @@ class Chi0DysonEquations:
             self, Vchi0_symm_wGG, Vchi_symm_wGG, V_G)
 
     def dielectric_matrix(self, *args, **kwargs):
-        """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
+        """Construct the dielectric function ε(q,ω)."""
+        V_G = self.coulomb.V(self.chi0.qpd)
+        if abs(V_G[0]) > 1e-8:
+            return self._dielectric_function(*args, **kwargs)
+        else:
+            return self._modified_dielectric_function(*args, **kwargs)
+
+    def _dielectric_function(self, *args, **kwargs):
+        """Calculate ε(q,ω) = 1 - V(q) P(q,ω) literally."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
         P_wGG = self.polarizability_operator(*args, **kwargs)
+        eps_wGG = self._calculate_dielectric_function(V_GG, P_wGG)
+        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+
+    @staticmethod
+    def _calculate_dielectric_function(V_GG, P_wGG):
         nG = len(V_GG)
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
-        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+        return eps_wGG
 
     def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
         """Calculate the polarizability operator P(q,ω).
