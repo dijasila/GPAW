@@ -1,4 +1,5 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import sys
 
@@ -256,7 +257,7 @@ class Chi0DysonEquations:
 
 
 @dataclass
-class DielectricFunctionData:
+class DielectricFunctionRelatedData:
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
@@ -268,7 +269,7 @@ class DielectricFunctionData:
 
 
 @dataclass
-class InverseDielectricFunction(DielectricFunctionData):
+class InverseDielectricFunction(DielectricFunctionRelatedData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -338,8 +339,31 @@ class InverseDielectricFunction(DielectricFunctionData):
         return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
 
 
+class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
+    """Base class for the dielectric function ε(q,ω)."""
+
+    @abstractmethod
+    def dielectric_function(self) -> ScalarResponseFunctionSet:
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+
 @dataclass
-class DielectricMatrixData(DielectricFunctionData):
+class DielectricMatrixData(DielectricFunctionBase):
     """Data class for the dielectric function ε(q,ω).
 
     The dielectric function is written in terms of the Coulomb potential V and
@@ -366,21 +390,6 @@ class DielectricMatrixData(DielectricFunctionData):
         eps_W = self.wblocks.all_gather(eps_w)
 
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
-
-    def polarizability(self, L: float):
-        """Get the macroscopic polarizability α_M(q,ω).
-
-        Calculates the macroscopic polarizability
-
-        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
-
-        where Λ (given as input L) is the nonperiodic hypervolume of the unit
-        cell.
-        """
-        df = self.dielectric_function()
-        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
-        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
 class ModifiedDielectricFunction(DielectricMatrixData):
