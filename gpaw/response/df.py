@@ -130,8 +130,13 @@ class Chi0DysonEquations:
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
         return qpd, chi_wGG, self.wblocks
 
-    def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
-        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
+    def inverse_dielectric_function(self, *args, **kwargs):
+        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed."""
+        return InverseDielectricFunction.from_chi0_dyson_eqs(
+            self, *self.calculate_Vchi_symm(*args, **kwargs))
+
+    def calculate_Vchi_symm(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate V^(1/2) χ V^(1/2).
 
         Starting from the TDDFT Dyson equation
 
@@ -168,8 +173,7 @@ class Chi0DysonEquations:
         # Invert Dyson equation
         Vchi_symm_wGG = self.invert_dyson_like_equation(
             Vchi0_symm_wGG, K_GG, reuse_buffer=False)
-        return InverseDielectricFunction.from_chi0_dyson_eqs(
-            self, Vchi0_symm_wGG, Vchi_symm_wGG, V_G)
+        return Vchi0_symm_wGG, Vchi_symm_wGG, V_G
 
     def dielectric_matrix(self, *args, **kwargs):
         """Construct the dielectric function ε(q,ω)."""
@@ -217,8 +221,10 @@ class Chi0DysonEquations:
         Coulomb interaction:
                   ˍ
         K_H(q) -> V(q).
-                     ˍ
-        To calculate ϵ(q,ω), we may therefore reuse that functionality.
+                                                                  ˍ
+        We may thus reuse that functionality to calculate V^(1/2) P V^(1/2)
+                   ˍ
+        from which ϵ(q,ω) can be constructed.
         """
         assert xc == 'RPA'
 
@@ -241,11 +247,10 @@ class Chi0DysonEquations:
         # TDDFT (in adiabatic approximations to the kernel)
         # WARNING: The TDDFT implementation seems to be invalid in the optical
         # limit... Namely, the Coulomb interaction V(q) is only well-defined
-        # in products of V(q) χ₀(q,ω) or V^(1/2)(q) χ₀(q,ω) V^(1/2)(q), why a
-        # literal evaluation of V(q) P(q,ω) does not seem sensible.
-        # Furthermore, one should use the χ₀ body when calculating P(q,ω) and
-        # not usual version with head and wings which are only well defined up
-        # to factors of V(q).
+        # in products of V^(1/2) χ₀ V^(1/2), why a literal evaluation of
+        # V(q) P(q,ω) does not seem sensible. Furthermore, one should use the
+        # χ₀ body when calculating P(q,ω) and not usual version with head and
+        # wings which are only well defined up to factors of V(q).
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
