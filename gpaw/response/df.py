@@ -516,10 +516,6 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def _new_dynamic_susceptibility(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).dynamic_susceptibility()
-
     def _new_dielectric_function(self, *args, **kwargs):
         return self.get_dielectric_function_new(
             *args, **kwargs).macroscopic_dielectric_function()
@@ -619,7 +615,8 @@ class DielectricFunction(DielectricFunctionCalculator):
     def get_dynamic_susceptibility(self, *args, xc='ALDA',
                                    filename='chiM_w.csv',
                                    **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, xc=xc, **kwargs)
+        dynsus = self.get_inverse_dielectric_function(
+            *args, xc=xc, **kwargs).dynamic_susceptibility()
         if filename:
             dynsus.write(filename)
         return dynsus.unpack()
