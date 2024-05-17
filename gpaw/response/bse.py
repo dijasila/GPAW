@@ -167,8 +167,8 @@ class SpinorData:
         myslice = slice(self.mvi, self.mvf)
         return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
 
-    def spinor_rho_mnG(self, rho_mnG, K1, K2, mi, mf):
-        myslice = slice(mi, mf)
+    def rho_conduction_conduction(self, rho_mnG, K1, K2):
+        myslice = slice(self.mci, self.mcf)
         return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
 
     def process_rho_somehow(self, rho_mnG, iK, iKq):
@@ -513,9 +513,8 @@ class BSEBackend:
                                 rho3_mmG = spinors.rho_valence_valence(
                                     rho3_mmG, kptv1.K, kptv2.K)
 
-                                rho4_nnG = spinors.spinor_rho_mnG(
-                                    rho4_nnG, kptc1.K, kptc2.K,
-                                    spinors.mci, spinors.mcf)
+                                rho4_nnG = spinors.rho_conduction_conduction(
+                                    rho4_nnG, kptc1.K, kptc2.K)
 
                             self.context.timer.start('Screened exchange')
                             W_mnmn = np.einsum(
