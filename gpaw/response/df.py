@@ -128,7 +128,7 @@ class Chi0DysonEquations:
         # Invert Dyson equation, χ(q,ω) = [1 - χ₀(q,ω) V(q)]⁻¹ χ₀(q,ω)
         V_GG = self.coulomb.kernel(qpd, q_v=qinf_v)
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
-        return qpd, chi_wGG
+        return qpd, chi_wGG, self.wblocks
 
     def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
         """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
@@ -358,27 +358,14 @@ def nonperiodic_hypervolume(gs):
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, wd: FrequencyDescriptor,
-                 chi0calc: Chi0Calculator, truncation: str | None):
-        from gpaw.response.pw_parallelization import Blocks1D
-        self.wd = wd
-
+    def __init__(self, chi0calc: Chi0Calculator, coulomb: CoulombKernel):
         self.chi0calc = chi0calc
+        self.coulomb = coulomb
 
-        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
-
-        # context: ResponseContext object from gpaw.response.context
+        self.gs = chi0calc.gs
         self.context = chi0calc.context
 
-        # context.comm : _Communicator object from gpaw.mpi
-        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
-
         self._chi0cache: dict = {}
-
-    @property
-    def gs(self):
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        return self.chi0calc.gs
 
     def calculate_chi0(self, q_c: list | np.ndarray):
         """Calculates the response function.
@@ -520,12 +507,13 @@ class DielectricFunction(DielectricFunctionCalculator):
             integrationmode=integrationmode,
             rate=rate, eshift=eshift
         )
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
 
-        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+        super().__init__(chi0calc, coulomb)
 
     def get_frequencies(self) -> np.ndarray:
-        """ Return frequencies that Chi is evaluated on"""
-        return self.wd.omega_w * Hartree
+        """Return frequencies (in eV) that the χ is evaluated on."""
+        return self.chi0calc.wd.omega_w * Hartree
 
     def get_dynamic_susceptibility(self, *args, xc='ALDA',
                                    filename='chiM_w.csv',
