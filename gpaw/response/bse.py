@@ -164,6 +164,10 @@ class SpinorData:
         rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
         return rho_0mnG + rho_1mnG
 
+    def rho_valence_valence(self, rho_mnG, K1, K2):
+        myslice = slice(self.mvi, self.mvf)
+        return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
+
     def spinor_rho_mnG(self, rho_mnG, K1, K2, mi, mf):
         myslice = slice(mi, mf)
         return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
@@ -507,9 +511,8 @@ class BSEBackend:
                                 pair_calc, screened_potential, kptc1, kptc2)
 
                             if spinors is not None:
-                                rho3_mmG = spinors.spinor_rho_mnG(
-                                    rho3_mmG, kptv1.K, kptv2.K,
-                                    spinors.mvi, spinors.mvf)
+                                rho3_mmG = spinors.rho_valence_valence(
+                                    rho3_mmG, kptv1.K, kptv2.K)
 
                                 rho4_nnG = spinors.spinor_rho_mnG(
                                     rho4_nnG, kptc1.K, kptc2.K,
