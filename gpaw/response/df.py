@@ -177,7 +177,7 @@ class Chi0DysonEquations:
         return Vchi0_symm_wGG, Vchi_symm_wGG, V_G
 
     def dielectric_matrix(self, *args, **kwargs):
-        """Construct the dielectric function ε(q,ω)."""
+        """Construct the dielectric function as ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_G = self.coulomb.V(self.chi0.qpd)
         if abs(V_G[0]) > 1e-8:
             return self._dielectric_function(*args, **kwargs)
@@ -288,11 +288,27 @@ class DielectricFunctionBase(ABC):
 
         where Λ is the nonperiodic hypervolume of the unit cell.
         """
-        df = self.dielectric_function()
+        _, eps0_w, eps_w = self.dielectric_function().arrays
         L = self.cd.nonperiodic_hypervolume
-        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)  # rf0_w: eps0_w
-        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)  # rf_w: eps_w
+        alpha0_w = L / (4 * np.pi) * (eps0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (eps_w - 1.0)
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+    def eels_spectrum(self):
+        """Get the macroscopic EELS spectrum.
+
+        Here, we define the EELS spectrum to be the spectral part of the
+        inverse dielectric function. For the macroscopic component,
+
+        EELS(ω) = - Im[1/ε_M(q,ω)].
+
+        We use the equivalent expression to give also the EELS spectrum
+        without local-field effects.
+        """
+        _, eps0_w, eps_w = self.dielectric_function().arrays
+        eels0_W = -(1. / eps0_w).imag
+        eels_W = -(1. / eps_w).imag
+        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
 @dataclass
@@ -353,22 +369,6 @@ class InverseDielectricFunction(DielectricFunctionBase):
         Vchi0_W, Vchi_W = self.macroscopic_components()
         V0 = self.V_G[0]  # Macroscopic Coulomb potential (4π/q²)
         return ScalarResponseFunctionSet(self.wd, Vchi0_W / V0, Vchi_W / V0)
-
-    def eels_spectrum(self):
-        """Get the macroscopic EELS spectrum.
-
-        Here, we define the EELS spectrum to be the spectral part of the
-        inverse dielectric function. For the macroscopic component,
-
-        EELS(ω) = - Im[1/ε_M(q,ω)].
-
-        We use the equivalent expression to give also the EELS spectrum in the
-        independent particle random-phase approximation.
-        """
-        df = self.dielectric_function()
-        eels0_W = -(1. / df.rf0_w).imag  # rf0_w: eps0_w
-        eels_W = -(1. / df.rf_w).imag  # rf_w: eps_w
-        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
 @dataclass
