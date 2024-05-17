@@ -261,7 +261,8 @@ class Chi0DysonEquations:
 
 
 @dataclass
-class DielectricFunctionRelatedData:
+class DielectricFunctionBase(ABC):
+    """Base class for the dielectric function ε(q,ω)."""
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
@@ -271,9 +272,28 @@ class DielectricFunctionRelatedData:
         chi0 = chi0_dyson_eqs.chi0
         return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
 
+    @abstractmethod
+    def dielectric_function(self) -> ScalarResponseFunctionSet:
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
 
 @dataclass
-class InverseDielectricFunction(DielectricFunctionRelatedData):
+class InverseDielectricFunction(DielectricFunctionBase):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -306,6 +326,25 @@ class InverseDielectricFunction(DielectricFunctionRelatedData):
         Vchi_W = self._get_macroscopic_component(self.Vchi_symm_wGG)
         return Vchi0_W, Vchi_W
 
+    def dielectric_function(self):
+        """Get the macroscopic dielectric function ε_M(q,ω).
+
+        Calculates ε_M(q,ω) given by
+
+           1
+        ‾‾‾‾‾‾‾‾ = ε⁻¹(q,ω)
+        ε_M(q,ω)    00
+
+        In addition to the many-body dielectric function, we also calculate the
+        dielectric function in the independent-particle random-phase
+        approximation, that is, using the RPA dielectric function ε = 1 - Vχ₀
+        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)].
+        """
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        eps0_W = 1. - Vchi0_W
+        eps_W = 1. / (1. + Vchi_W)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
+
     def dynamic_susceptibility(self):
         """Get the macroscopic component of χ(q,ω)."""
         Vchi0_W, Vchi_W = self.macroscopic_components()
@@ -316,46 +355,17 @@ class InverseDielectricFunction(DielectricFunctionRelatedData):
         """Get the macroscopic EELS spectrum.
 
         Here, we define the EELS spectrum to be the spectral part of the
-        inverse dielectric function. In the plane-wave representation,
+        inverse dielectric function. For the macroscopic component,
 
-        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω),
+        EELS(ω) = - Im[1/ε_M(q,ω)].
 
-        where ε⁻¹(G+q,ω) denotes the G'th diagonal element.
-
-        In addition to the many-body spectrum, we also calculate the
-        macroscopic EELS spectrum in the independent-particle random-phase
-        approximation, that is, using the RPA dielectric function ε = 1 - Vχ₀
-        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)]:
-
-        EELS₀(ω) = -Im 1 / (1 - V(q) χ₀(q,ω)).
-        """
-        Vchi0_W, Vchi_W = self.macroscopic_components()
-        eels0_W = -(1. / (1. - Vchi0_W)).imag
-        eels_W = -Vchi_W.imag
-        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
-
-
-class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
-    """Base class for the dielectric function ε(q,ω)."""
-
-    @abstractmethod
-    def dielectric_function(self) -> ScalarResponseFunctionSet:
-        """Get the macroscopic dielectric function ε_M(q,ω)."""
-
-    def polarizability(self, L: float):
-        """Get the macroscopic polarizability α_M(q,ω).
-
-        Calculates the macroscopic polarizability
-
-        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
-
-        where Λ (given as input L) is the nonperiodic hypervolume of the unit
-        cell.
+        We use the equivalent expression to give also the EELS spectrum in the
+        independent particle random-phase approximation.
         """
         df = self.dielectric_function()
-        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
-        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+        eels0_W = -(1. / df.rf0_w).imag  # rf0_w: eps0_w
+        eels_W = -(1. / df.rf_w).imag  # rf_w: eps_w
+        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
 @dataclass
