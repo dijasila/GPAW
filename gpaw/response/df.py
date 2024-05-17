@@ -263,32 +263,35 @@ class Chi0DysonEquations:
 @dataclass
 class DielectricFunctionBase(ABC):
     """Base class for the dielectric function ε(q,ω)."""
+    cd: CellDescriptor
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
 
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
+        cd = CellDescriptor.from_gs(chi0_dyson_eqs.gs)
         chi0 = chi0_dyson_eqs.chi0
-        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
+        return cls(cd, chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks,
+                   *args, **kwargs)
 
     @abstractmethod
     def dielectric_function(self) -> ScalarResponseFunctionSet:
         """Get the macroscopic dielectric function ε_M(q,ω)."""
 
-    def polarizability(self, L: float):
+    def polarizability(self):
         """Get the macroscopic polarizability α_M(q,ω).
 
         Calculates the macroscopic polarizability
 
         α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
 
-        where Λ (given as input L) is the nonperiodic hypervolume of the unit
-        cell.
+        where Λ is the nonperiodic hypervolume of the unit cell.
         """
         df = self.dielectric_function()
-        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
-        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        L = self.cd.nonperiodic_hypervolume
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)  # rf0_w: eps0_w
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)  # rf_w: eps_w
         return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
@@ -427,7 +430,21 @@ class ModifiedDielectricFunction(DielectricFunctionBase):
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
-def nonperiodic_hypervolume(gs):
+@dataclass
+class CellDescriptor:
+    cell_cv: np.ndarray
+    pbc_c: np.ndarray
+
+    @classmethod
+    def from_gs(cls, gs):
+        return cls(gs.gd.cell_cv, gs.pbc)
+
+    @property
+    def nonperiodic_hypervolume(self):
+        return nonperiodic_hypervolume(self.cell_cv, self.pbc_c)
+
+
+def nonperiodic_hypervolume(cell_cv, pbc_c):
     """Get the hypervolume of the cell along nonperiodic directions.
 
     Returns the hypervolume Λ in units of Å, where
@@ -437,8 +454,6 @@ def nonperiodic_hypervolume(gs):
     Λ = A        in 1D, where A is the transverse cell area
     Λ = V        in 0D, where V is the cell volume
     """
-    cell_cv = gs.gd.cell_cv
-    pbc_c = gs.pbc
     if pbc_c.all():
         return 1.
     else:
@@ -519,8 +534,7 @@ class DielectricFunctionCalculator:
 
     def _new_polarizability(self, *args, **kwargs):
         return self.get_dielectric_matrix(
-            *args, **kwargs).polarizability(
-                L=nonperiodic_hypervolume(self.gs))
+            *args, **kwargs).polarizability()
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
