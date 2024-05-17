@@ -148,10 +148,9 @@ class SpinorData:
         self.ci_s, self.cf_s = self.vi_s, self.vf_s
         self.ni, self.nf = self.vi_s[0], self.vf_s[0]
 
-        self.mvi = 2 * val_sn[0, 0]
-        self.mvf = 2 * (val_sn[0, -1] + 1)
-        self.mci = 2 * con_sn[0, 0]
-        self.mcf = 2 * (con_sn[0, -1] + 1)
+        self.valence_slice = slice(2 * val_sn[0, 0], 2 * (val_sn[0, -1] + 1))
+        self.conduction_slice = slice(
+            2 * con_sn[0, 0], 2 * (con_sn[0, -1] + 1))
 
     def _transform_rho(self, rho_mnG, K1, K2, slice1, slice2):
         nslice = slice(self.ni, self.nf)
@@ -164,20 +163,20 @@ class SpinorData:
         return rho_0mnG + rho_1mnG
 
     def rho_valence_valence(self, rho_mnG, K1, K2):
-        myslice = slice(self.mvi, self.mvf)
-        return self._transform_rho(rho_mnG, K1, K2, myslice, myslice)
+        return self._transform_rho(rho_mnG, K1, K2, self.valence_slice,
+                                   self.valence_slice)
 
     def rho_conduction_conduction(self, rho_mnG, K1, K2):
-        myslice = slice(self.mci, self.mcf)
-        return self._transform_rho(rho_mnG, K1, K2, myslice, myslice)
+        return self._transform_rho(rho_mnG, K1, K2, self.conduction_slice,
+                                   self.conduction_slice)
 
     def rho_valence_conduction(self, rho_mnG, K1, K2):
-        return self._transform_rho(rho_mnG, K1, K2, slice(self.mvi, self.mvf),
-                                   slice(self.mci, self.mcf))
+        return self._transform_rho(rho_mnG, K1, K2, self.valence_slice,
+                                   self.conduction_slice)
 
     def get_deps(self, K1, K2):
-        epsv_m = self.e_mk[self.mvi:self.mvf, K1]
-        epsc_n = self.e_mk[self.mci:self.mcf, K2]
+        epsv_m = self.e_mk[self.valence_slice, K1]
+        epsc_n = self.e_mk[self.conduction_slice, K2]
         return -(epsv_m[:, np.newaxis] - epsc_n)
 
 
