@@ -512,8 +512,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         super().__init__(chi0calc, coulomb)
 
     def get_frequencies(self) -> np.ndarray:
-        """ Return frequencies that Chi is evaluated on"""
-        return self.chi0calc.chi0_body_calc.wd.omega_w * Hartree
+        """Return frequencies (in eV) that the χ is evaluated on."""
+        return self.chi0calc.wd.omega_w * Hartree
 
     def get_dynamic_susceptibility(self, *args, xc='ALDA',
                                    filename='chiM_w.csv',
