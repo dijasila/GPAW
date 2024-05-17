@@ -176,7 +176,7 @@ class Chi0DysonEquations:
             Vchi0_symm_wGG, K_GG, reuse_buffer=False)
         return Vchi0_symm_wGG, Vchi_symm_wGG, V_G
 
-    def dielectric_matrix(self, *args, **kwargs):
+    def dielectric_function(self, *args, **kwargs):
         """Construct the dielectric function as ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_G = self.coulomb.V(self.chi0.qpd)
         if abs(V_G[0]) > 1e-8:
@@ -192,7 +192,7 @@ class Chi0DysonEquations:
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
-        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+        return DielectricFunctionData.from_chi0_dyson_eqs(self, eps_wGG)
 
     def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
         """Calculate ε(q,ω) using modified response functions.
@@ -272,7 +272,7 @@ class DielectricFunctionBase(ABC):
                    *args, **kwargs)
 
     @abstractmethod
-    def dielectric_function(self) -> ScalarResponseFunctionSet:
+    def macroscopic_dielectric_function(self) -> ScalarResponseFunctionSet:
         """Get the macroscopic dielectric function ε_M(q,ω)."""
 
     def polarizability(self):
@@ -284,7 +284,7 @@ class DielectricFunctionBase(ABC):
 
         where Λ is the nonperiodic hypervolume of the unit cell.
         """
-        _, eps0_w, eps_w = self.dielectric_function().arrays
+        _, eps0_w, eps_w = self.macroscopic_dielectric_function().arrays
         L = self.cd.nonperiodic_hypervolume
         alpha0_w = L / (4 * np.pi) * (eps0_w - 1.0)
         alpha_w = L / (4 * np.pi) * (eps_w - 1.0)
@@ -301,7 +301,7 @@ class DielectricFunctionBase(ABC):
         We use the equivalent expression to give also the EELS spectrum
         without local-field effects.
         """
-        _, eps0_w, eps_w = self.dielectric_function().arrays
+        _, eps0_w, eps_w = self.macroscopic_dielectric_function().arrays
         eels0_W = -(1. / eps0_w).imag
         eels_W = -(1. / eps_w).imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
@@ -341,7 +341,7 @@ class InverseDielectricFunction(DielectricFunctionBase):
         Vchi_W = self._get_macroscopic_component(self.Vchi_symm_wGG)
         return Vchi0_W, Vchi_W
 
-    def dielectric_function(self):
+    def macroscopic_dielectric_function(self):
         """Get the macroscopic dielectric function ε_M(q,ω).
 
         Calculates ε_M(q,ω) given by
@@ -368,7 +368,7 @@ class InverseDielectricFunction(DielectricFunctionBase):
 
 
 @dataclass
-class DielectricMatrixData(DielectricFunctionBase):
+class DielectricFunctionData(DielectricFunctionBase):
     """Data class for the dielectric function ε(q,ω).
 
     The dielectric function is written in terms of the Coulomb potential V and
@@ -383,7 +383,7 @@ class DielectricMatrixData(DielectricFunctionBase):
     """
     eps_wGG: np.ndarray
 
-    def dielectric_function(self):
+    def macroscopic_dielectric_function(self):
         """Get the macroscopic dielectric function ε_M(q,ω)."""
         # Ignoring local field effects
         eps0_W = self.wblocks.all_gather(self.eps_wGG[:, 0, 0])
@@ -410,7 +410,7 @@ class ModifiedDielectricFunction(DielectricFunctionBase):
     VP_symm_wGG: np.ndarray  # V^(1/2) P V^(1/2)
     VPbar_symm_wGG: np.ndarray
 
-    def dielectric_function(self):
+    def macroscopic_dielectric_function(self):
         """Get the macroscopic dielectric function ε_M(q,ω).
 
         By design,
@@ -521,19 +521,20 @@ class DielectricFunctionCalculator:
             *args, **kwargs).dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        return self.get_dielectric_matrix(
-            *args, **kwargs).dielectric_function()
+        return self.get_dielectric_function_new(
+            *args, **kwargs).macroscopic_dielectric_function()
 
     def _new_eels_spectrum(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
             *args, **kwargs).eels_spectrum()
 
     def _new_polarizability(self, *args, **kwargs):
-        return self.get_dielectric_matrix(
+        return self.get_dielectric_function_new(
             *args, **kwargs).polarizability()
 
-    def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
-        return self.calculate_chi0(q_c).dielectric_matrix(
+    def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
+                                    **xckwargs):
+        return self.calculate_chi0(q_c).dielectric_function(
             direction=direction, **xckwargs)
 
     def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',

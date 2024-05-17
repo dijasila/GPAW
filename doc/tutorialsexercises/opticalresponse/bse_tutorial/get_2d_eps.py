@@ -10,7 +10,7 @@ df = DielectricFunction('gs_MoS2.gpw',
 
 for iq in range(22):
     q_c = [iq / 42, iq / 42, 0]
-    eps = df.get_dielectric_matrix(q_c=q_c)
+    eps = df.get_dielectric_function_new(q_c=q_c)
     epsinv_GG = np.linalg.inv(eps.eps_wGG[0])
 
     # Periodic degrees of freedom

@@ -41,16 +41,16 @@ def test_response_diamond_absorption(in_tmp_dir):
     dfcalc = DielectricFunction(
         'C.gpw', eta=0.25, ecut=50,
         frequencies=np.linspace(0, 24., 241), hilbert=False)
-    eps = dfcalc.get_dielectric_matrix()
+    eps = dfcalc.get_dielectric_function_new()
 
     # Test dielectric constant again...
-    df = eps.dielectric_function()
-    eps0M, epsM = df.static_limit
-    assert eps0M.real == pytest.approx(eM1_, abs=0.01)
-    assert epsM.real == pytest.approx(eM2_, abs=0.01)
+    epsM = eps.macroscopic_dielectric_function()
+    eM1, eM2 = epsM.static_limit
+    assert eM1.real == pytest.approx(eM1_, abs=0.01)
+    assert eM2.real == pytest.approx(eM2_, abs=0.01)
 
     # Test dielectric function
-    omega_w, eps0M_w, epsM_w = df.arrays
+    omega_w, eps0M_w, epsM_w = epsM.arrays
     w0, I0 = findpeak(omega_w, eps0M_w.imag)
     assert w0 == pytest.approx(w0_, abs=0.01)
     assert I0 / (4 * np.pi) == pytest.approx(I0_, abs=0.1)
