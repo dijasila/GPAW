@@ -3,7 +3,7 @@ import numpy as np
 from ase.units import Bohr
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.response.df import DielectricFunction
+from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.test import findpeak
 
 
@@ -68,8 +68,6 @@ def test_response_diamond_absorption(in_tmp_dir):
     assert I == pytest.approx(I_, abs=0.01)
 
     # Absorption spectrum calculation ALDA
-    w0_ = 10.7931
-    I0_ = 5.36
     w_ = 10.7562
     I_ = 5.8803
 
@@ -77,43 +75,42 @@ def test_response_diamond_absorption(in_tmp_dir):
     epsinv.polarizability().write(filename='ALDA_pol.csv')
     # Here we base the check on a written results file
     dfcalc.context.comm.barrier()
-    d = np.loadtxt('ALDA_pol.csv', delimiter=',')
+    omega_w, a0alda_w, aalda_w = read_response_function('ALDA_pol.csv')
 
-    w, I = findpeak(d[:, 0], d[:, 2])
-    assert w == pytest.approx(w0_, abs=0.01)
-    assert I == pytest.approx(I0_, abs=0.1)
-    w, I = findpeak(d[:, 0], d[:, 4])
+    assert a0alda_w == pytest.approx(a0rpa_w, rel=1e-4)
+    w, I = findpeak(omega_w, aalda_w.imag)
     assert w == pytest.approx(w_, abs=0.01)
     assert I == pytest.approx(I_, abs=0.1)
 
     # Absorption spectrum calculation long-range kernel
-    w0_ = 10.2189
-    I0_ = 5.14
     w_ = 10.2906
     I_ = 5.6955
 
     epsinv = dfcalc.get_inverse_dielectric_function(xc='LR0.25')
-    _, a0, a = epsinv.polarizability().arrays
+    omega_w, a0lr_w, alr_w = epsinv.polarizability().arrays
 
-    w, I = findpeak(np.linspace(0, 24., 241), a0.imag)
-    assert w == pytest.approx(w0_, abs=0.01)
-    assert I == pytest.approx(I0_, abs=0.1)
-    w, I = findpeak(np.linspace(0, 24., 241), a.imag)
+    assert a0lr_w == pytest.approx(a0rpa_w, rel=1e-4)
+    w, I = findpeak(omega_w, alr_w.imag)
     assert w == pytest.approx(w_, abs=0.01)
     assert I == pytest.approx(I_, abs=0.1)
 
     # Absorption spectrum calculation Bootstrap
-    w0_ = 10.37
-    I0_ = 5.27
     w_ = 10.4600
     I_ = 6.0263
 
     epsinv = dfcalc.get_inverse_dielectric_function(xc='Bootstrap')
-    _, a0, a = epsinv.polarizability().arrays
+    omega_w, a0btsr_w, abtsr_w = epsinv.polarizability().arrays
 
-    w, I = findpeak(np.linspace(0, 24., 241), a0.imag)
-    assert w == pytest.approx(w0_, abs=0.02)
-    assert I == pytest.approx(I0_, abs=0.2)
-    w, I = findpeak(np.linspace(0, 24., 241), a.imag)
+    assert a0btsr_w == pytest.approx(a0rpa_w, rel=1e-4)
+    w, I = findpeak(omega_w, abtsr_w.imag)
     assert w == pytest.approx(w_, abs=0.02)
     assert I == pytest.approx(I_, abs=0.2)
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(omega_w, a0rpa_w.imag, label='IP')
+    # plt.plot(omega_w, arpa_w.imag, label='RPA')
+    # plt.plot(omega_w, aalda_w.imag, label='ALDA')
+    # plt.plot(omega_w, alr_w.imag, label='LR0.25')
+    # plt.plot(omega_w, abtsr_w.imag, label='Bootstrap')
+    # plt.legend()
+    # plt.show()
