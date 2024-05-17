@@ -154,12 +154,11 @@ class SpinorData:
         self.mcf = 2 * (con_sn[0, -1] + 1)
 
     def _process_rho(self, rho_mnG, K1, K2, slice1, slice2):
-        ni = self.ni
-        nf = self.nf
-        vec0_mn = self.v0_kmn[K1, slice1, ni:nf]
-        vec1_mn = self.v1_kmn[K1, slice1, ni:nf]
-        vec2_mn = self.v0_kmn[K2, slice2, ni:nf]
-        vec3_mn = self.v1_kmn[K2, slice2, ni:nf]
+        nslice = slice(self.ni, self.nf)
+        vec0_mn = self.v0_kmn[K1, slice1, nslice]
+        vec1_mn = self.v1_kmn[K1, slice1, nslice]
+        vec2_mn = self.v0_kmn[K2, slice2, nslice]
+        vec3_mn = self.v1_kmn[K2, slice2, nslice]
         rho_0mnG = np.dot(vec0_mn.conj(), np.dot(vec2_mn, rho_mnG))
         rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
         return rho_0mnG + rho_1mnG
