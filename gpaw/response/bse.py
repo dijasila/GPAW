@@ -400,6 +400,7 @@ class BSEBackend:
         else:
             vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
+
         for ik, iK in enumerate(myKrange):
             for s in range(Ns):
                 pair = get_pair(qpd0, s, iK,
@@ -494,36 +495,40 @@ class BSEBackend:
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
-                        if self.mode != 'RPA' and s1 == s2:
-                            ikq = ikq_k[iK2]
-                            kptv2 = kptpair_factory.get_k_point(
-                                s1, iK2, vi_s[s1], vf_s[s1])
-                            kptc2 = kptpair_factory.get_k_point(
-                                s1, ikq, ci_s[s1], cf_s[s1])
 
-                            rho3_mmG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptv1, kptv2)
+                        if self.mode == 'RPA' or s1 != s2:
+                            continue
 
-                            rho4_nnG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptc1, kptc2)
+                        ikq = ikq_k[iK2]
+                        kptv2 = kptpair_factory.get_k_point(
+                            s1, iK2, vi_s[s1], vf_s[s1])
+                        kptc2 = kptpair_factory.get_k_point(
+                            s1, ikq, ci_s[s1], cf_s[s1])
 
-                            if spinors is not None:
-                                rho3_mmG = spinors.rho_valence_valence(
-                                    rho3_mmG, kptv1.K, kptv2.K)
+                        rho3_mmG, iq = self.get_density_matrix(
+                            pair_calc, screened_potential, kptv1, kptv2)
 
-                                rho4_nnG = spinors.rho_conduction_conduction(
-                                    rho4_nnG, kptc1.K, kptc2.K)
+                        rho4_nnG, iq = self.get_density_matrix(
+                            pair_calc, screened_potential, kptc1, kptc2)
 
-                            self.context.timer.start('Screened exchange')
-                            W_mnmn = np.einsum(
-                                'ijk,km,pqm->ipjq',
-                                rho3_mmG.conj(),
-                                screened_potential.W_qGG[iq],
-                                rho4_nnG,
-                                optimize='optimal')
-                            W_mnmn *= Ns * so
-                            H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
-                            self.context.timer.stop('Screened exchange')
+                        if spinors is not None:
+                            rho3_mmG = spinors.rho_valence_valence(
+                                rho3_mmG, kptv1.K, kptv2.K)
+
+                            rho4_nnG = spinors.rho_conduction_conduction(
+                                rho4_nnG, kptc1.K, kptc2.K)
+
+                        self.context.timer.start('Screened exchange')
+                        W_mnmn = np.einsum(
+                            'ijk,km,pqm->ipjq',
+                            rho3_mmG.conj(),
+                            screened_potential.W_qGG[iq],
+                            rho4_nnG,
+                            optimize='optimal')
+                        W_mnmn *= Ns * so
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
+                        self.context.timer.stop('Screened exchange')
+
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -564,8 +569,7 @@ class BSEBackend:
         pawcorr, I_G = symop.apply_symop_q(qpd, pawcorr0, kpt1, kpt2)
         self.context.timer.stop('Symop')
 
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
-                           complex)
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG), complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
                                  pair_calc, timer=self.context.timer)
