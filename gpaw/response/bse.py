@@ -153,7 +153,7 @@ class SpinorData:
         self.mci = 2 * con_sn[0, 0]
         self.mcf = 2 * (con_sn[0, -1] + 1)
 
-    def _process_rho(self, rho_mnG, K1, K2, slice1, slice2):
+    def _transform_rho(self, rho_mnG, K1, K2, slice1, slice2):
         nslice = slice(self.ni, self.nf)
         vec0_mn = self.v0_kmn[K1, slice1, nslice]
         vec1_mn = self.v1_kmn[K1, slice1, nslice]
@@ -165,20 +165,19 @@ class SpinorData:
 
     def rho_valence_valence(self, rho_mnG, K1, K2):
         myslice = slice(self.mvi, self.mvf)
-        return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
+        return self._transform_rho(rho_mnG, K1, K2, myslice, myslice)
 
     def rho_conduction_conduction(self, rho_mnG, K1, K2):
         myslice = slice(self.mci, self.mcf)
-        return self._process_rho(rho_mnG, K1, K2, myslice, myslice)
+        return self._transform_rho(rho_mnG, K1, K2, myslice, myslice)
 
-    def process_rho_somehow(self, rho_mnG, iK, iKq):
-        return self._process_rho(
-            rho_mnG, iK, iKq, slice(self.mvi, self.mvf),
-            slice(self.mci, self.mcf))
+    def rho_valence_conduction(self, rho_mnG, K1, K2):
+        return self._transform_rho(rho_mnG, K1, K2, slice(self.mvi, self.mvf),
+                                   slice(self.mci, self.mcf))
 
-    def get_deps(self, iK, iKq):
-        epsv_m = self.e_mk[self.mvi:self.mvf, iK]
-        epsc_n = self.e_mk[self.mci:self.mcf, iKq]
+    def get_deps(self, K1, K2):
+        epsv_m = self.e_mk[self.mvi:self.mvf, K1]
+        epsc_n = self.e_mk[self.mci:self.mcf, K2]
         return -(epsv_m[:, np.newaxis] - epsc_n)
 
 
@@ -437,7 +436,7 @@ class BSEBackend:
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
 
-                    rhoex_KsmnG[iK, s] = spinors.process_rho_somehow(
+                    rhoex_KsmnG[iK, s] = spinors.rho_valence_conduction(
                         rho_mnG, iK, iKq)
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
