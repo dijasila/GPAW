@@ -527,6 +527,7 @@ class DielectricFunctionCalculator:
             direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
+        # Used by the QEH code
         return self.calculate_chi0(q_c).rpa_density_response(
             direction=direction, qinf_v=qinf_v)
 
