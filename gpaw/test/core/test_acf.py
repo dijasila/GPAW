@@ -78,3 +78,10 @@ def test_acf_pw(grid, xp):
     x, y = r2.xy(10, 10, ...)
     y0 = np.exp(-alpha * (x - a / 2)**2) / (4 * np.pi)**0.5
     assert abs(y - y0).max() == pytest.approx(0.0, abs=0.002)
+
+    # Wrong size:
+    g = UGDesc(cell=[a, a, a * 1.1],
+               size=(n, n, n),
+               comm=world, dtype=complex).empty(xp=xp)
+    with pytest.raises(ValueError):
+        basis.to_uniform_grid(g)
