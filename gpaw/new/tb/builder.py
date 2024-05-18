@@ -91,7 +91,11 @@ class DummyFunctions(DistributedArrays[NoGrid]):
         return self
 
     def __getitem__(self, index):
-        return DummyFunctions(self.desc, comm=self.comm)
+        if isinstance(index, int):
+            dims = self.dims[1:]
+        else:
+            dims = self.dims
+        return DummyFunctions(self.desc, dims, comm=self.comm)
 
     def moment(self):
         return np.zeros(3)
@@ -161,6 +165,7 @@ class TBPotentialCalculator(PotentialCalculator):
 class DummyXC:
     no_forces = False
     xc = None
+    exx_fraction = 0.0
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp):
         return 0.0
@@ -267,7 +272,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
                 phit_g = phit.map(r_g)
-                vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
+                vtphit_j.append(Spline.from_data(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
         vtciexpansions = TCIExpansions([s.basis_functions_J

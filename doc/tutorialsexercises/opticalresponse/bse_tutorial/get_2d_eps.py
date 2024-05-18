@@ -16,16 +16,15 @@ df_t = DielectricFunction('gs_MoS2.gpw',
                           truncation='2D')
 
 for iq in range(22):
-    pd, eps_wGG, chi_wGG = df.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0],
-                                                    symmetric=False,
-                                                    calculate_chi=True)
-    Gvec_Gv = pd.get_reciprocal_vectors(add_q=False)
-    epsinv_GG = np.linalg.inv(eps_wGG[0])
-    z0 = pd.gd.cell_cv[2, 2] / 2  # Center of layer
+    eps = df.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0])
 
-    eps_t_wGG = df_t.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0],
-                                           symmetric=False)
-    epsinv_t_GG = np.linalg.inv(eps_t_wGG[0])
+    # Periodic degrees of freedom
+    Gvec_Gv = eps.qpd.get_reciprocal_vectors(add_q=False)
+    z0 = eps.qpd.gd.cell_cv[2, 2] / 2  # Center of layer
+
+    epsinv_GG = np.linalg.inv(eps.eps_wGG[0])
+    eps_t = df_t.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0])
+    epsinv_t_GG = np.linalg.inv(eps_t.eps_wGG[0])
 
     epsinv = 0.0
     epsinv_t = 0.0

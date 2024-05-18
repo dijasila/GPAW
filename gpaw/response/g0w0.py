@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pickle
 import warnings
 from math import pi
@@ -14,15 +15,15 @@ from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
+from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
-
+from gpaw.mpi import broadcast_exception
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
@@ -91,8 +92,8 @@ class Sigma:
         return self
 
     def validate_inputs(self, inputs):
-        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-14,
-                               abs_tol=1e-14)
+        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-12,
+                               abs_tol=1e-12)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')
@@ -321,7 +322,8 @@ def get_max_nblocks(world, calc, ecut):
     return nblocks
 
 
-def get_frequencies(frequencies, domega0, omega2):
+def get_frequencies(frequencies: dict | None,
+                    domega0: float | None, omega2: float | None):
     if domega0 is not None or omega2 is not None:
         assert frequencies is None
         frequencies = {'type': 'nonlinear',
@@ -821,14 +823,14 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
-        if self.context.comm.rank == 0:
-            for key, sigmas in self.qcache.items():
-                sigmas = {fxc_mode: Sigma.fromdict(sigma)
-                          for fxc_mode, sigma in sigmas.items()}
-                for fxc_mode, sigma in sigmas.items():
-                    sigma.validate_inputs(self.get_validation_inputs())
+        with broadcast_exception(self.context.comm):
+            if self.context.comm.rank == 0:
+                for key, sigmas in self.qcache.items():
+                    sigmas = {fxc_mode: Sigma.fromdict(sigma)
+                              for fxc_mode, sigma in sigmas.items()}
+                    for fxc_mode, sigma in sigmas.items():
+                        sigma.validate_inputs(self.get_validation_inputs())
 
-        self.context.comm.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
                 if self.context.comm.rank == 0:
@@ -1068,10 +1070,7 @@ class G0W0(G0W0Calculator):
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
-            Input parameters for frequency_grid.
-            Can be an array of frequencies to evaluate the response function at
-            or dictionary of parameters for build-in nonlinear grid
-            (see :ref:`frequency grid`).
+            Input parameters for the nonlinear frequency descriptor.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or list
@@ -1133,15 +1132,12 @@ class G0W0(G0W0Calculator):
             qcache.strip_empties()
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
-        frequencies = get_frequencies(frequencies, domega0, omega2)
-
         # (calc can not actually be a calculator at all.)
         gpwfile = Path(calc)
 
         context = ResponseContext(txt=filename + '.txt',
                                   comm=world, timer=timer)
-        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
-                                                      context=context)
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
@@ -1166,15 +1162,15 @@ class G0W0(G0W0Calculator):
                           'hilbert': False,
                           'timeordered': False}
         else:
-            # frequencies = self.frequencies
+            # use nonlinear frequency grid
+            frequencies = get_frequencies(frequencies, domega0, omega2)
+
             parameters = {'eta': eta,
                           'hilbert': True,
                           'timeordered': True}
+        wd = get_frequency_descriptor(frequencies, gs=gs, nbands=nbands)
 
-        from gpaw.response.chi0 import new_frequency_descriptor
         wcontext = context.with_txt(filename + '.w.txt', mode=mode)
-        wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
-
         chi0calc = Chi0Calculator(
             gs, wcontext, nblocks=nblocks,
             wd=wd,

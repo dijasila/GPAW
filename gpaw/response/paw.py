@@ -105,13 +105,11 @@ class LeanPAWDataset:
 class SelfTestingKSpline(Spline):
     """Self-testing reciprocal spline representation, f_l(k)."""
 
-    def __init__(self, rgd, f_g, spline):
+    def __init__(self, rgd, f_g, spline: Spline):
+        # Store original real-space representation of the radial function f(r)
         self.rgd = rgd
         self.f_g = f_g
-        # Set attributes of parent Spline object
-        self.spline = spline.spline
-        self.l = spline.l
-        self._npoints = spline._npoints
+        super().__init__(spline.spline)
 
     def map(self, k_G):
         self.test_spline_representation(k_G)

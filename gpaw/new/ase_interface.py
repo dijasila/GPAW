@@ -13,7 +13,7 @@ from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
 from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
-from gpaw.new import Timer
+from gpaw.new import Timer, trace
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   CalculationModeError,
@@ -25,7 +25,7 @@ from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 from gpaw.utilities.memory import maxrss
 
 
@@ -209,6 +209,7 @@ class ASECalculator:
         return {name: value * units[name]
                 for name, value in self.dft.results.items()}
 
+    @trace
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self._dft = DFTCalculation.from_parameters(
@@ -226,6 +227,7 @@ class ASECalculator:
             self._dft = self.dft.move_atoms(atoms)
         self._atoms = atoms.copy()
 
+    @trace
     def converge(self):
         """Iterate to self-consistent solution.
 
@@ -264,9 +266,11 @@ class ASECalculator:
                                        'free_energy' if force_consistent else
                                        'energy')
 
+    @trace
     def get_forces(self, atoms: Atoms | None = None) -> Array2D:
         return self.calculate_property(atoms, 'forces')
 
+    @trace
     def get_stress(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'stress')
 
@@ -358,15 +362,15 @@ class ASECalculator:
 
     def get_fermi_level(self) -> float:
         state = self.dft.state
-        fl = state.ibzwfs.fermi_levels * Ha
-        assert len(fl) == 1
-        return fl[0]
+        fl = state.ibzwfs.fermi_levels
+        assert fl is not None and len(fl) == 1
+        return fl[0] * Ha
 
-    def get_fermi_levels(self) -> float:
+    def get_fermi_levels(self) -> Array1D:
         state = self.dft.state
-        fl = state.ibzwfs.fermi_levels * Ha
-        assert len(fl) == 2
-        return fl
+        fl = state.ibzwfs.fermi_levels
+        assert fl is not None and len(fl) == 2
+        return fl * Ha
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         state = self.dft.state
@@ -539,8 +543,7 @@ class ASECalculator:
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(
-                setup,
-                np.array([pack(D_ii) for D_ii in D_sii.real]))
+                setup, np.array([pack_density(D_ii) for D_ii in D_sii.real]))
         dexc = state.ibzwfs.domain_comm.sum_scalar(dexc)
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
