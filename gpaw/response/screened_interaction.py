@@ -128,7 +128,8 @@ class WBaseCalculator():
                 V0 = 16 * np.pi**2 * Rq0 / bzvol
                 sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
         else:
-            raise KeyError(f'Unknown integrate_gamma option: {self.integrate_gamma}. Expected 0, 1, 2 or "WS".')
+            raise KeyError('Unknown integrate_gamma option:'
+                           f'{self.integrate_gamma}. Expected 0, 1, 2 or WS.')
         return V0, sqrtV0
 
     def apply_gamma_correction(self, W_GG, einv_GG, V0, sqrtV0, sqrtV_G):
@@ -185,8 +186,8 @@ class WCalculator(WBaseCalculator):
 
         if self.integrate_gamma == 'WS':
             from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
-            print(dfc.coulomb.N_c)
-            wstc = WignerSeitzTruncatedCoulomb(chi0.qpd.gd.cell_cv, dfc.coulomb.N_c)
+            wstc = WignerSeitzTruncatedCoulomb(chi0.qpd.gd.cell_cv,
+                                               dfc.coulomb.N_c)
             sqrtV_G = wstc.get_potential(chi0.qpd)**0.5
         else:
             sqrtV_G = dfc.sqrtV_G
@@ -211,7 +212,8 @@ class WCalculator(WBaseCalculator):
                                                     chi0.chi0_Wvv[W],
                                                     sqrtV_G)
                 # XXX Is it to correct to have "or" here?
-            elif (self.integrate_gamma == 0 and chi0.optical_limit) or self.integrate_gamma in {1,2}:
+            elif (self.integrate_gamma == 0 and chi0.optical_limit) or\
+                    self.integrate_gamma in {1, 2}:
                 self.apply_gamma_correction(W_GG, einvt_GG,
                                             V0, sqrtV0, dfc.sqrtV_G)
 
