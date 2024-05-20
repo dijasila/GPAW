@@ -24,7 +24,7 @@ def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
         fxc_kernel = fxc_calculator(functional, '00', qpd)
         Kxc_GG = fxc_kernel.get_Kxc_GG()
 
-        if qpd.kd.gamma:
+        if qpd.optical_limit:
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
@@ -44,7 +44,7 @@ def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
 def calculate_lr_kernel(qpd, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
-    assert qpd.kd.gamma
+    assert qpd.optical_limit
 
     f_G = np.zeros(len(qpd.G2_qG[0]))
     f_G[0] = -alpha
@@ -75,7 +75,7 @@ def calculate_bootstrap_kernel(qpd, chi0_GG, context):
     """Bootstrap kernel PRL 107, 186401"""
     p = context.print
 
-    if qpd.kd.gamma:
+    if qpd.optical_limit:
         v_G = np.zeros(len(qpd.G2_qG[0]))
         v_G[0] = 4 * np.pi
         v_G[1:] = 4 * np.pi / qpd.G2_qG[0][1:]
