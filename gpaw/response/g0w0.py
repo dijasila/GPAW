@@ -59,11 +59,28 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
             # recursive func call to ensure nested structures are also compared
             if not compare_dicts(val1, val2, rel_tol, abs_tol):
                 return False
-        elif isinstance(val1, float) and isinstance(val2, float):
-            if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
+        elif isinstance(val1, (np.float64, float)) and isinstance(val2, (np.float64, float)):
+            if not np.isclose(val1, val2, rtol=rel_tol, atol=abs_tol):
                 return False
+        elif isinstance(val1, np.ndarray) and isinstance(val2, np.ndarray):
+            if val1.shape != val2.shape:
+                return False
+            if not np.allclose(val1, val2, atol=abs_tol, rtol=rel_tol):
+                return False
+        elif isinstance(val1, list) and isinstance(val2, list):
+            if len(val1) != len(val2):
+                return False
+            for v1, v2 in zip(val1, val2):
+                if isinstance(v1, (float, np.float64)):
+                    if not np.isclose(v1, v2, rtol=rel_tol, atol=abs_tol):
+                        return False
+                else:
+                    if v1 != v2:
+                        print('type', type(v1), v1, v2)
+                        return False
         else:
             if val1 != val2:
+                print('below type', type(val1), val1, val2)
                 return False
 
     return True
@@ -92,8 +109,8 @@ class Sigma:
         return self
 
     def validate_inputs(self, inputs):
-        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-12,
-                               abs_tol=1e-12)
+        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-10,
+                               abs_tol=1e-10)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')
@@ -460,7 +477,8 @@ class G0W0Calculator:
                  frequencies=None,
                  exx_vxc_calculator,
                  qcache,
-                 ppa=False):
+                 ppa=False,
+                 qpoints=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -504,6 +522,7 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.qcache = qcache
+        self.qpoints = qpoints
 
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -640,9 +659,15 @@ class G0W0Calculator:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        # Loop over q in the IBZ:
-        self.context.print('Summing all q:')
+        if self.qpoints is None:
+            self.context.print('Summing all q:')
+        else:
+            qpt_str = ' '.join(map(str, self.qpoints))
+            self.context.print(f'Calculating following q-points: {qpt_str}')
+        
         self.calculate_all_q_points()
+        if self.qpoints is not None:
+            return f'A partial result of q-points: {qpt_str}'
         sigmas = self.read_sigmas()
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
@@ -823,15 +848,22 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
+        
         with broadcast_exception(self.context.comm):
             if self.context.comm.rank == 0:
                 for key, sigmas in self.qcache.items():
+                    if sigmas is None:
+                        continue
                     sigmas = {fxc_mode: Sigma.fromdict(sigma)
                               for fxc_mode, sigma in sigmas.items()}
                     for fxc_mode, sigma in sigmas.items():
                         sigma.validate_inputs(self.get_validation_inputs())
 
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
+            # If a list of q-points is specified,
+            # skip the q-points not in the list
+            if (self.qpoints is not None) and (iq not in self.qpoints):
+                continue
             with ExitStack() as stack:
                 if self.context.comm.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
@@ -1045,6 +1077,7 @@ class G0W0(G0W0Calculator):
                  integrate_gamma=0,
                  q0_correction=False,
                  do_GW_too=False,
+                 qpoints=None,
                  **kwargs):
         """G0W0 calculator wrapper.
 
@@ -1117,6 +1150,11 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
+        qpoints: list[int] or None
+            Select which IBZ q-points to calculate from the full BZ-integral.
+            Since full integration is not performed in this calculation,
+            results are not provided, but only the q-point wise result
+            will be cached for future use.
         """
         # We pass a serial communicator because the parallel handling
         # is somewhat wonky, we'd rather do that ourselves:
@@ -1128,14 +1166,15 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-        if world.rank == 0:
-            qcache.strip_empties()
+        #if world.rank == 0 and qpoints is None:
+        #    qcache.strip_empties()
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
         # (calc can not actually be a calculator at all.)
         gpwfile = Path(calc)
-
-        context = ResponseContext(txt=filename + '.txt',
+        
+        qpt_str = f'-{qpoints[0]}-{qpoints[-1]}' if qpoints else ''
+        context = ResponseContext(txt=filename + qpt_str + '.txt',
                                   comm=world, timer=timer)
         gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile)
 
@@ -1170,7 +1209,8 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
         wd = get_frequency_descriptor(frequencies, gs=gs, nbands=nbands)
 
-        wcontext = context.with_txt(filename + '.w.txt', mode=mode)
+        wcontext = context.with_txt(filename + f'{qpt_str}.w.txt', mode=mode)
+
         chi0calc = Chi0Calculator(
             gs, wcontext, nblocks=nblocks,
             wd=wd,
@@ -1214,6 +1254,7 @@ class G0W0(G0W0Calculator):
                          exx_vxc_calculator=exx_vxc_calculator,
                          qcache=qcache,
                          ppa=ppa,
+                         qpoints=qpoints,
                          **kwargs)
 
     @property

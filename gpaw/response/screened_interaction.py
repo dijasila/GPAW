@@ -7,6 +7,20 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
 
+def get_XXX(qpd, N_c, N=100):
+    B_cv = 2 * np.pi * qpd.gd.icell_cv
+    Nf_c = np.array([N, N, N])
+    q_qc = monkhorst_pack(Nf_c) 
+
+    from gpaw.kpt_descriptor import to1bz
+    q_qc = to1bz(q_qc, qpd.gd.cell_cv)
+    q_qc /= N_c
+    q_qv = np.dot(q_qc, B_cv)
+
+    V_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
+
+    return np.sum(V_q) / (N**3) 
+
 
 class QPointDescriptor(KPointDescriptor):
 
@@ -125,6 +139,7 @@ class WBaseCalculator():
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
             V0 = 16 * np.pi**2 * Rq0 / bzvol
+            V0 = get_XXX(chi0.qpd, self.qd.N_c) 
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
         return V0, sqrtV0
 

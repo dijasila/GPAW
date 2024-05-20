@@ -293,9 +293,13 @@ class RPACalculator:
         chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
+        print(chi0.qpd)
+        print(chi0.qpd.kd.gamma)
+        print(type(chi0.qpd.kd))
+        print(chi0.qpd.kd.bzk_kc)
         if not chi0.qpd.kd.gamma:
             e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut)
-            self.context.print('%.3f eV' % (e * Hartree))
+            self.context.print('nongamma %.3f eV' % (e * Hartree))
         else:
             from gpaw.response.gamma_int import GammaIntegrator
             from gpaw.response.pw_parallelization import Blocks1D
@@ -315,6 +319,7 @@ class RPACalculator:
                 ev = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut,
                                                q_v=gamma_int.qf_qv[iqf])
                 e += ev * gamma_int.weight_q
+                self.context.print(f'{gamma_int.qf_qv[iqf]} {ev*Hartree}', flush=True)
             self.context.print('%.3f eV' % (e * Hartree))
 
         return e
