@@ -218,8 +218,8 @@ class Chi0DysonEquations:
 
         In the special of RPA, where P(q,ω) = χ₀(q,ω), one may notice that the
         Dyson-like equation (3) is exactly identical to the TDDFT Dyson
-        equation (1) when replacing the Hartree kernel with the modified
-        Coulomb interaction:
+        equation (1) when replacing the Hartree-exchange-correlation kernel
+        with the modified Coulomb interaction:
                     ˍ
         K_Hxc(q) -> V(q).
                                                                   ˍ
