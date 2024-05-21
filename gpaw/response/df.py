@@ -220,8 +220,8 @@ class Chi0DysonEquations:
         Dyson-like equation (3) is exactly identical to the TDDFT Dyson
         equation (1) when replacing the Hartree kernel with the modified
         Coulomb interaction:
-                  ˍ
-        K_H(q) -> V(q).
+                    ˍ
+        K_Hxc(q) -> V(q).
                                                                   ˍ
         We may thus reuse that functionality to calculate V^(1/2) P V^(1/2)
                    ˍ
