@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from math import pi
 import sys
 
 import numpy as np
@@ -8,21 +7,23 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response.dyson import DysonEquation
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context
-from gpaw.response.pair_functions import SingleQPWDescriptor
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gpaw.response.frequencies import FrequencyDescriptor
+    from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 @dataclass
-class Chi0DysonEquation:
+class Chi0DysonEquations:
     chi0: Chi0Data
     df: 'DielectricFunctionCalculator'
 
@@ -30,277 +31,341 @@ class Chi0DysonEquation:
         self.gs = self.df.gs
         self.context = self.df.context
         self.coulomb = self.df.coulomb
-        self.blocks1d = self.df.blocks1d
+        # When inverting the Dyson equation, we distribute frequencies globally
+        blockdist = self.chi0.body.blockdist.new_distributor(nblocks='max')
+        self.wblocks = Blocks1D(blockdist.blockcomm, len(self.chi0.wd))
 
-    def chi(self, xc='RPA', direction='x', return_VchiV=True, q_v=None,
-            **xckwargs):
-        """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
+    @staticmethod
+    def _normalize(direction):
+        if isinstance(direction, str):
+            d_v = {'x': [1, 0, 0],
+                   'y': [0, 1, 0],
+                   'z': [0, 0, 1]}[direction]
+        else:
+            d_v = direction
+        d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+        return d_v
 
-        The truncated Coulomb interaction is included as
-        v^-1/2 v_t v^-1/2. This is in order to conform with
-        the head and wings of chi0, which is treated specially for q=0.
+    def get_chi0_wGG(self, direction='x'):
+        chi0 = self.chi0
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        if chi0.qpd.optical_limit:
+            # Project head and wings along the input direction
+            d_v = self._normalize(direction)
+            W_w = self.wblocks.myslice
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W_w, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
+        return chi0_wGG
+
+    def get_Kxc_GG(self, *, xc, chi0_wGG, **kwargs):
+        """Get adiabatic xc kernel (TDDFT).
+
+        Choose between ALDA, Bootstrap and LRalpha (long-range kernel), where
+        alpha is a user specified parameter (for example xc='LR0.25')."""
+        return get_density_xc_kernel(
+            self.chi0.qpd, self.gs, self.context,
+            functional=xc, chi0_wGG=chi0_wGG, **kwargs)
+
+    def get_coulomb_scaled_kernel(self, xc='RPA', **xckwargs):
+        """Get the Hxc kernel rescaled by the bare Coulomb potential V(q).
+
+        Calculates
+        ˷
+        K(q) = V^(-1/2)(q) K_Hxc(q) V^(-1/2)(q),
+
+        where V(q) is the bare Coulomb potential and
+                   ˍ
+        K_Hxc(q) = V(q) + K_xc(q),
+                                 ˍ
+        where the Hartree kernel V(q) might be truncated.
         """
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
-
-        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
-        sqrtV_G = Kbare_G**0.5
-
-        nG = len(sqrtV_G)
-
-        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
-
+        qpd = self.chi0.qpd
         if self.coulomb.truncation is None:
-            K_GG = np.eye(nG, dtype=complex)
+            V_G = self.coulomb.V(qpd)
+            K_GG = np.eye(len(V_G), dtype=complex)
         else:
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
-
-        # kd: KPointDescriptor object from gpaw.kpt_descriptor
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice  # slice object for this process.
-            #  used to distribute the calculation when run in parallel.
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
-
+            coulomb = self.coulomb.new(truncation=None)
+            V_G = coulomb.V(qpd)
+            Vtrunc_G = self.coulomb.V(qpd)
+            K_GG = np.diag(Vtrunc_G / V_G)
         if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(qpd,
-                                           self.gs, self.context,
-                                           functional=xc,
-                                           chi0_wGG=chi0_wGG,
-                                           **xckwargs)
+            Kxc_GG = self.get_Kxc_GG(xc=xc, **xckwargs)
+            sqrtV_G = V_G**0.5
             K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
+        return V_G, K_GG
 
-        # Invert Dyson eq.
-        chi_wGG = []
-        for chi0_GG in chi0_wGG:
-            """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
-            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                          np.dot(chi0_GG, K_GG)),
-                            chi0_GG)
-            if not return_VchiV:
-                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-            chi_wGG.append(chi_GG)
+    @staticmethod
+    def invert_dyson_like_equation(in_wGG, K_GG, reuse_buffer=True):
+        """Generalized Dyson equation invertion.
 
-        if len(chi_wGG):
-            chi_wGG = np.array(chi_wGG)
+        Calculates
+
+        B(q,ω) = [1 - A(q,ω) K(q)]⁻¹ A(q,ω)
+
+        while possibly storing the output B(q,ω) in the input A(q,ω) buffer.
+        """
+        if reuse_buffer:
+            out_wGG = in_wGG
         else:
-            chi_wGG = np.zeros((0, nG, nG), complex)
+            out_wGG = np.zeros_like(in_wGG)
+        for w, in_GG in enumerate(in_wGG):
+            out_wGG[w] = DysonEquation(in_GG, in_GG @ K_GG).invert()
+        return out_wGG
 
-        return ChiData(self, qpd, chi0_wGG, np.array(chi_wGG))
+    def rpa_density_response(self, direction='x', qinf_v=None):
+        """Calculate the RPA susceptibility for (semi-)finite q."""
+        # Extract χ₀(q,ω)
+        qpd = self.chi0.qpd
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        if qpd.optical_limit:
+            # Restore the q-dependence of the head and wings in the q→0 limit
+            assert qinf_v is not None and np.linalg.norm(qinf_v) > 0.
+            d_v = self._normalize(direction)
+            chi0_wGG[:, 1:, 0] *= np.dot(qinf_v, d_v)
+            chi0_wGG[:, 0, 1:] *= np.dot(qinf_v, d_v)
+            chi0_wGG[:, 0, 0] *= np.dot(qinf_v, d_v)**2
+        # Invert Dyson equation, χ(q,ω) = [1 - χ₀(q,ω) V(q)]⁻¹ χ₀(q,ω)
+        V_GG = self.coulomb.kernel(qpd, q_v=qinf_v)
+        chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
+        return qpd, chi_wGG, self.wblocks
 
-    def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
-                          calculate_chi=False, q_v=None, **xckwargs):
-        r"""Returns the symmetrized dielectric matrix.
+    def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
 
-        ::
+        Starting from the TDDFT Dyson equation
 
-            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{1/2}_G',
+        χ(q,ω) = χ₀(q,ω) + χ₀(q,ω) K_Hxc(q,ω) χ(q,ω),                (1)
 
-        where::
+        the Coulomb scaled susceptibility,
+        ˷
+        χ(q,ω) = V^(1/2)(q) χ(q,ω) V^(1/2)(q)
 
-            epsilon_GG' = 1 - v_G * P_GG' and P_GG'
+        can be calculated from the Dyson-like equation
+        ˷        ˷         ˷       ˷      ˷
+        χ(q,ω) = χ₀(q,ω) + χ₀(q,ω) K(q,ω) χ(q,ω)                     (2)
 
-        is the polarization.
+        where
+        ˷
+        K(q,ω) = V^(-1/2)(q) K_Hxc(q,ω) V^(-1/2)(q).
 
-        ::
+        Here V(q) refers to the bare Coulomb potential. It should be emphasized
+        that invertion of (2) rather than (1) is not merely a rescaling
+        excercise. In the optical q → 0 limit, the Coulomb kernel V(q) diverges
+        as 1/|G+q|² while the Kohn-Sham susceptibility χ₀(q,ω) vanishes as
+        |G+q|². Treating V^(1/2)(q) χ₀(q,ω) V^(1/2)(q) as a single variable,
+        the effects of this cancellation can be treated accurately within k.p
+        perturbation theory.
+        """
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        V_G, K_GG = self.get_coulomb_scaled_kernel(
+            xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
+        # Calculate V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
+        sqrtV_G = V_G**0.5
+        Vchi0_symm_wGG = chi0_wGG  # reuse buffer
+        for w, chi0_GG in enumerate(chi0_wGG):
+            Vchi0_symm_wGG[w] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
+        # Invert Dyson equation
+        Vchi_symm_wGG = self.invert_dyson_like_equation(
+            Vchi0_symm_wGG, K_GG, reuse_buffer=False)
+        return InverseDielectricFunction.from_chi0_dyson_eqs(
+            self, Vchi0_symm_wGG, Vchi_symm_wGG, V_G)
 
-            In RPA:   P = chi^0
-            In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
+    def dielectric_matrix(self, *args, **kwargs):
+        """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
+        V_GG = self.coulomb.kernel(self.chi0.qpd)
+        P_wGG = self.polarizability_operator(*args, **kwargs)
+        nG = len(V_GG)
+        eps_wGG = P_wGG  # reuse buffer
+        for w, P_GG in enumerate(P_wGG):
+            eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
+        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
 
-        in addition to RPA one can use the kernels, ALDA, Bootstrap and
-        LRalpha (long-range kerne), where alpha is a user specified parameter
-        (for example xc='LR0.25')
+    def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate the polarizability operator P(q,ω).
 
-        The head of the inverse symmetrized dielectric matrix is equal
-        to the head of the inverse dielectric matrix (inverse dielectric
-        function)"""
+        Depending on the theory (RPA, TDDFT, MBPT etc.), the polarizability
+        operator is approximated in various ways see e.g.
+        [Rev. Mod. Phys. 74, 601 (2002)].
 
-        chi0 = self.chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+        In RPA:
+            P(q,ω) = χ₀(q,ω)
 
-        K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
-        nG = len(K_G)
-
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
-            if q_v is not None:
-                print('Restoring q dependence of head and wings of chi0')
-                chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
-
-        if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(qpd,
-                                           self.gs, self.context,
-                                           functional=xc,
-                                           chi0_wGG=chi0_wGG,
-                                           **xckwargs)
-
-        if calculate_chi:
-            chi_wGG = []
-
-        for chi0_GG in chi0_wGG:
-            if xc == 'RPA':
-                P_GG = chi0_GG
-            else:
-                P_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                            np.dot(chi0_GG, Kxc_GG)),
-                              chi0_GG)
-            if symmetric:
-                e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
-            else:
-                K_GG = (K_G**2 * np.ones([nG, nG])).T
-                e_GG = np.eye(nG) - P_GG * K_GG
-
-            if calculate_chi:
-                K_GG = np.diag(K_G**2)
-                if xc != 'RPA':
-                    K_GG += Kxc_GG
-                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
-                                                    np.dot(chi0_GG, K_GG)),
-                                      chi0_GG))
-            chi0_GG[:] = e_GG
-
-        # chi0_wGG is now the dielectric matrix
-        if calculate_chi:
-            if len(chi_wGG):
-                chi_wGG = np.array(chi_wGG)
-            else:
-                chi_wGG = np.zeros((0, nG, nG), complex)
-
-        if not calculate_chi:
-            return DielectricMatrixData(self, chi0_wGG=chi0_wGG)
-        else:
-            # chi_wGG is the full density response function..
-            return DielectricMatrixData(self, qpd=qpd, chi0_wGG=chi0_wGG,
-                                        chi_wGG=chi_wGG)
+        In TDDFT:
+            P(q,ω) = [1 - χ₀(q,ω) K_xc(q,ω)]⁻¹ χ₀(q,ω)
+        """
+        chi0_wGG = self.get_chi0_wGG(direction=direction)
+        if xc == 'RPA':
+            return chi0_wGG
+        # TDDFT (in adiabatic approximations to the kernel)
+        Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
+        return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
 
 @dataclass
-class ChiData:
-    dyson: Chi0DysonEquation
-    qpd: object
-    chi0_wGG: np.ndarray
-    chi_wGG: np.ndarray
+class DielectricFunctionData:
+    qpd: SingleQPWDescriptor
+    wd: FrequencyDescriptor
+    wblocks: Blocks1D
 
-    def unpack(self):
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+    @classmethod
+    def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
+        chi0 = chi0_dyson_eqs.chi0
+        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
+
+
+@dataclass
+class InverseDielectricFunction(DielectricFunctionData):
+    """Data class for the inverse dielectric function ε⁻¹(q,ω).
+
+    The inverse dielectric function characterizes the longitudinal response
+
+    V (q,ω) = ε⁻¹(q,ω) V (q,ω),
+     tot                ext
+
+    where the induced potential due to the electronic system is given by Vχ,
+
+    ε⁻¹(q,ω) = 1 + V(q) χ(q,ω).
+
+    In this data class, ε⁻¹ is cast in terms if its symmetrized representation
+    ˷
+    ε⁻¹(q,ω) = V^(-1/2)(q) ε⁻¹(q,ω) V^(1/2)(q),
+
+    that is, in terms of V^(1/2)(q) χ(q,ω) V^(1/2)(q).
+
+    Please remark that V(q) here refers to the bare Coulomb potential
+    irregardless of whether χ(q,ω) was determined using a truncated analogue.
+    """
+    Vchi0_symm_wGG: np.ndarray  # V^(1/2)(q) χ₀(q,ω) V^(1/2)(q)
+    Vchi_symm_wGG: np.ndarray
+    V_G: np.ndarray
+
+    def _get_macroscopic_component(self, in_wGG):
+        return self.wblocks.all_gather(in_wGG[:, 0, 0])
+
+    def macroscopic_components(self):
+        Vchi0_W = self._get_macroscopic_component(self.Vchi0_symm_wGG)
+        Vchi_W = self._get_macroscopic_component(self.Vchi_symm_wGG)
+        return Vchi0_W, Vchi_W
 
     def dynamic_susceptibility(self):
-        """Calculate the dynamic susceptibility.
-
-        Returns macroscopic(could be generalized?) dynamic susceptibility:
-        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
-        """
-        rf0_w = np.zeros(len(self.chi_wGG), dtype=complex)
-        rf_w = np.zeros(len(self.chi_wGG), dtype=complex)
-
-        for w, (chi0_GG, chi_GG) in enumerate(zip(self.chi0_wGG,
-                                                  self.chi_wGG)):
-            rf0_w[w] = chi0_GG[0, 0]
-            rf_w[w] = chi_GG[0, 0]
-
-        rf0_w = self.dyson.df.collect(rf0_w)
-        rf_w = self.dyson.df.collect(rf_w)
-
-        return ScalarResponseFunctionSet(self.wd, rf0_w, rf_w)
-
-    @property
-    def wd(self):
-        return self.dyson.df.wd
+        """Get the macroscopic component of χ(q,ω)."""
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        V0 = self.V_G[0]  # Macroscopic Coulomb potential (4π/q²)
+        return ScalarResponseFunctionSet(self.wd, Vchi0_W / V0, Vchi_W / V0)
 
     def eels_spectrum(self):
-        r"""The EELS spectrum is obtained from the imaginary part of the
-        density response function as,
+        """Get the macroscopic EELS spectrum.
 
-        EELS(\omega) = - 4 * \pi / q^2 Im \chi."""
-        # Calculate V^1/2 \chi V^1/2
-        Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
-        Vchi_wGG = self.chi_wGG
+        Here, we define the EELS spectrum to be the spectral part of the
+        inverse dielectric function. In the plane-wave representation,
 
-        # Calculate eels = -Im 4 \pi / q^2  \chi
-        eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
-        eels_LFC_w = -Vchi_wGG[:, 0, 0].imag
+        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im V(G+q) χ(G+q,ω),
 
-        eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
-        eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
-        return ScalarResponseFunctionSet(self.wd, eels_NLFC_w, eels_LFC_w)
+        where ε⁻¹(G+q,ω) denotes the G'th diagonal element.
+
+        In addition to the many-body spectrum, we also calculate the
+        macroscopic EELS spectrum in the independent-particle random-phase
+        approximation, that is, using the RPA dielectric function ε = 1 - Vχ₀
+        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)]:
+
+        EELS₀(ω) = -Im 1 / (1 - V(q) χ₀(q,ω)).
+        """
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        eels0_W = -(1. / (1. - Vchi0_W)).imag
+        eels_W = -Vchi_W.imag
+        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
+
+    def _suspicious_polarizability(self, L: float):
+        # thosk notes:
+        # This expression might be valid only for RPA in 2D for q == 0...
+        Vchi0_W, Vchi_W = self.macroscopic_components()
+        alpha0_W = -L / (4 * np.pi) * Vchi0_W
+        alpha_W = -L / (4 * np.pi) * Vchi_W
+        return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
 
 
 @dataclass
-class DielectricMatrixData:
-    dyson: Chi0DysonEquation
-    qpd: SingleQPWDescriptor | None = None
-    chi0_wGG: np.ndarray | None = None
-    chi_wGG: np.ndarray | None = None
+class DielectricMatrixData(DielectricFunctionData):
+    """Data class for the dielectric function ε(q,ω).
 
-    def unpack(self):
-        # (This has the (inconsistent) return types of the old API.)
-        if self.qpd is None:
-            return self.chi0_wGG
-        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+    The dielectric function is written in terms of the Coulomb potential V and
+    polarizability operator P [Rev. Mod. Phys. 74, 601 (2002)],
+
+    ε(q,ω) = 1 - V(q) P(q,ω),
+
+    and represented in a plane-wave basis.
+
+    Please remark that the Coulomb potential may have been interchanged with
+    its truncated analogue.
+    """
+    eps_wGG: np.ndarray
 
     def dielectric_function(self):
-        e_wGG = self.chi0_wGG  # XXX what's with the names here?
-        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
-        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+        # Ignoring local field effects
+        eps0_W = self.wblocks.all_gather(self.eps_wGG[:, 0, 0])
 
-        for w, e_GG in enumerate(e_wGG):
-            df_NLFC_w[w] = e_GG[0, 0]
-            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+        # Accouting for local field effects
+        eps_w = np.zeros((self.wblocks.nlocal,), complex)
+        for w, eps_GG in enumerate(self.eps_wGG):
+            eps_w[w] = 1 / np.linalg.inv(eps_GG)[0, 0]
+        eps_W = self.wblocks.all_gather(eps_w)
 
-        df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
-        df_LFC_w = self.dyson.df.collect(df_LFC_w)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
-        return ScalarResponseFunctionSet(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+
+
+def nonperiodic_hypervolume(gs):
+    """Get the hypervolume of the cell along nonperiodic directions.
+
+    Returns the hypervolume Λ in units of Å, where
+
+    Λ = 1        in 3D
+    Λ = L        in 2D, where L is the out-of-plane cell vector length
+    Λ = A        in 1D, where A is the transverse cell area
+    Λ = V        in 0D, where V is the cell volume
+    """
+    cell_cv = gs.gd.cell_cv
+    pbc_c = gs.pbc
+    if pbc_c.all():
+        return 1.
+    else:
+        if sum(pbc_c) > 0:
+            # In 1D and 2D, we assume the cartesian representation of the unit
+            # cell to be block diagonal, separating the periodic and
+            # nonperiodic cell vectors in different blocks.
+            assert np.allclose(cell_cv[~pbc_c][:, pbc_c], 0.) and \
+                np.allclose(cell_cv[pbc_c][:, ~pbc_c], 0.), \
+                "In 1D and 2D, please put the periodic/nonperiodic axis " \
+                "along a cartesian component"
+        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+        return V * Bohr**sum(~pbc_c)  # Bohr -> Å
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, wd: FrequencyDescriptor,
-                 chi0calc: Chi0Calculator, truncation: str | None):
-        from gpaw.response.pw_parallelization import Blocks1D
-        self.wd = wd
-
+    def __init__(self, chi0calc: Chi0Calculator, coulomb: CoulombKernel):
         self.chi0calc = chi0calc
+        self.coulomb = coulomb
 
-        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
-
-        # context: ResponseContext object from gpaw.response.context
+        self.gs = chi0calc.gs
         self.context = chi0calc.context
 
-        # context.comm : _Communicator object from gpaw.mpi
-        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
-
         self._chi0cache: dict = {}
-
-    @property
-    def gs(self):
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        return self.chi0calc.gs
 
     def calculate_chi0(self, q_c: list | np.ndarray):
         """Calculates the response function.
@@ -337,97 +402,48 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = Chi0DysonEquation(
+            self._chi0cache[key] = Chi0DysonEquations(
                 self.chi0calc.calculate(q_c), self)
             self.context.write_timer()
 
         return self._chi0cache[key]
 
-    def collect(self, a_w: np.ndarray) -> np.ndarray:
-        # combines array from sub-processes into one.
-        return self.blocks1d.all_gather(a_w)
-
-    def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
-
-    def _new_dynamic_susceptibility(self, xc='ALDA', **kwargs):
-        chi = self._new_chi(xc=xc, return_VchiV=False, **kwargs)
-        return chi.dynamic_susceptibility()
+    def _new_dynamic_susceptibility(self, *args, **kwargs):
+        return self.get_inverse_dielectric_function(
+            *args, **kwargs).dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        dm = self._new_dielectric_matrix(*args, **kwargs)
-        return dm.dielectric_function()
+        return self.get_dielectric_matrix(
+            *args, **kwargs).dielectric_function()
 
-    def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        chi0 = self.calculate_chi0(q_c)
-        return chi0.dielectric_matrix(xc=xc, **kwargs)
+    def _new_eels_spectrum(self, *args, **kwargs):
+        return self.get_inverse_dielectric_function(
+            *args, **kwargs).eels_spectrum()
 
-    def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
-        chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
-        return chi.eels_spectrum()
-
-    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                            **kwargs):
-        r"""Calculate the polarizability alpha.
-        In 3D the imaginary part of the polarizability is related to the
-        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
-        with reduced dimensionality the converged value of alpha is
-        independent of the cell volume. This is not the case for eps_M,
-        which is ill-defined. A truncated Coulomb kernel will always give
-        eps_M = 1.0, whereas the polarizability maintains its structure.
-
-        By default, generate a file 'polarizability.csv'. The five columns are:
-        frequency (eV), Real(alpha0), Imag(alpha0), Real(alpha), Imag(alpha)
-        alpha0 is the result without local field effects and the
-        dimension of alpha is \AA to the power of non-periodic directions
-        """
-
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        # gd: GridDescriptor object from gpaw.grid_descriptor
-        cell_cv = self.gs.gd.cell_cv
-
-        # pbc_c: np.ndarray of type bool. Describes periodic directions.
-        pbc_c = self.gs.pbc
-
-        if pbc_c.all():
-            V = 1.0
+    def _new_polarizability(self, *args, **kwargs):
+        hypervol = nonperiodic_hypervolume(self.gs)
+        if self.coulomb.truncation:
+            # Since eps_M = 1.0 for a truncated Coulomb interaction, use
+            # alternative definition of the polarizability, namely
+            # α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω)
+            return self.get_inverse_dielectric_function(
+                *args, **kwargs)._suspicious_polarizability(L=hypervol)
         else:
-            V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+            return self.get_dielectric_matrix(
+                *args, **kwargs).polarizability(L=hypervol)
 
-        if not self.coulomb.truncation:
-            """Standard expression for the polarizability"""
-            df = self._new_dielectric_function(
-                xc=xc, q_c=q_c, direction=direction, **kwargs)
-            alpha_w = V * (df.rf_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df.rf0_w - 1.0) / (4 * pi)
-        else:
-            # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
-            # not make sense to apply it here. Instead one should define the
-            # polarizability by
-            #
-            #     alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
-            #
-            # where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
-            # potential (relative to the strength of the  external potential).
-            # With the bare Coulomb potential, this expression is equivalent to
-            # the standard one. In a 2D system \chi should be calculated with a
-            # truncated Coulomb potential and eps_M = 1.0
+    def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
+        return self.calculate_chi0(q_c).dielectric_matrix(
+            direction=direction, **xckwargs)
 
-            self.context.print('Using truncated Coulomb interaction')
-            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction, **kwargs)
+    def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',
+                                        **xckwargs):
+        return self.calculate_chi0(q_c).inverse_dielectric_function(
+            direction=direction, **xckwargs)
 
-            alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
-
-            alpha_w = self.collect(alpha_w)
-            alpha0_w = self.collect(alpha0_w)
-
-        # Convert to external units
-        hypervol = Bohr**sum(~pbc_c)
-        alpha0_w *= hypervol
-        alpha_w *= hypervol
-
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+    def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
+        return self.calculate_chi0(q_c).rpa_density_response(
+            direction=direction, qinf_v=qinf_v)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -491,16 +507,18 @@ class DielectricFunction(DielectricFunctionCalculator):
             integrationmode=integrationmode,
             rate=rate, eshift=eshift
         )
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
 
-        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
+        super().__init__(chi0calc, coulomb)
 
     def get_frequencies(self) -> np.ndarray:
-        """ Return frequencies that Chi is evaluated on"""
-        return self.wd.omega_w * Hartree
+        """Return frequencies (in eV) that the χ is evaluated on."""
+        return self.chi0calc.wd.omega_w * Hartree
 
-    def get_dynamic_susceptibility(self, *args, filename='chiM_w.csv',
+    def get_dynamic_susceptibility(self, *args, xc='ALDA',
+                                   filename='chiM_w.csv',
                                    **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, **kwargs)
+        dynsus = self._new_dynamic_susceptibility(*args, xc=xc, **kwargs)
         if filename:
             dynsus.write(filename)
         return dynsus.unpack()
@@ -522,20 +540,17 @@ class DielectricFunction(DielectricFunctionCalculator):
             df.write(filename)
         return df.unpack()
 
-    def get_dielectric_matrix(self, *args, **kwargs):
-        return self._new_dielectric_matrix(*args, **kwargs).unpack()
-
     def get_eels_spectrum(self, *args, filename='eels.csv', **kwargs):
-        """Calculate the EELS spectrum.
+        """Calculate the macroscopic EELS spectrum.
 
         Generates a file 'eels.csv', unless filename is set to None.
 
         Returns
         -------
         eels0_w: np.ndarray
-            EELS spectrum calculated from chi0.
+            Spectrum in the independent-particle random-phase approximation.
         eels_w: np.ndarray
-            EELS spectrum calculated from chi.
+            Fully screened EELS spectrum.
         """
         eels = self._new_eels_spectrum(*args, **kwargs)
         if filename:
@@ -544,13 +559,23 @@ class DielectricFunction(DielectricFunctionCalculator):
 
     def get_polarizability(self, *args, filename='polarizability.csv',
                            **kwargs):
+        """Calculate the macroscopic polarizability.
+
+        Generate a file 'polarizability.csv', unless filename is set to None.
+
+        Returns:
+        --------
+        alpha0_w: np.ndarray
+            Polarizability calculated without local-field corrections
+        alpha_w: np.ndarray
+            Polarizability calculated with local-field corrections.
+        """
         pol = self._new_polarizability(*args, **kwargs)
         if filename:
             pol.write(filename)
         return pol.unpack()
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA',
-                                            direction='x', q_v=None):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate the macroscopic dielectric constant.
 
         The macroscopic dielectric constant is defined as the real part of the
@@ -563,7 +588,7 @@ class DielectricFunction(DielectricFunctionCalculator):
         eps: float
             Dielectric constant with local field correction. (RPA, ALDA)
         """
-        df = self._new_dielectric_function(xc=xc, q_v=q_v, direction=direction)
+        df = self._new_dielectric_function(xc=xc, direction=direction)
         return df.static_limit.real
 
 

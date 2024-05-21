@@ -484,7 +484,6 @@ class Density:
             nct_a.append([nct])
             if self.setups[a].data.has_corehole and not skip_core and \
                     self.nspins > 1:
-                assert self.setups[a].data.lcorehole == 0
                 work_setup = self.setups[a].data
                 rmax = nc.get_cutoff()
                 # work_setup.phicorehole_g

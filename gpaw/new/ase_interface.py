@@ -422,11 +422,12 @@ class ASECalculator:
                                  gridrefinement=1,
                                  broadcast=True,
                                  skip_core=False):
-        assert spin is None
         n_sr = self.dft.densities().all_electron_densities(
             grid_refinement=gridrefinement,
             skip_core=skip_core)
-        return n_sr.gather(broadcast=broadcast).data.sum(0)
+        if spin is None:
+            return n_sr.gather(broadcast=broadcast).data.sum(0)
+        return n_sr[spin].gather(broadcast=broadcast).data
 
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         state = self.dft.state
