@@ -135,6 +135,51 @@ class ScreenedPotential:
     qpd_q: list
 
 
+class SpinorData:
+    def __init__(self, con_sn, val_sn, e_mk, v0_kmn, v1_kmn):
+        self.e_mk = e_mk
+        self.v0_kmn = v0_kmn
+        self.v1_kmn = v1_kmn
+
+        self.vi_s = [2 * val_sn[0, 0] - val_sn[0, -1] - 1]
+        self.vf_s = [2 * con_sn[0, -1] - con_sn[0, 0] + 2]
+        if self.vi_s[0] < 0:
+            self.vi_s[0] = 0
+        self.ci_s, self.cf_s = self.vi_s, self.vf_s
+        self.ni, self.nf = self.vi_s[0], self.vf_s[0]
+
+        self.valence_slice = slice(2 * val_sn[0, 0], 2 * (val_sn[0, -1] + 1))
+        self.conduction_slice = slice(
+            2 * con_sn[0, 0], 2 * (con_sn[0, -1] + 1))
+
+    def _transform_rho(self, rho_mnG, K1, K2, slice1, slice2):
+        nslice = slice(self.ni, self.nf)
+        vec0_mn = self.v0_kmn[K1, slice1, nslice]
+        vec1_mn = self.v1_kmn[K1, slice1, nslice]
+        vec2_mn = self.v0_kmn[K2, slice2, nslice]
+        vec3_mn = self.v1_kmn[K2, slice2, nslice]
+        rho_0mnG = np.dot(vec0_mn.conj(), np.dot(vec2_mn, rho_mnG))
+        rho_1mnG = np.dot(vec1_mn.conj(), np.dot(vec3_mn, rho_mnG))
+        return rho_0mnG + rho_1mnG
+
+    def rho_valence_valence(self, rho_mnG, K1, K2):
+        return self._transform_rho(rho_mnG, K1, K2, self.valence_slice,
+                                   self.valence_slice)
+
+    def rho_conduction_conduction(self, rho_mnG, K1, K2):
+        return self._transform_rho(rho_mnG, K1, K2, self.conduction_slice,
+                                   self.conduction_slice)
+
+    def rho_valence_conduction(self, rho_mnG, K1, K2):
+        return self._transform_rho(rho_mnG, K1, K2, self.valence_slice,
+                                   self.conduction_slice)
+
+    def get_deps(self, K1, K2):
+        epsv_m = self.e_mk[self.valence_slice, K1]
+        epsc_n = self.e_mk[self.conduction_slice, K2]
+        return -(epsv_m[:, np.newaxis] - epsc_n)
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -279,6 +324,14 @@ class BSEBackend:
         bands_sn = np.atleast_2d(bands_sn)
         return bands_sn
 
+    def _spinordata(self):
+        self.context.print('Diagonalizing spin-orbit Hamiltonian')
+        soc = self.gs.soc_eigenstates(scale=self.scale)
+        e_mk = soc.eigenvalues().T
+        v_kmn = soc.eigenvectors()
+        e_mk /= Hartree
+        return SpinorData(self.con_sn, self.val_sn,
+                          e_mk, v_kmn[:, :, ::2], v_kmn[:, :, 1::2])
 
     @timer('BSE calculate')
     def calculate(self, optical):
@@ -287,15 +340,13 @@ class BSEBackend:
             # and n is the basis of eigenstates without SOC. Below m is used
             # for unoccupied states and n is used for occupied states so be
             # careful!
+            spinors = self._spinordata()
+        else:
+            spinors = None
 
-            self.context.print('Diagonalizing spin-orbit Hamiltonian')
-            soc = self.gs.soc_eigenstates(scale=self.scale)
-            e_mk = soc.eigenvalues().T
-            v_kmn = soc.eigenvectors()
-            e_mk /= Hartree
-            self.v0_kmn = v_kmn[:, :, ::2]
-            self.v1_kmn = v_kmn[:, :, 1::2]
+        return self._calculate(optical, spinors)
 
+    def _calculate(self, optical, spinors=None):
         # Parallelization stuff
         nK = self.kd.nbzkpts
         myKrange, myKsize, mySsize = self.parallelisation_sizes()
@@ -333,11 +384,6 @@ class BSEBackend:
         get_pair = kptpair_factory.get_kpoint_pair
         get_pair_density = pair_calc.get_pair_density
 
-        mvi = None
-        mvf = None
-        mci = None
-        mcf = None
-
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -347,21 +393,14 @@ class BSEBackend:
             # (vv, vc, cv, and cc) in this 10x10 basis
             # from which they are then transformed into
             # to SOC basis.
-            
-            vi_s = [2 * self.val_sn[0, 0] - self.val_sn[0, -1] - 1]
-            vf_s = [2 * self.con_sn[0, -1] - self.con_sn[0, 0] + 2]
-            if vi_s[0] < 0:
-                vi_s[0] = 0
-            ci_s, cf_s = vi_s, vf_s
-            ni, nf = vi_s[0], vf_s[0]
-            self.ni, self.nf = ni, nf
-            mvi = 2 * self.val_sn[0, 0]
-            mvf = 2 * (self.val_sn[0, -1] + 1)
-            mci = 2 * self.con_sn[0, 0]
-            mcf = 2 * (self.con_sn[0, -1] + 1)
+            vi_s = spinors.vi_s
+            vf_s = spinors.vf_s
+            ci_s = spinors.ci_s
+            cf_s = spinors.cf_s
         else:
             vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
+
         for ik, iK in enumerate(myKrange):
             for s in range(Ns):
                 pair = get_pair(qpd0, s, iK,
@@ -375,9 +414,7 @@ class BSEBackend:
                     deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
                 elif self.spinors:
                     iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
-                    epsv_m = e_mk[mvi:mvf, iK]
-                    epsc_n = e_mk[mci:mcf, iKq]
-                    deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
+                    deps_ksmn[ik, s] = spinors.get_deps(iK, iKq)
                 else:
                     deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
 
@@ -393,19 +430,14 @@ class BSEBackend:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
                         rho_mnG[:, :, 0] *= deps0_mn
+
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
-                    vecv0_mn = self.v0_kmn[iK, mvi:mvf, ni:nf]
-                    vecc0_mn = self.v0_kmn[iKq, mci:mcf, ni:nf]
-                    rho_0mnG = np.dot(vecv0_mn.conj(),
-                                      np.dot(vecc0_mn, rho_mnG))
-                    vecv1_mn = self.v1_kmn[iK, mvi:mvf, ni:nf]
-                    vecc1_mn = self.v1_kmn[iKq, mci:mcf, ni:nf]
-                    rho_1mnG = np.dot(vecv1_mn.conj(),
-                                      np.dot(vecc1_mn, rho_mnG))
-                    rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
+
+                    rhoex_KsmnG[iK, s] = spinors.rho_valence_conduction(
+                        rho_mnG, iK, iKq)
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
                 else:
@@ -428,7 +460,8 @@ class BSEBackend:
         self.context.print('Calculating {} matrix elements at q_c = {}'.format(
             self.mode, self.q_c))
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
-        indirect_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
+        indirect_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc),
+                                     complex)
 
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
@@ -445,9 +478,10 @@ class BSEBackend:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
                         self.context.timer.start('Coulomb')
-                        indirect_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
-                            'ijG,mnG->ijmn', rho1ccV_mnG, rho2_mnG,
-                            optimize='optimal')
+                        indirect_ksmnKsmn[
+                            ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
+                                'ijG,mnG->ijmn', rho1ccV_mnG, rho2_mnG,
+                                optimize='optimal')
                         self.context.timer.stop('Coulomb')
 
         H_ksmnKsmn += indirect_ksmnKsmn
@@ -461,29 +495,40 @@ class BSEBackend:
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
-                        if self.mode != 'RPA' and s1 == s2:
-                            ikq = ikq_k[iK2]
-                            kptv2 = kptpair_factory.get_k_point(
-                                s1, iK2, vi_s[s1], vf_s[s1])
-                            kptc2 = kptpair_factory.get_k_point(
-                                s1, ikq, ci_s[s1], cf_s[s1])
-                            
-                            rho3_mmG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptv1, kptv2, mi=mvi, mf=mvf)
 
-                            rho4_nnG, iq = self.get_density_matrix(
-                                pair_calc, screened_potential, kptc1, kptc2, mi=mci, mf=mcf)
-                            
-                            self.context.timer.start('Screened exchange')
-                            W_mnmn = np.einsum(
-                                'ijk,km,pqm->ipjq',
-                                rho3_mmG.conj(),
-                                screened_potential.W_qGG[iq],
-                                rho4_nnG,
-                                optimize='optimal')
-                            W_mnmn *= Ns * so
-                            H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
-                            self.context.timer.stop('Screened exchange')
+                        if self.mode == 'RPA' or s1 != s2:
+                            continue
+
+                        ikq = ikq_k[iK2]
+                        kptv2 = kptpair_factory.get_k_point(
+                            s1, iK2, vi_s[s1], vf_s[s1])
+                        kptc2 = kptpair_factory.get_k_point(
+                            s1, ikq, ci_s[s1], cf_s[s1])
+
+                        rho3_mmG, iq = self.get_density_matrix(
+                            pair_calc, screened_potential, kptv1, kptv2)
+
+                        rho4_nnG, iq = self.get_density_matrix(
+                            pair_calc, screened_potential, kptc1, kptc2)
+
+                        if spinors is not None:
+                            rho3_mmG = spinors.rho_valence_valence(
+                                rho3_mmG, kptv1.K, kptv2.K)
+
+                            rho4_nnG = spinors.rho_conduction_conduction(
+                                rho4_nnG, kptc1.K, kptc2.K)
+
+                        self.context.timer.start('Screened exchange')
+                        W_mnmn = np.einsum(
+                            'ijk,km,pqm->ipjq',
+                            rho3_mmG.conj(),
+                            screened_potential.W_qGG[iq],
+                            rho4_nnG,
+                            optimize='optimal')
+                        W_mnmn *= Ns * so
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
+                        self.context.timer.stop('Screened exchange')
+
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -513,7 +558,7 @@ class BSEBackend:
         return BSEMatrix(rhoG0_S, df_S, H_sS)
 
     @timer('get_density_matrix')
-    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2, mi=None, mf=None):
+    def get_density_matrix(self, pair_calc, screened_potential, kpt1, kpt2):
         self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -524,25 +569,10 @@ class BSEBackend:
         pawcorr, I_G = symop.apply_symop_q(qpd, pawcorr0, kpt1, kpt2)
         self.context.timer.stop('Symop')
 
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
-                           complex)
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG), complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
                                  pair_calc, timer=self.context.timer)
-
-        if self.spinors:
-            ni, nf = self.ni, self.nf
-            v0_kmn = self.v0_kmn 
-            v1_kmn = self.v1_kmn 
-            vec0_mn = v0_kmn[kpt1.K, mi:mf, ni:nf] # len(ni:nf) == 16, len(mvi:mvf) == 8
-            vec1_mn = v1_kmn[kpt1.K, mi:mf, ni:nf]
-            vec2_mn = v0_kmn[kpt2.K, mi:mf, ni:nf]
-            vec3_mn = v1_kmn[kpt2.K, mi:mf, ni:nf]
-            rho_0mnG = np.dot(vec0_mn.conj(),
-                              np.dot(vec2_mn, rho_mnG))
-            rho_1mnG = np.dot(vec1_mn.conj(),
-                              np.dot(vec3_mn, rho_mnG))
-            rho_mnG = rho_0mnG + rho_1mnG
 
         return rho_mnG, iq
 
