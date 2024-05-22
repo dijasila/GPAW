@@ -6,7 +6,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.MPAinterpolation import mpa_RE_solver
+from gpaw.response.mpa_interpolation import RESolver
 
 
 class QPointDescriptor(KPointDescriptor):
@@ -436,38 +436,41 @@ class MPACalculator(WBaseCalculator):
         
         einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
 
-        nG1 = einv_WgG.shape[1]
-        nG2 = einv_WgG.shape[2]
-        R_nGG = np.zeros((self.mpa['npoles'], nG1, nG2), dtype=complex)
-        omegat_nGG = np.ones((self.mpa['npoles'], nG1, nG2), dtype=complex)
-        for i in range(nG1):
-            for j in range(nG2):
-                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(
-                    self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
-                omegat_n -= (0.1j / 27.21)   # XXX
-                omegat_nGG[:, i, j] = omegat_n
-                R_nGG[:, i, j] = R_n
+        #nG1 = einv_WgG.shape[1]
+        #nG2 = einv_WgG.shape[2]
+        #R_nGG = np.zeros((self.mpa['npoles'], nG1, nG2), dtype=complex)
+        #omegat_nGG = np.ones((self.mpa['npoles'], nG1, nG2), dtype=complex)
+        #for i in range(nG1):
+        #    for j in range(nG2):
+        #        R_n, omegat_n, MPred, PPcond_rate =
+        solver = RESolver(chi0.wd.omega_w)
+        E_pGG, R_pGG = solver.solve(einv_WgG)
+        #            self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
+        #omegat_n -= (0.1j / 27.21)   # XXX
+        #    omegat_nGG[:, i, j] = omegat_n
+        #        R_nGG[:, i, j] = R_n
+        E_pGG -= 0.1j / 27.21
 
-        R_nGG = chi0.body.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
-        omegat_nGG = chi0.body.blockdist.distribute_as(omegat_nGG,
+        R_pGG = chi0.body.blockdist.distribute_as(R_pGG, self.mpa['npoles'], 'wGG')
+        E_pGG = chi0.body.blockdist.distribute_as(E_pGG,
                                                   self.mpa['npoles'], 'wGG')
 
-        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
+        W_pGG = pi * R_pGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
             * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
         
         if chi0.optical_limit or self.integrate_gamma != 0:
-            for W_GG, R_GG in zip(W_nGG, R_nGG):
+            for W_GG, R_GG in zip(W_pGG, R_pGG):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
-        W_nGG = np.transpose(W_nGG, axes=(0, 2, 1))  # Why the transpose
-        omegat_nGG = np.transpose(omegat_nGG, axes=(0, 2, 1))
+        W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
+        E_pGG = np.transpose(E_pGG, axes=(0, 2, 1))
 
-        W_nGG = chi0.body.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
-        omegat_nGG = chi0.body.blockdist.distribute_as(omegat_nGG,
+        W_pGG = chi0.body.blockdist.distribute_as(W_pGG, self.mpa['npoles'], 'WgG')
+        E_pGG = chi0.body.blockdist.distribute_as(E_pGG,
                                                   self.mpa['npoles'], 'WgG')
 
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
+        return MPAHWModel(W_pGG, E_pGG, self.eta, factor)

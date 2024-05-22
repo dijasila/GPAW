@@ -23,7 +23,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
-from gpaw.response.MPAsamp import mpa_frequency_sampling
+from gpaw.response.mpa_sampling import mpa_frequency_sampling
 from gpaw.mpi import broadcast_exception
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
@@ -64,7 +64,7 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
             if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
         elif isinstance(val1, np.ndarray):
-            if np.any(val1 != val2):
+            if not np.allclose(val1, val2, rtol=rel_tol, atol=abs_tol):
                 return False
         else:
             if val1 != val2:
@@ -633,7 +633,7 @@ class G0W0Calculator:
                     '',
                     'Computational parameters:'])
         if len(self.ecut_e) == 1:
-				    isl.append(
+            isl.append(
                 'Plane wave cut-off: '
                 f'{self.chi0calc.chi0_body_calc.ecut * Ha:g} eV')
         else:
@@ -805,7 +805,7 @@ class G0W0Calculator:
 
                     nc_G = n_G.conj()
                     myn_G = n_G[blocks1d.myslice]
- 
+
                     if self.evaluate_sigma is not None:
                         for w, omega in enumerate(self.evaluate_sigma):
                             S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, f)
@@ -818,7 +818,7 @@ class G0W0Calculator:
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, f)
                     if S_GG is None:
                         continue
-             
+
                     # ie: ecut index for extrapolation
                     # kpt1.s: spin index of *
                     # k: k-point index of *
@@ -1241,8 +1241,12 @@ class G0W0(G0W0Calculator):
         elif mpa:
             assert not ppa
 
-            frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'],
-                                                 mpa['wshift'], ps='2l',
+            frequencies = mpa_frequency_sampling(npoles=mpa['npoles'], 
+                                                 wrange=mpa['wrange'],
+                                                 varpi=mpa['varpi'],
+                                                 eta0=mpa['eta0'],
+                                                 eta_rest=mpa['eta_rest'],
+                                                 parallel_lines=2,
                                                  alpha=mpa['alpha'])
 
             parameters = {'eta': 0.000001,
