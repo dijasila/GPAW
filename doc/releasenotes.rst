@@ -10,7 +10,9 @@ Git master branch
 
 :git:`master <>`.
 
-* The CIP-DFT method is included as part of :class:`~gpaw.solvation.sjm.SJM`
+* Fixed electrode potential calculations can now be done using the
+  constant inner potential (CIP-DFT) method, which is included as 
+  part of :class:`~gpaw.solvation.sjm.SJM`.
 
 * A new ``adjust_cell()`` function is added to replace the
   ``Cluster.minimal_box()``, and the Cluster object will be
