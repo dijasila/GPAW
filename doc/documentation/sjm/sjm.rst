@@ -85,6 +85,7 @@ Since the changes to the Poisson equation are relatively simple, it can be solve
 
 The generalized Poisson solver can be solved with either Dirichlet+Neumann or Neumann boundary conditions as discussed in [Melander2024]_. The Dirichlet boundary condition sets the electrostatic potential to zero at the top of the cell while Neumann boundary conditions are set the electrostatic potential gradient to zero.
 
+.. _the-electrode-potential:
 The electrode potential
 -----------------------
 

@@ -156,3 +156,39 @@ To accomplish this, set :literal:`sj['grand_output'] = False`, like::
     sj = {'excess_electrons': ...,
           'grand_output': False} :
     calc = SJM(sj=sj, ...)
+
+
+Constant inner potential (CIP) DFT:
+===================================
+
+The SJM can also be ran in the constant inner potential mode where the average electrostatic within the electrode, i.e. the inner potential, is controlled. For a more detailed discussion, see :ref:`the-electrode-potential` section. The usage of CIP-DFT is similar to the standard work function -based SJM with a few key changes.
+
+To use CIP-DFT mode, one needs to specify the method and :literal:`cip` dict in the :literal:`sj` dict::
+
+    sj_cip = {'target_potential': pot, # on the absolute potential scale
+              'method': 'CIP',
+              'dirichlet': True, # needs to be True for CIP calculations
+              'cip': {'autoinner': {'nlayers': 4},
+                      'mu_pzc': mu_pzc, # Fermi level at zero charge
+                      'phi_pzc': phi_pzc # inner potential at zero charge,
+                      }
+              }
+
+The :literal:`autoinner` part automatically finds the inner region, in this case a 4-layer metal slab. The target electrode potential is given given with respect to the inner potential (:literal:`phi_pzc`) and Fermi level (:literal:`mu_pzc`) at the potential zero charge (PZC). For instance, if the PZC is 4.44 vs SHE, then :literal:`mu_pzc=-4.44`, and the targeted potential is 0.6 vs SHE, then :literal:`target_potential=3.84`. The needed :literal:`mu_pzc` and :literal:`phi_pzc` parameters are most easily obtained as follows::
+
+    sj_fermi= {'excess_electrons':0,
+              'method': 'Fermi',
+              'dirichlet': True, # needs to be True for Fermi calculations
+              'cip': {'autoinner': {'nlayers': 4, 
+                      'threshold': 0.01}
+                      }
+              }
+    calc = SJM(sj=sj_fermi...)
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    phi_pzc = calc.get_inner_potential(calc.atoms)
+    mu_pzc = -calc.get_electrode_potential(sj_fermi['method'])
+
+
+
+
