@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+from functools import cached_property
 from math import pi
-from typing import Sequence
-
+from typing import Sequence, Literal
 import numpy as np
 
 import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
-from gpaw.gpu import as_np
+from gpaw.gpu import as_np, cupy_is_fake
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new.c import add_to_density, symmetrize_ft
+from gpaw.new.c import add_to_density, add_to_density_gpu, symmetrize_ft
 from gpaw.fd_operators import Gradient
 
 
@@ -25,6 +25,7 @@ class UGDesc(Domain):
                  cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
+                 zerobc=(False, False, False),
                  kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] | None = None,
@@ -41,6 +42,9 @@ class UGDesc(Domain):
             Number of grid points along axes.
         pbc:
             Periodic boundary conditions flag(s).
+        zerobc:
+            Zero-boundary conditions flag(s).  Skip first grid-point
+            (assumed to be zero).
         comm:
             Communicator for domain-decomposition.
         kpt:
@@ -52,9 +56,12 @@ class UGDesc(Domain):
             Data-type (float or complex).
         """
         self.size_c = np.array(size, int)
+        if isinstance(zerobc, int):
+            zerobc = (zerobc,) * 3
+        self.zerobc_c = np.array(zerobc, bool)
 
         if decomp is None:
-            gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
+            gd = GridDescriptor(size, pbc_c=~self.zerobc_c, comm=comm)
             decomp = gd.n_cp
         self.decomp_cp = [np.asarray(d) for d in decomp]
 
@@ -76,6 +83,9 @@ class UGDesc(Domain):
 
         self.itemsize = 8 if self.dtype == float else 16
 
+        if (self.zerobc_c & self.pbc_c).any():
+            raise ValueError('Bad boundary conditions')
+
     @property
     def size(self):
         """Size of uniform grid."""
@@ -83,7 +93,7 @@ class UGDesc(Domain):
 
     def global_shape(self) -> tuple[int, ...]:
         """Actual size of uniform grid."""
-        return tuple(self.size_c - 1 + self.pbc_c)
+        return tuple(self.size_c - self.zerobc_c)
 
     def __repr__(self):
         return Domain.__repr__(self).replace(
@@ -106,20 +116,24 @@ class UGDesc(Domain):
                       self.kpt_c[:, np.newaxis])
 
     def new(self,
+            *,
+            kpt=None,
+            dtype=None,
+            comm: MPIComm | Literal['inherit'] | None = 'inherit',
             size=None,
             pbc=None,
-            kpt=None,
-            comm='inherit',
-            decomp=None,
-            dtype=None) -> UGDesc:
+            zerobc=None,
+            decomp=None) -> UGDesc:
         """Create new uniform grid description."""
-        if decomp is None and comm == 'inherit':
-            if size is None and pbc is None:
-                decomp = self.decomp_cp
+        reuse_decomp = (decomp is None and comm == 'inherit' and
+                        size is None and pbc is None and zerobc is None)
+        if reuse_decomp:
+            decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UGDesc(cell=self.cell_cv,
                       size=self.size_c if size is None else size,
                       pbc=self.pbc_c if pbc is None else pbc,
+                      zerobc=self.zerobc_c if zerobc is None else zerobc,
                       kpt=(self.kpt_c if self.kpt_c.any() else None)
                       if kpt is None else kpt,
                       comm=comm or serial_comm,
@@ -166,11 +180,13 @@ class UGDesc(Domain):
                                 functions,
                                 positions,
                                 *,
+                                qspiral_v=None,
                                 atomdist=None,
                                 integral=None,
                                 cut=False,
                                 xp=None):
         """Create UGAtomCenteredFunctions object."""
+        assert qspiral_v is None
         return UGAtomCenteredFunctions(functions,
                                        positions,
                                        self,
@@ -223,20 +239,10 @@ class UGDesc(Domain):
 
         return GridDescriptor(self.size_c,
                               cell_cv=self.cell_cv,
-                              pbc_c=self.pbc_c,
+                              pbc_c=~self.zerobc_c,
                               comm=comm,
                               parsize_c=[len(d_p) - 1
                                          for d_p in self.decomp_cp])
-
-    @classmethod
-    def _from_gd_and_kpt_and_dtype(cls, gd, kpt, dtype):
-        return UGDesc(cell=gd.cell_cv,
-                      size=gd.N_c,
-                      pbc=gd.pbc_c,
-                      comm=gd.comm,
-                      dtype=dtype,
-                      kpt=kpt,
-                      decomp=gd.n_cp)
 
     @classmethod
     def from_cell_and_grid_spacing(cls,
@@ -405,7 +411,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims, xp=self.xp)
+            out = grid.empty(self.dims, comm=self.comm, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
@@ -472,8 +478,8 @@ class UGArray(DistributedArrays[UGDesc]):
         norm_x = []
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
-            norm_x.append(np.vdot(a_R, a_R).real * self.desc.dv)
-        result = np.array(norm_x).reshape(self.mydims)
+            norm_x.append(self.xp.vdot(a_R, a_R).real * self.desc.dv)
+        result = self.xp.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
@@ -497,10 +503,10 @@ class UGArray(DistributedArrays[UGDesc]):
         return result * self.desc.dv
 
     def to_pbc_grid(self):
-        """Convert to UniformGrud with ``pbc=(True, True, True)``."""
-        if self.desc.pbc_c.all():
+        """Convert to UniformGrid with ``pbc=(True, True, True)``."""
+        if not self.desc.zerobc_c.any():
             return self
-        grid = self.desc.new(pbc=True)
+        grid = self.desc.new(zerobc=False)
         new = grid.empty(self.dims)
         new.data[:] = 0.0
         *_, i, j, k = self.data.shape
@@ -539,12 +545,12 @@ class UGArray(DistributedArrays[UGDesc]):
                 raise ValueError('Please specify "grid" or "out".')
             out = grid.empty(self.dims, xp=self.xp)
 
-        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
-            raise ValueError('Grids must have pbc=True!')
+        if out.desc.zerobc_c.any() or self.desc.zerobc_c.any():
+            raise ValueError('Grids must have zerobc=False!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -634,12 +640,12 @@ class UGArray(DistributedArrays[UGDesc]):
                 raise ValueError('Please specify "grid" or "out".')
             out = grid.empty(self.dims, xp=self.xp)
 
-        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
-            raise ValueError('Grids must have pbc=True!')
+        if out.desc.zerobc_c.any() or self.desc.zerobc_c.any():
+            raise ValueError('Grids must have zerobc=False!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.fft_restrict(plan1, plan2,
                                             out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -701,8 +707,15 @@ class UGArray(DistributedArrays[UGDesc]):
                    out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        for f, psit_R in zips(weights, self.data):
-            add_to_density(f, psit_R, out.data)
+
+        if self.xp is np:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R, out.data)
+        elif cupy_is_fake:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R._data, out.data._data)  # type: ignore
+        else:
+            add_to_density_gpu(self.xp.asarray(weights), self.data, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""
@@ -718,7 +731,7 @@ class UGArray(DistributedArrays[UGDesc]):
                 a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
-            offset_c = 1 - self.desc.pbc_c
+            offset_c = np.array(self.desc.zerobc_c, dtype=int)
             for a_R, b_R in zips(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
                 for r_cc, t_c in zips(rotation_scc, t_sc):
@@ -733,26 +746,23 @@ class UGArray(DistributedArrays[UGDesc]):
         """Insert random numbers between -0.5 and 0.5 into data."""
         if seed is None:
             seed = self.comm.rank + self.desc.comm.rank * self.comm.size
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
 
-    def moment(self, center_v=None):
+    def moment(self):
         """Calculate moment of data."""
         assert self.dims == ()
         ug = self.desc
 
         index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
                     for c in range(3)]
-
-        if center_v is not None:
-            frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
-            corner_c = (frac_c % 1 - 0.5) * ug.size_c
-            for index_r, corner, size in zips(index_cr, corner_c, ug.size_c):
-                index_r -= corner
-                index_r %= size
-                index_r += corner
+        for index_r, size in zip(index_cr, ug.size_c):
+            if index_r[0] == 0:
+                # We have periodic bc's, so index 0 is the same as index
+                # size (= last + 1).  Include both points with 0.5 weight:
+                index_r[0] = 0.5 * size
 
         rho_ijk = self.data
         rho_ij = rho_ijk.sum(axis=2)
@@ -775,6 +785,7 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = UGDesc(cell=grid.cell_cv * s,
                       size=grid.size_c,
                       pbc=grid.pbc_c,
+                      zerobc=grid.zerobc_c,
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                       dtype=grid.dtype,
                       comm=grid.comm)

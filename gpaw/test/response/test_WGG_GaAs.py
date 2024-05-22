@@ -1,10 +1,10 @@
 import pytest
 import numpy as np
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.coulomb_kernels import CoulombKernel
-from gpaw.response.pair import get_gs_and_context
 from gpaw import GPAW, PW, FermiDirac
-from gpaw.mpi import world
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.screened_interaction import initialize_w_calculator
 from ase.build import bulk
 from ase import Atoms
@@ -17,7 +17,7 @@ def test_Wsymm(in_tmp_dir, scalapack):
         cell = bulk('Ga', 'fcc', a=5.68).cell
         a = Atoms('GaAs', cell=cell, pbc=True,
                   scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
-        
+
         # First with symmetry off
         calc = GPAW(mode=PW(400),
                     xc='LDA',
@@ -34,25 +34,22 @@ def test_Wsymm(in_tmp_dir, scalapack):
         else:
             calc.write('GaAs_symm.gpw', mode='all')
         return calc
-    
+
     def get_IBZ_k(calc):
         gs = calc.gs_adapter()
         qclist = gs.kd.ibzk_kc
         return qclist
 
     def calc_W(seed, q_c_list):
-        omega = np.array([0])
-        chi0calc = Chi0(seed + '.gpw',
-                        frequencies=omega,
-                        hilbert=False,
-                        ecut=100,
-                        txt='test.log',
-                        intraband=False)
-        txt = 'out.txt'
-        gs, wcontext = get_gs_and_context(
-            seed + '.gpw',
-            txt, world=world,
-            timer=None)
+        gs = ResponseGroundStateAdapter.from_gpw_file(seed + '.gpw')
+        context = ResponseContext('test.log')
+        chi0calc = Chi0Calculator(
+            gs, context,
+            wd=FrequencyDescriptor(np.array([0.])),
+            hilbert=False,
+            ecut=100,
+            intraband=False)
+        wcontext = ResponseContext('out.txt')
         truncation = None
         coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         wcalc = initialize_w_calculator(chi0calc,

@@ -12,9 +12,9 @@ from types import ModuleType
 
 import numpy as np
 from scipy.fft import fftn, ifftn, irfftn, rfftn
+import warnings
 
-import _gpaw
-from gpaw import SCIPY_VERSION
+import gpaw.cgpaw as cgpaw
 from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
@@ -27,7 +27,7 @@ _plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
 def have_fftw() -> bool:
     """Did we compile with FFTW?"""
-    return hasattr(_gpaw, 'FFTWPlan')
+    return hasattr(cgpaw, 'FFTWPlan')
 
 
 def check_fft_size(n: int, factors=[2, 3, 5, 7]) -> bool:
@@ -162,18 +162,21 @@ class FFTWPlans(FFTPlans):
         if not have_fftw():
             raise ImportError('Not compiled with FFTW.')
         super().__init__(size_c, dtype)
-        self._fftplan = _gpaw.FFTWPlan(self.tmp_R, self.tmp_Q, -1, flags)
-        self._ifftplan = _gpaw.FFTWPlan(self.tmp_Q, self.tmp_R, 1, flags)
+        self._fftplan = cgpaw.FFTWPlan(self.tmp_R, self.tmp_Q, -1, flags)
+        self._ifftplan = cgpaw.FFTWPlan(self.tmp_Q, self.tmp_R, 1, flags)
 
     def fft(self):
-        _gpaw.FFTWExecute(self._fftplan)
+        cgpaw.FFTWExecute(self._fftplan)
 
     def ifft(self):
-        _gpaw.FFTWExecute(self._ifftplan)
+        cgpaw.FFTWExecute(self._ifftplan)
 
     def __del__(self):
-        _gpaw.FFTWDestroy(self._fftplan)
-        _gpaw.FFTWDestroy(self._ifftplan)
+        # Attributes will not exist if execution stops during FFTW planning
+        if hasattr(self, '_fftplan'):
+            cgpaw.FFTWDestroy(self._fftplan)
+        if hasattr(self, '_ifftplan'):
+            cgpaw.FFTWDestroy(self._ifftplan)
 
 
 class NumpyFFTPlans(FFTPlans):
@@ -193,6 +196,13 @@ class NumpyFFTPlans(FFTPlans):
                                   norm='forward', overwrite_x=True)
 
 
+def rfftn_patch(tmp_R):
+    from gpaw.gpu import cupyx
+    warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {tmp_R.shape}.'
+                  f'reverting to using just fftn. This is a bug in ROCM cupy.')
+    return cupyx.scipy.fft.fftn(tmp_R)[:, :, :tmp_R.shape[-1] // 2 + 1]
+
+
 class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
@@ -205,8 +215,12 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft(self):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.tmp_R.dtype == float:
-            self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+            try:
+                self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+            except cp.cuda.cufft.CuFFTError:
+                self.tmp_Q[:] = rfftn_patch(self.tmp_R)
         else:
             self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
 
@@ -248,7 +262,6 @@ class CuPyFFTPlans(FFTPlans):
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
 
-        assert SCIPY_VERSION >= [1, 6]
         if self.dtype == complex:
             array_R[:] = cupyx.scipy.fft.ifftn(
                 array_Q, array_Q.shape,
@@ -270,10 +283,14 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.dtype == complex:
             out_Q = cupyx.scipy.fft.fftn(in_R)
         else:
-            out_Q = cupyx.scipy.fft.rfftn(in_R)
+            try:
+                out_Q = cupyx.scipy.fft.rfftn(in_R)
+            except cp.cuda.cufft.CuFFTError:
+                out_Q = rfftn_patch(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G
@@ -319,15 +336,15 @@ class FFTWPlan(FFTPlan):
     def __init__(self, in_R, out_R, sign, flags=MEASURE):
         if not have_fftw():
             raise ImportError('Not compiled with FFTW.')
-        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
+        self._ptr = cgpaw.FFTWPlan(in_R, out_R, sign, flags)
         FFTPlan.__init__(self, in_R, out_R, sign, flags)
 
     def execute(self):
-        _gpaw.FFTWExecute(self._ptr)
+        cgpaw.FFTWExecute(self._ptr)
 
     def __del__(self):
-        if getattr(self, '_ptr', None) and _gpaw is not None:
-            _gpaw.FFTWDestroy(self._ptr)
+        if getattr(self, '_ptr', None):
+            cgpaw.FFTWDestroy(self._ptr)
         self._ptr = None
 
 

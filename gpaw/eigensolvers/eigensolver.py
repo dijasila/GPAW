@@ -9,6 +9,7 @@ from ase.utils.timing import timer
 from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
+from gpaw.mpi import broadcast_exception
 
 
 def reshape(a_x, shape):
@@ -129,16 +130,17 @@ class Eigensolver:
         weight_un = self.weights(wfs)
 
         error = 0.0
-        for kpt, weights in zip(wfs.kpt_u, weight_un):
-            if not wfs.orthonormalized:
-                wfs.orthonormalize(kpt)
-            e = self.iterate_one_k_point(ham, wfs, kpt, weights)
-            error += e
-            if self.orthonormalization_required:
-                wfs.orthonormalize(kpt)
+        with broadcast_exception(self.kpt_comm):
+            for kpt, weights in zip(wfs.kpt_u, weight_un):
+                if not wfs.orthonormalized:
+                    wfs.orthonormalize(kpt)
+                e = self.iterate_one_k_point(ham, wfs, kpt, weights)
+                error += e
+                if self.orthonormalization_required:
+                    wfs.orthonormalize(kpt)
 
         wfs.orthonormalized = True
-        self.error = self.band_comm.sum(self.kpt_comm.sum(error))
+        self.error = self.band_comm.sum_scalar(self.kpt_comm.sum_scalar(error))
 
     def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
@@ -166,7 +168,7 @@ class Eigensolver:
         wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
 
     @timer('Subspace diag')
-    def subspace_diagonalize(self, ham, wfs, kpt):
+    def subspace_diagonalize(self, ham, wfs, kpt, rotate_psi=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -217,6 +219,8 @@ class Eigensolver:
             kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
         with self.timer('rotate_psi'):
+            if not rotate_psi:
+                return
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
                 mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)

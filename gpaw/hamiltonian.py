@@ -11,8 +11,9 @@ from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
-                            unpack_atomic_matrices)
+from gpaw.utilities import (pack_atomic_matrices, pack_hermitian,
+                            unpack_atomic_matrices, unpack_density,
+                            unpack_hermitian)
 from gpaw.utilities.partition import AtomPartition
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -24,14 +25,14 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
         out = P.new()
     for a, I1, I2 in P.indices:
         if collinear:
-            dH_ii = unpack(dH_asp[a][P.spin])
+            dH_ii = unpack_hermitian(dH_asp[a][P.spin])
             out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
         else:
             dH_xp = dH_asp[a]
             # We need the transpose because
             # we are dotting from the left
-            dH_ii = unpack(dH_xp[0]).T
-            dH_vii = [unpack(dH_p).T for dH_p in dH_xp[1:]]
+            dH_ii = unpack_hermitian(dH_xp[0]).T
+            dH_vii = [unpack_hermitian(dH_p).T for dH_p in dH_xp[1:]]
             out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
                                              dH_ii + dH_vii[2]) +
                                       np.dot(P.array[:, 1, I1:I2],
@@ -80,6 +81,7 @@ class Hamiltonian:
         self.e_xc = None
         self.e_entropy = None
         self.e_band = None
+        self.e_sic = None
 
         self.e_total_free = None
         self.e_total_extrapolated = None
@@ -115,28 +117,32 @@ class Hamiltonian:
 
     def __str__(self):
         s = 'Hamiltonian:\n'
-        s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
+        s += ('  XC and Coulomb potentials evaluated on a {}*{}*{} grid\n'
               .format(*self.finegd.N_c))
         s += '  Using the %s Exchange-Correlation functional\n' % self.xc.name
         # We would get the description of the XC functional here,
         # except the thing has probably not been fully initialized yet.
         if self.vext is not None:
-            s += '  External potential:\n    {0}\n'.format(self.vext)
+            s += f'  External potential:\n    {self.vext}\n'
         return s
 
     def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
-            '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
+            f'(reference = {self.setups.Eref * Ha:.6f})\n')
 
         energies = [('Kinetic:      ', self.e_kinetic),
                     ('Potential:    ', self.e_coulomb),
                     ('External:     ', self.e_external),
                     ('XC:           ', self.e_xc),
                     ('Entropy (-ST):', self.e_entropy),
-                    ('Local:        ', self.e_zero)]
+                    ('Local:        ', self.e_zero),
+                    ('SIC:        ', self.e_sic)]
 
         for name, e in energies:
-            log('%-14s %+11.6f' % (name, Ha * e))
+            if name == 'SIC:        ' and e is None:
+                continue
+            else:
+                log('%-14s %+11.6f' % (name, Ha * e))
 
         log('--------------------------')
         log('Free energy:   %+11.6f' % (Ha * self.e_total_free))
@@ -306,14 +312,15 @@ class Hamiltonian:
             if self.soc:
                 dH_vii = soc(setup, self.xc, D_sp)
                 dH_sp = np.zeros_like(D_sp, dtype=complex)
-                dH_sp[1:] = pack2(dH_vii)
+                dH_sp[1:] = pack_hermitian(dH_vii)
             else:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.hubbard_u is not None:
-                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                eU, dHU_sii = setup.hubbard_u.calculate(setup,
+                                                        unpack_density(D_sp))
                 e_xc += eU
-                dH_sp += dHU_sp
+                dH_sp += pack_hermitian(dHU_sii)
 
             dH_sp[:self.nspins] += dH_p
 
@@ -352,7 +359,7 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, e_entropy, wfs, kin_en_using_band=True):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True, e_sic=None):
         """Sum up all eigenvalues weighted with occupation numbers"""
         self.e_band = wfs.calculate_band_energy()
         if kin_en_using_band:
@@ -372,6 +379,11 @@ class Hamiltonian:
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
+
+        if e_sic is not None:
+            self.e_sic = e_sic
+            self.e_total_free += e_sic
+
         self.e_total_extrapolated = (
             self.e_total_free +
             wfs.occupations.extrapolate_factor * e_entropy)
@@ -461,7 +473,7 @@ class Hamiltonian:
                 P_axi[a][:] = P_ni
 
         for a, P_xi in P_axi.items():
-            dH_ii = unpack(self.dH_asp[a][kpt.s])
+            dH_ii = unpack_hermitian(self.dH_asp[a][kpt.s])
             P_axi[a] = np.dot(P_xi, dH_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
@@ -478,7 +490,7 @@ class Hamiltonian:
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
             atomic_e_xc += xc.calculate_paw_correction(setup, D_sp, a=a)
-        e_xc = finegd_e_xc + self.world.sum(atomic_e_xc)
+        e_xc = finegd_e_xc + self.world.sum_scalar(atomic_e_xc)
         return e_xc - self.e_xc
 
     def estimate_memory(self, mem):
@@ -580,16 +592,16 @@ class Hamiltonian:
                         e_kin += f * wfs.integrate(
                             Lapl(psit_G, kpt), psit_G, False)
             e_kin = e_kin.real
-            e_kin = wfs.gd.comm.sum(e_kin)
+            e_kin = wfs.gd.comm.sum_scalar(e_kin)
 
-        e_kin = wfs.kd.comm.sum(e_kin)  # ?
+        e_kin = wfs.kd.comm.sum_scalar(e_kin)  # ?
         # paw corrections
         e_kin_paw = 0.0
         for a, D_sp in density.D_asp.items():
             setup = wfs.setups[a]
             D_p = D_sp.sum(0)
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
-        e_kin_paw = density.gd.comm.sum(e_kin_paw)
+        e_kin_paw = density.gd.comm.sum_scalar(e_kin_paw)
         return e_kin + e_kin_paw
 
     def calculate_kinetic_energy_using_kin_en_matrix(self, density,
@@ -634,14 +646,14 @@ class Hamiltonian:
             self.timer.stop('Pseudo part')
         # del rho_MM
 
-        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        e_kinetic = wfs.kd.comm.sum_scalar(e_kinetic)
         # paw corrections
         for a, D_sp in density.D_asp.items():
             setup = wfs.setups[a]
             D_p = D_sp.sum(0)
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
 
-        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+        e_kin_paw = self.gd.comm.sum_scalar(e_kin_paw)
 
         return e_kinetic.real + e_kin_paw
 

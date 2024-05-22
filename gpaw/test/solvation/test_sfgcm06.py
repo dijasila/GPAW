@@ -7,8 +7,8 @@ J. Chem. Phys. 124, 074103, 2006
 """
 
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.test import equal
+from gpaw.utilities.adjust_cell import adjust_cell
+import pytest
 from ase import Atoms
 from ase.units import mol, kcal, Pascal, m, Bohr
 from gpaw.solvation import (
@@ -37,8 +37,8 @@ def test_solvation_sfgcm06():
         'eigenstates': 10.,
     }
 
-    atoms = Cluster(Atoms('Cl'))
-    atoms.minimal_box(vac, h)
+    atoms = Atoms('Cl')
+    adjust_cell(atoms, vac, h)
 
     if not SKIP_VAC_CALC:
         atoms.calc = GPAW(
@@ -63,4 +63,4 @@ def test_solvation_sfgcm06():
     DGSol = (Ewater - Evac) / (kcal / mol)
     print('Delta Gsol: %s kcal / mol' % DGSol)
 
-    equal(DGSol, -75., 10.)
+    assert DGSol == pytest.approx(-75., abs=10.)

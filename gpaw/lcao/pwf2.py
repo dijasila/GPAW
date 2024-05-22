@@ -2,13 +2,13 @@ import numpy as np
 
 from ase.units import Hartree
 from gpaw import GPAW
-from gpaw.utilities import unpack
-from gpaw.utilities.tools import tri2full, lowdin
-from gpaw.lcao.tools import basis_subset2, get_bfi2
 from gpaw.coulomb import get_vxc as get_ks_xc
-from gpaw.utilities.blas import r2k, mmmx
 from gpaw.lcao.projected_wannier import (dots, condition_number, eigvals,
                                          get_bfs, get_lcao_projections_HSP)
+from gpaw.lcao.tools import basis_subset2, get_bfi2
+from gpaw.utilities import unpack_hermitian
+from gpaw.utilities.blas import r2k, mmmx
+from gpaw.utilities.tools import tri2full, lowdin
 
 
 def get_rot(F_MM, V_oM, L):
@@ -51,7 +51,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
         H_sp = np.zeros_like(D_sp)
         calc.hamiltonian.xc.calculate_paw_correction(calc.wfs.setups[a],
                                                      D_sp, H_sp)
-        H_ii = unpack(H_sp[spin])
+        H_ii = unpack_hermitian(H_sp[spin])
         for Vxc_MM, P_Mi in zip(Vxc_qMM, P_qMi):
             Vxc_MM += dots(P_Mi, H_ii, P_Mi.T.conj())
     return Vxc_qMM * Hartree
@@ -78,7 +78,7 @@ def get_xc2(calc, w_wG, P_awi, spin=0):
         H_sp = np.zeros_like(D_sp)
         calc.wfs.setups[a].xc_correction.calculate_energy_and_derivatives(
             D_sp, H_sp)
-        H_ii = unpack(H_sp[spin])
+        H_ii = unpack_hermitian(H_sp[spin])
         xc_ww += dots(P_wi, H_ii, P_wi.T.conj())
     return xc_ww * Hartree
 
@@ -323,8 +323,8 @@ class PWF2:
             if self.ibl:
                 M = self.M_k[q]
                 self.P_awi = self.pwf_q[q].rotate_projections(
-                    dict([(a, P_ni[:M]) for a, P_ni in kpt.P_ani.items()]),
-                    dict([(a, P_qMi[q]) for a, P_qMi in self.P_aqMi.items()]),
+                    {a: P_ni[:M] for a, P_ni in kpt.P_ani.items()},
+                    {a: P_qMi[q] for a, P_qMi in self.P_aqMi.items()},
                     indices)
             else:
                 assert 0
@@ -350,7 +350,7 @@ class PWF2:
         else:
             Fcore_ww = np.zeros((len(indices), len(indices)))
         for a, P_wi in self.get_projections(q, indices).items():
-            X_ii = unpack(self.calc.wfs.setups[a].X_p)
+            X_ii = unpack_hermitian(self.calc.wfs.setups[a].X_p)
             Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
         return Fcore_ww * Hartree
 
@@ -406,10 +406,10 @@ class LCAOwrap:
 
     def get_projections(self, q=0, indices=None):
         if indices is None:
-            return dict([(a, P_qwi[q]) for a, P_qwi in self.P_aqwi.items()])
+            return {a: P_qwi[q] for a, P_qwi in self.P_aqwi.items()}
         else:
-            return dict([(a, P_qwi[q].take(indices, 0))
-                         for a, P_qwi in self.P_aqwi.items()])
+            return {a: P_qwi[q].take(indices, 0)
+                    for a, P_qwi in self.P_aqwi.items()}
 
     def get_orbitals(self, q=-1, indices=None):
         assert q == -1
@@ -430,7 +430,7 @@ class LCAOwrap:
             Fcore_ww = np.zeros((len(indices), len(indices)))
         for a, P_wi in self.get_projections(q, indices).items():
             if self.calc.wfs.setups[a].type != 'ghost':
-                X_ii = unpack(self.calc.wfs.setups[a].X_p)
+                X_ii = unpack_hermitian(self.calc.wfs.setups[a].X_p)
                 Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
         return Fcore_ww * Hartree
 

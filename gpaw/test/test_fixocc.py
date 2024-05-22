@@ -1,8 +1,8 @@
 from ase.build import molecule
 from ase.parallel import parprint
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.test import equal
+from gpaw.utilities.adjust_cell import adjust_cell
+import pytest
 
 
 def test_fixocc():
@@ -12,8 +12,8 @@ def test_fixocc():
     txt = '-'
     txt = None
 
-    H2 = Cluster(molecule('H2'))
-    H2.minimal_box(box, h)
+    H2 = molecule('H2')
+    adjust_cell(H2, box, h)
     convergence = {'energy': 0.01, 'eigenstates': 0.001, 'density': 0.01}
 
     base_kwargs = dict(
@@ -34,7 +34,7 @@ def test_fixocc():
         H2.calc = c
         E_fo = H2.get_potential_energy()
         parprint(E_zk, E_fo)
-        equal(E_zk, E_fo, 1.e-10)
+        assert E_zk == pytest.approx(E_fo, abs=1.e-10)
 
     if 1:
         # test spin-paired vs spin-polarized
@@ -49,4 +49,4 @@ def test_fixocc():
         H2.calc = c
         E_sp = H2.get_potential_energy()
         parprint(E_ns, E_sp)
-        equal(E_ns, E_sp, 1.e-6)
+        assert E_ns == pytest.approx(E_sp, abs=1.e-6)

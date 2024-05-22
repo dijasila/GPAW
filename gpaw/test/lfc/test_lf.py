@@ -1,4 +1,4 @@
-from gpaw.test import equal
+import pytest
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
@@ -6,7 +6,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
 def test_lfc_lf():
-    s = Spline(0, 1.0, [1.0, 0.5, 0.0])
+    s = Spline.from_data(0, 1.0, [1.0, 0.5, 0.0])
     n = 40
     a = 8.0
     gd = GridDescriptor((n, n, n), (a, a, a), comm=mpi.serial_comm)
@@ -22,4 +22,4 @@ def test_lfc_lf():
     b = gd.zeros()
     c.add(b)
     y = gd.integrate(b)
-    equal(x, y, 1e-13)
+    assert x == pytest.approx(y, abs=1e-13)

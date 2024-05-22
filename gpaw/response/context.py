@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Union
+from pathlib import Path
 from time import ctime
 from sys import stdout
 
@@ -10,17 +13,21 @@ from ase.utils.timing import Timer
 import gpaw.mpi as mpi
 
 
+TXTFilename = Union[Path, str]
+
+
 class ResponseContext:
-    def __init__(self, txt='-', timer=None, comm=mpi.world):
+    def __init__(self, txt: TXTFilename = '-',
+                 timer=None, comm=mpi.world, mode='w'):
         self.comm = comm
         self.iocontext = IOContext()
-        self.open(txt)
+        self.open(txt, mode)
         self.set_timer(timer)
 
-    def open(self, txt):
+    def open(self, txt, mode):
         if txt is stdout and self.comm.rank != 0:
             txt = None
-        self.fd = self.iocontext.openfile(txt, self.comm)
+        self.fd = self.iocontext.openfile(txt, self.comm, mode)
 
     def set_timer(self, timer):
         self.timer = timer or Timer()
@@ -31,8 +38,9 @@ class ResponseContext:
     def __del__(self):
         self.close()
 
-    def with_txt(self, txt):
-        return ResponseContext(txt=txt, comm=self.comm, timer=self.timer)
+    def with_txt(self, txt, mode='w'):
+        return ResponseContext(txt=txt, comm=self.comm, timer=self.timer,
+                               mode=mode)
 
     def print(self, *args, flush=True, **kwargs):
         print(*args, file=self.fd, flush=flush, **kwargs)
@@ -41,7 +49,7 @@ class ResponseContext:
         self.write_timer()
         # Close old output file and create a new
         self.close()
-        self.open(txt)
+        self.open(txt, mode='w')
         self.set_timer(timer)
 
     def write_timer(self):

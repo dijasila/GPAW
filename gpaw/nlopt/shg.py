@@ -1,15 +1,15 @@
-
 import numpy as np
-from ase.units import Bohr, _hbar, _e, _me, _eps0
-from ase.utils.timing import Timer
 from ase.parallel import parprint
+from ase.units import _e, Bohr, Ha, J
+from ase.utils.timing import Timer
+
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data
-from gpaw.nlopt.matrixel import get_rml, get_derivative
+from gpaw.nlopt.matrixel import get_derivative, get_rml
 from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_shg(
+        nlodata,
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
@@ -17,50 +17,58 @@ def get_shg(
         gauge='lg',
         ftol=1e-4, Etol=1e-6,
         band_n=None,
-        out_name='shg.npy',
-        mml_name='mml.npz'):
-    """Calculate RPA SHG spectrum for nonmagnetic semiconductors.
+        out_name='shg.npy'):
+    """
+    Calculate SHG spectrum within the independent particle approximation (IPA)
+    for nonmagnetic semiconductors.
 
     Output: shg.npy file with numpy array containing the spectrum and
     frequencies.
 
-    Parameters:
+    Parameters
+    ----------
+    nlodata
+        Data object of class NLOData. Contains energies, occupancies and
+        momentum matrix elements.
+    freqs
+        Excitation frequency array (a numpy array or list).
+    eta
+        Broadening, a number or an array (default 0.05 eV).
+    pol
+        Tensor element (default 'yyy').
+    gauge
+        Choose the gauge ('lg' or 'vg').
+    Etol, ftol
+        Tol. in energy and fermi to consider degeneracy.
+    band_n
+        List of bands in the sum (default 0 to nb).
+    out_name
+        Output filename (default 'shg.npy').
 
-    freqs:
-        Excitation frequency array (a numpy array or list)
-    eta:
-        Broadening, a number or an array (default 0.05 eV)
-    pol:
-        Tensor element (default 'yyy')
-    gauge:
-        Choose the gauge (lg or vg)
-    Etol, ftol:
-        Tol. in energy and fermi to consider degeneracy
-    band_n:
-        List of bands in the sum (default 0 to nb)
-    out_name:
-        Output filename (default 'shg.npy')
-    mml_name:
-        The momentum filename (default 'mml.npz')
     """
 
     # Start a timer
     timer = Timer()
-    parprint('Calculating SHG spectrum (in {:d} cores).'.format(world.size))
+    parprint(f'Calculating SHG spectrum (in {world.size:d} cores).')
+
+    # Covert inputs in eV to Ha
+    freqs = np.array(freqs)
+    nw = len(freqs)
+    w_lc = (freqs + 1e-12 + 1j * eta) / Ha  # Add small value to avoid 0
+    Etol /= Ha
+    eshift /= Ha
 
     # Useful variables
     pol_v = ['xyz'.index(ii) for ii in pol]
-    freqs = np.array(freqs)
-    nw = len(freqs)
-    w_lc = freqs + 1e-12 + 1j * eta  # Add small value to avoid 0
+
     # Use the TRS to reduce calculation time
     w_l = np.hstack((-w_lc[-1::-1], w_lc))
     nw = 2 * nw
-    parprint('Calculation in the {} gauge for element {}.'.format(gauge, pol))
+    parprint(f'Calculation in the {gauge} gauge for element {pol}.')
 
     # Load the required data
     with timer('Load and distribute the data'):
-        k_info = load_data(mml_name=mml_name)
+        k_info = nlodata.distribute()
         if k_info:
             tmp = list(k_info.values())[0]
             nb = len(tmp[1])
@@ -235,7 +243,7 @@ def shg_length_gauge(
         pol_v           Tensor element
         band_n          Band list
         Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        eshift          Bandgap correction
+        eshift          Band gap correction in eV
     Output:
         sum2_l, sum3_l  Output 2 and 3 bands terms
     """
@@ -316,7 +324,7 @@ def shg_length_gauge(
 
 def make_output(gauge, sum2_l, sum3_l):
     """
-    Make the output in SI unit and return chi
+    Multiply prefactors and return second-order chi in SI units [m / V]
 
     Input:
         gauge       Chosen gauge
@@ -325,21 +333,18 @@ def make_output(gauge, sum2_l, sum3_l):
     Output:
         chi_l       Output chi as an array
     """
-    # Make the output in SI unit
+
+    # 4 * pi from vacuum permittivty eps_0 in atomic units
+    prefactor = 4.0 * np.pi
+    # Pi factors from BZ volume
+    prefactor /= (2.0 * np.pi)**3
+    # atomic units [Bohr * elementary charge / Hartee] to SI units [m / V]
+    prefactor *= (Bohr * 1e-10 * _e) / (Ha / J)
+
     if gauge == 'lg':
-        dim_ee = _e**3 / (_eps0 * (2.0 * np.pi)**3)
-        dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
-            (_e**5 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
-        dim_SI = dim_ee * dim_sum
-        chi_l = dim_SI * (1j * sum2_l + sum3_l)
+        chi_l = prefactor * (1j * sum2_l + sum3_l)
     elif gauge == 'vg':
-        # Make the output in SI unit
-        dim_vg = _e**3 * _hbar**2 / (_me**3 * (2.0 * np.pi)**3)
-        dim_chi = 1j * _hbar / (_eps0 * 2.0 * _e)  # 2 beacuse of frequecny
-        dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
-            (_e**4 * (Bohr * 1e-10)**3)
-        dim_SI = dim_chi * dim_vg * dim_sum
-        chi_l = dim_SI * (sum2_l + sum3_l)
+        chi_l = prefactor * 1j / 2 * (sum2_l + sum3_l)
     else:
         parprint('Gauge ' + gauge + ' not implemented.')
         raise NotImplementedError

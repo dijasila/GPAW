@@ -508,7 +508,7 @@ class RadialGridDescriptor(ABC):
         b3_i = b_g[g_i + 1]
         b_i = b1_i * x1_i + b2_i * x2_i + b3_i * x3_i
 
-        return Spline(l, rcut, b_i)
+        return Spline.from_data(l, rcut, b_i)
 
     def get_cutoff(self, f_g):
         g = self.N - 1
@@ -542,15 +542,15 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
     def xml(self, id='grid1'):
         assert self.r_g[0] == 0.0
-        return ('<radial_grid eq="r=d*i" d="{0!r}" '
-                'istart="0" iend="{1}" id="{2}"/>\n'
+        return ('<radial_grid eq="r=d*i" d="{}" '
+                'istart="0" iend="{}" id="{}"/>\n'
                 .format(self.r_g[1], len(self.r_g) - 1, id))
 
     def spline(self, a_g, rcut=None, l=0, points=None):
         b_g = a_g.copy()
         if l > 0:
             b_g = divrl(b_g, l, self.r_g[:len(a_g)])
-        return Spline(l, self.r_g[len(a_g) - 1], b_g)
+        return Spline.from_data(l, self.r_g[len(a_g) - 1], b_g)
 
 
 class AERadialGridDescriptor(RadialGridDescriptor):
@@ -570,6 +570,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         r_g = self.a * g / (1 - self.b * g)
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
+        self._d2gdr2 = -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
 
     def r2g(self, r):
         # return r / (r * self.b + self.a)
@@ -591,7 +592,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
                 (self.a, self.b, self.N, self.N - 1, id))
 
     def d2gdr2(self):
-        return -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
+        return self._d2gdr2
 
 
 class AbinitRadialGridDescriptor(RadialGridDescriptor):

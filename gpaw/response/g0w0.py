@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pickle
 import warnings
 from math import pi
@@ -14,16 +15,16 @@ from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.pair import KPointPairFactory, phase_shifted_fft_indices
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
+from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
+from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
 from gpaw.response.MPAsamp import mpa_frequency_sampling
-
+from gpaw.mpi import broadcast_exception
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
@@ -98,8 +99,8 @@ class Sigma:
         return self
 
     def validate_inputs(self, inputs):
-        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-14,
-                               abs_tol=1e-14)
+        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-12,
+                               abs_tol=1e-12)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')
@@ -289,9 +290,13 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc, timer=None):
+    if timer:
+        timer.start('utcc and pawcorr multiply')
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
+    if timer:
+        timer.stop('utcc and pawcorr multiply')
     n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
@@ -329,7 +334,8 @@ def get_max_nblocks(world, calc, ecut):
     return nblocks
 
 
-def get_frequencies(frequencies, domega0, omega2):
+def get_frequencies(frequencies: dict | None,
+                    domega0: float | None, omega2: float | None):
     if domega0 is not None or omega2 is not None:
         assert frequencies is None
         frequencies = {'type': 'nonlinear',
@@ -353,6 +359,9 @@ def choose_ecut_things(ecut, ecut_extrapolation):
                          (necuts - 1))**(-2 / 3)
     elif isinstance(ecut_extrapolation, (list, np.ndarray)):
         ecut_e = np.array(np.sort(ecut_extrapolation))
+        if not np.allclose(ecut, ecut_e[-1]):
+            raise ValueError('ecut parameter must be the largest value'
+                             'of ecut_extrapolation, when it is a list.')
         ecut = ecut_e[-1]
     else:
         ecut_e = np.array([ecut])
@@ -386,6 +395,71 @@ def select_kpts(kpts, kd):
     return indices
 
 
+class PairDistribution:
+    def __init__(self, kptpair_factory, blockcomm, mysKn1n2):
+        self.get_k_point = kptpair_factory.get_k_point
+        self.kd = kptpair_factory.gs.kd
+        self.blockcomm = blockcomm
+        self.mysKn1n2 = mysKn1n2
+        self.mykpts = [self.get_k_point(s, K, n1, n2)
+                       for s, K, n1, n2 in self.mysKn1n2]
+
+    def kpt_pairs_by_q(self, q_c, m1, m2):
+        mykpts = self.mykpts
+        for u, kpt1 in enumerate(mykpts):
+            progress = u / len(mykpts)
+            K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2,
+                                    blockcomm=self.blockcomm)
+
+            yield progress, kpt1, kpt2
+
+
+def distribute_k_points_and_bands(chi0_body_calc, band1, band2, kpts=None):
+    """Distribute spins, k-points and bands.
+
+    The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
+    tuples that this process handles.
+    """
+    gs = chi0_body_calc.gs
+    blockcomm = chi0_body_calc.blockcomm
+    kncomm = chi0_body_calc.kncomm
+
+    if kpts is None:
+        kpts = np.arange(gs.kd.nbzkpts)
+
+    # nbands is the number of bands for each spin/k-point combination.
+    nbands = band2 - band1
+    size = kncomm.size
+    rank = kncomm.rank
+    ns = gs.nspins
+    nk = len(kpts)
+    n = (ns * nk * nbands + size - 1) // size
+    i1 = min(rank * n, ns * nk * nbands)
+    i2 = min(i1 + n, ns * nk * nbands)
+
+    mysKn1n2 = []
+    i = 0
+    for s in range(ns):
+        for K in kpts:
+            n1 = min(max(0, i1 - i), nbands)
+            n2 = min(max(0, i2 - i), nbands)
+            if n1 != n2:
+                mysKn1n2.append((s, K, n1 + band1, n2 + band1))
+            i += nbands
+
+    p = chi0_body_calc.context.print
+    p('BZ k-points:', gs.kd, flush=False)
+    p('Distributing spins, k-points and bands (%d x %d x %d)' %
+      (ns, nk, nbands), 'over %d process%s' %
+      (kncomm.size, ['es', ''][kncomm.size == 1]),
+      flush=False)
+    p('Number of blocks:', blockcomm.size)
+
+    return PairDistribution(
+        chi0_body_calc.kptpair_factory, blockcomm, mysKn1n2)
+
+
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  wd,
@@ -397,6 +471,7 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  exx_vxc_calculator,
+                 qcache,
                  ppa=False,
                  mpa=False,
                  evaluate_sigma=None):
@@ -465,6 +540,7 @@ class G0W0Calculator:
         if evaluate_sigma is None:
             evaluate_sigma = np.array([])
         self.evaluate_sigma = evaluate_sigma
+        self.qcache = qcache
 
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -476,6 +552,13 @@ class G0W0Calculator:
         self.ecut_e = ecut_e / Ha
 
         self.context.print(gw_logo)
+
+        if self.chi0calc.gs.metallic:
+            self.context.print('WARNING: \n'
+                               'The current GW implementation cannot'
+                               ' handle intraband screening. \n'
+                               'This results in poor k-point'
+                               ' convergence for metals')
 
         self.fxc_modes = fxc_modes
 
@@ -492,20 +575,6 @@ class G0W0Calculator:
 
         self.filename = filename
         self.eta = eta / Ha
-
-        if self.context.comm.rank == 0:
-            # We pass a serial communicator because the parallel handling
-            # is somewhat wonky, we'd rather do that ourselves:
-            try:
-                self.qcache = FileCache(f'qcache_{self.filename}',
-                                        comm=mpi.SerialCommunicator())
-            except TypeError as err:
-                raise RuntimeError(
-                    'File cache requires ASE master '
-                    'from September 20 2022 or newer.  '
-                    'You may need to pull newest ASE.') from err
-
-            self.qcache.strip_empties()
 
         self.kpts = kpts
         self.bands = bands
@@ -525,9 +594,9 @@ class G0W0Calculator:
                                        f'systems. Invalid fxc_mode {fxc_mode}.'
                                        )
 
-        self.pair_distribution = \
-            self.chi0calc.kptpair_factory.distribute_k_points_and_bands(
-                b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
+        self.pair_distribution = distribute_k_points_and_bands(
+            self.chi0calc.chi0_body_calc, b1, b2,
+            self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
 
@@ -558,7 +627,7 @@ class G0W0Calculator:
         if kpts is None:
             isl.append('All k-points in IBZ')
         else:
-            kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
+            kptstxt = ', '.join([f'{k:d}' for k in self.kpts])
             isl.append(f'k-points (IBZ indices): [{kptstxt}]')
         isl.extend([f'Band range: ({b1:d}, {b2:d})',
                     '',
@@ -817,14 +886,14 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
-        if self.context.comm.rank == 0:
-            for key, sigmas in self.qcache.items():
-                sigmas = {fxc_mode: Sigma.fromdict(sigma)
-                          for fxc_mode, sigma in sigmas.items()}
-                for fxc_mode, sigma in sigmas.items():
-                    sigma.validate_inputs(self.get_validation_inputs())
+        with broadcast_exception(self.context.comm):
+            if self.context.comm.rank == 0:
+                for key, sigmas in self.qcache.items():
+                    sigmas = {fxc_mode: Sigma.fromdict(sigma)
+                              for fxc_mode, sigma in sigmas.items()}
+                    for fxc_mode, sigma in sigmas.items():
+                        sigma.validate_inputs(self.get_validation_inputs())
 
-        self.context.comm.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
                 if self.context.comm.rank == 0:
@@ -881,7 +950,7 @@ class G0W0Calculator:
                     self.wcalc.qd, iq, q_c)):
 
                 for (progress, kpt1, kpt2)\
-                    in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
+                        in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
                     pb.update((nQ + progress) / self.wcalc.qd.mynk)
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
@@ -923,11 +992,10 @@ class G0W0Calculator:
             Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
                                                       fxc_mode=fxc_mode)
             if (chi0calc.chi0_body_calc.pawcorr is not None and
-                rqpd.ecut < chi0.qpd.ecut):
+                    rqpd.ecut < chi0.qpd.ecut):
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
-                
                 assert not self.mpa
 
                 pw_map = PWMapping(rqpd, chi0.qpd)
@@ -968,17 +1036,17 @@ class G0W0Calculator:
         for s in range(self.wcalc.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 self.context.print(
-                    '\nk-point ' + '{0} ({1}): ({2:.3f}, {3:.3f}, '
-                    '{4:.3f})'.format(i, ik, *ibzk_kc[ik]) +
+                    '\nk-point ' + '{} ({}): ({:.3f}, {:.3f}, '
+                    '{:.3f})'.format(i, ik, *ibzk_kc[ik]) +
                     '                ' + self.fxc_modes[0])
-                self.context.print('band' + ''.join('{0:>8}'.format(name)
+                self.context.print('band' + ''.join(f'{name:>8}'
                                                     for name in names))
 
                 def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         self.context.print(
-                            '{0:4}'.format(n + b1) +
-                            ''.join('{0:8.3f}'.format(
+                            f'{n + b1:4}' +
+                            ''.join('{:8.3f}'.format(
                                 resultset[name][s, i, n]) for name in names))
 
                 for fxc_mode in results:
@@ -1069,10 +1137,7 @@ class G0W0(G0W0Calculator):
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
-            Input parameters for frequency_grid.
-            Can be an array of frequencies to evaluate the response function at
-            or dictionary of parameters for build-in nonlinear grid
-            (see :ref:`frequency grid`).
+            Input parameters for the nonlinear frequency descriptor.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or list
@@ -1129,22 +1194,34 @@ class G0W0(G0W0Calculator):
             assert fxc_mode is None
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
+        # We pass a serial communicator because the parallel handling
+        # is somewhat wonky, we'd rather do that ourselves:
+        try:
+            qcache = FileCache(f'qcache_{filename}',
+                               comm=mpi.SerialCommunicator())
+        except TypeError as err:
+            raise RuntimeError(
+                'File cache requires ASE master '
+                'from September 20 2022 or newer.  '
+                'You may need to pull newest ASE.') from err
+        if world.rank == 0:
+            qcache.strip_empties()
+        mode = 'a' if qcache.filecount() > 1 else 'w'
 
         # (calc can not actually be a calculator at all.)
         gpwfile = Path(calc)
 
         context = ResponseContext(txt=filename + '.txt',
                                   comm=world, timer=timer)
-        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
-                                                      context=context)
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
-
         kpts = list(select_kpts(kpts, gs.kd))
+
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
@@ -1152,8 +1229,6 @@ class G0W0(G0W0Calculator):
             if ecut_extrapolation:
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
-
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
             assert not mpa
@@ -1175,21 +1250,21 @@ class G0W0(G0W0Calculator):
                           'timeordered': False}
 
         else:
-            # frequencies = self.frequencies
+            # use nonlinear frequency grid
+            frequencies = get_frequencies(frequencies, domega0, omega2)
+
             parameters = {'eta': eta,
                           'hilbert': True,
                           'timeordered': True}
+        wd = get_frequency_descriptor(frequencies, gs=gs, nbands=nbands)
 
-        from gpaw.response.chi0 import new_frequency_descriptor
-        wcontext = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
-
+        wcontext = context.with_txt(filename + '.w.txt', mode=mode)
         chi0calc = Chi0Calculator(
-            wd=wd, kptpair_factory=kptpair_factory,
+            gs, wcontext, nblocks=nblocks,
+            wd=wd,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
-            context=wcontext,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.gs.nocc2)
@@ -1228,6 +1303,7 @@ class G0W0(G0W0Calculator):
                          frequencies=frequencies,
                          kpts=kpts,
                          exx_vxc_calculator=exx_vxc_calculator,
+                         qcache=qcache,
                          ppa=ppa,
                          mpa=mpa,
                          **kwargs)
@@ -1245,6 +1321,7 @@ class G0W0(G0W0Calculator):
 
 class EXXVXCCalculator:
     """EXX and Kohn-Sham XC contribution."""
+
     def __init__(self, gpwfile, snapshotfile_prefix):
         self._gpwfile = gpwfile
         self._snapshotfile_prefix = snapshotfile_prefix

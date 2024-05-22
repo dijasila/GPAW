@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-import numbers
 from math import pi
+import numbers
 
-import _gpaw
-import gpaw
-import gpaw.fftw as fftw
-import numpy as np
 from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+import numpy as np
+
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
@@ -16,12 +13,15 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
 from gpaw.typing import Array2D
-from gpaw.utilities import unpack
+from gpaw.utilities import unpack_hermitian
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+import gpaw
+import gpaw.cgpaw as cgpaw
+import gpaw.fftw as fftw
 
 
 class PW(Mode):
@@ -153,10 +153,10 @@ class Preconditioner:
             out = np.empty_like(R_xG)
         G2_G = self.G2_qG[kpt.q]
         if R_xG.ndim == 1:
-            _gpaw.pw_precond(G2_G, R_xG, ekin_x, out)
+            cgpaw.pw_precond(G2_G, R_xG, ekin_x, out)
         else:
             for PR_G, R_G, ekin in zip(out, R_xG, ekin_x):
-                _gpaw.pw_precond(G2_G, R_G, ekin, PR_G)
+                cgpaw.pw_precond(G2_G, R_G, ekin, PR_G)
         return out
 
 
@@ -191,6 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
+        self.read_from_file_init_wfs_dm = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):
@@ -324,7 +325,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 f = f_n[n1 + comm.rank]
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
                 # Same as nt_R += f * abs(psit_R)**2, but much faster:
-                _gpaw.add_to_density(f, psit_R, nt_R)
+                cgpaw.add_to_density(f, psit_R, nt_R)
 
         comm.sum(nt_R)
         nt_R = self.gd.distribute(nt_R)
@@ -359,7 +360,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
                     a_R = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=False)
-                    _gpaw.add_to_density(0.5 * f, a_R, taut_R)
+                    cgpaw.add_to_density(0.5 * f, a_R, taut_R)
 
         comm.sum(taut_R)
         taut_R = self.gd.distribute(taut_R)
@@ -605,6 +606,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             # Read to memory:
             for kpt in self.kpt_u:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -651,7 +653,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         dS_II = np.zeros((nI, nI))
         I1 = 0
         for a in self.pt.my_atom_indices:
-            dH_ii = unpack(ham.dH_asp[a][s])
+            dH_ii = unpack_hermitian(ham.dH_asp[a][s])
             dS_ii = self.setups[a].dO_ii
             I2 = I1 + len(dS_ii)
             dH_II[I1:I2, I1:I2] = dH_ii / N**2
@@ -699,7 +701,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
         self.occupations.bd = bd
 
-        log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
+        log(f'Diagonalizing full Hamiltonian ({nbands} lowest bands)')
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
                                                     self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / S / 1024**2
@@ -721,7 +723,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = S // nprow
                 b = 64
-            log('ScaLapack grid: {}x{},'.format(nprow, npcol),
+            log(f'ScaLapack grid: {nprow}x{npcol},',
                 'block-size:', b)
             bg = BlacsGrid(bd.comm, S, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
@@ -847,6 +849,8 @@ See issue #241 in GPAW. Creashing to prevent corrupted results."""
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
             array.real = rs.uniform(-1, 1, array.shape) * weight_G
             array.imag = rs.uniform(-1, 1, array.shape) * weight_G
+            if self.gd.comm.rank == 0:
+                array[:, 0].imag = 0.0
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

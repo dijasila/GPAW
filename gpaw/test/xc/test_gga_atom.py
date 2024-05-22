@@ -1,17 +1,17 @@
 import numpy as np
 import numpy.random as ra
-from gpaw.test import equal
+import pytest
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
 from gpaw.xc import XC
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 from gpaw.mpi import serial_comm
 
 
 def test_xc_gga_atom():
-    ra.seed(8)
+    rng = ra.default_rng(8)
     for name in ['LDA', 'PBE']:
         xc = XC(name)
         s = create_setup('N', xc)
@@ -26,7 +26,7 @@ def test_xc_gga_atom():
             data = [wt0(r) for r in np.arange(121) * rcut / 100]
             data[-1] = 0.0
             l = wt0.get_angular_momentum_number()
-            wt_j.append(Spline(l, 1.2 * rcut, data))
+            wt_j.append(Spline.from_data(l, 1.2 * rcut, data))
 
         a = rcut * 1.2 * 2 + 1.0
         n = 70
@@ -45,10 +45,10 @@ def test_xc_gga_atom():
         n_g = np.zeros((1, n, n, n))
         v_g = np.zeros((1, n, n, n))
 
-        P_ni = 0.2 * ra.random((20, ni))
+        P_ni = 0.2 * rng.random((20, ni))
         P_ni[:, nao:] = 0.0
         D_ii = np.dot(np.transpose(P_ni), P_ni)
-        D_p = pack(D_ii)
+        D_p = pack_density(D_ii)
         p = 0
         for i1 in range(nao):
             for i2 in range(i1, nao):
@@ -73,4 +73,4 @@ def test_xc_gga_atom():
               + s.xc_correction.e_xc0)
 
         print(name, E1, E2, E1 - E2)
-        equal(E1, E2, 0.0013)
+        assert E1 == pytest.approx(E2, abs=0.0013)

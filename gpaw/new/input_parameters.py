@@ -4,7 +4,6 @@ import warnings
 from typing import Any, Sequence
 
 import numpy as np
-from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
@@ -46,9 +45,9 @@ class InputParameters:
     basis: Any
     charge: float
     convergence: dict[str, Any]
-    dtype: DTypeLike | None
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
+    external: dict[str, Any]
     gpts: None | Sequence[int]
     h: float | None
     hund: bool
@@ -112,18 +111,6 @@ class InputParameters:
                      'in the future'),
                     DeprecatedParameterWarning)
             self.mode = dict(self.mode, name='fd')
-        force_complex_dtype = self.mode.pop('force_complex_dtype', None)
-        if force_complex_dtype is not None:
-            if warn:
-                self.dtype = complex if force_complex_dtype else None
-                warnings.warn(
-                    'Please use '
-                    f'GPAW(dtype={self.dtype}, '
-                    '...)',
-                    DeprecatedParameterWarning,
-                    stacklevel=3)
-            self.keys.append('dtype')
-            self.keys.sort()
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -133,6 +120,9 @@ class InputParameters:
     def items(self):
         for key in self.keys:
             yield key, getattr(self, key)
+
+    def __contains__(self, key):
+        return key in self.keys
 
 
 @input_parameter
@@ -153,11 +143,6 @@ def convergence(value=None):
 
 
 @input_parameter
-def dtype(value=None):
-    return value
-
-
-@input_parameter
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
@@ -170,6 +155,11 @@ def eigensolver(value=None) -> dict:
 
 @input_parameter
 def experimental(value=None):
+    return value
+
+
+@input_parameter
+def external(value=None):
     return value
 
 

@@ -1,8 +1,6 @@
 import pytest
-from ase import Atom
+from ase import Atom, Atoms
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.test import equal
 
 
 @pytest.mark.mgga
@@ -12,8 +10,8 @@ def test_mgga_mgga_restart(in_tmp_dir):
     txt = None
     txt = '-'
 
-    s = Cluster([Atom('H'), Atom('H', [0, 0, 1])])
-    s.minimal_box(3.)
+    s = Atoms([Atom('H'), Atom('H', [0, 0, 1])])
+    s.center(vacuum=3.)
     s.calc = GPAW(xc={'name': 'PBE', 'stencil': 1},
                   mode='fd',
                   h=.3,
@@ -40,7 +38,7 @@ def test_mgga_mgga_restart(in_tmp_dir):
     assert abs(E_1 - E_2) < 0.005
 
     energy_tolerance = 0.002
-    equal(E_PBE, -5.341, energy_tolerance)
-    equal(E_PBE_no_wfs, -5.33901, energy_tolerance)
-    equal(E_1, -5.57685, energy_tolerance)
-    equal(E_2, -5.57685, energy_tolerance)
+    assert E_PBE == pytest.approx(-5.341, abs=energy_tolerance)
+    assert E_PBE_no_wfs == pytest.approx(-5.33901, abs=energy_tolerance)
+    assert E_1 == pytest.approx(-5.57685, abs=energy_tolerance)
+    assert E_2 == pytest.approx(-5.57685, abs=energy_tolerance)

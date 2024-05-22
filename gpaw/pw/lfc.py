@@ -1,6 +1,6 @@
 from math import pi
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import numpy as np
 from gpaw.lfc import BaseLFC
 from gpaw.spherical_harmonics import Y, nablarlYL
@@ -190,7 +190,7 @@ class PWLFC(BaseLFC):
 
         if True:
             # Fast C-code:
-            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+            cgpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
             return f_GI
@@ -378,7 +378,7 @@ class PWLFC(BaseLFC):
                 I1 = I2
 
         if isinstance(c_axi, float):
-            c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
+            c_axi = {a: c_axi for a in range(len(self.pos_av))}
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 

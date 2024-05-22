@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 
 import gpaw.mpi
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 from gpaw.lrtddft2.eta import QuadraticETA
 
 
@@ -137,7 +137,8 @@ class Kmatrix:
         self.lr_comms.parent_comm.barrier()
         # self.timer.stop('Read K-matrix')
 
-        self.file_format = self.lr_comms.parent_comm.max(self.file_format)
+        self.file_format = self.lr_comms.parent_comm.max_scalar(
+            self.file_format)
 
         # send and receive elem_list
         # self.timer.start('Communicate K-matrix')
@@ -167,7 +168,7 @@ class Kmatrix:
 
         # Matrix build
         K_matrix = np.zeros((nlrow, nlcol))
-        K_matrix[:, :] = np.NAN  # fill with NaNs to detect problems
+        K_matrix[:, :] = np.nan  # fill with NaNs to detect problems
         # Read ALL K_matrix files
         for line in local_elem_list.splitlines():
             line = line.split()
@@ -374,7 +375,7 @@ class Kmatrix:
                 Ia = self.calculate_paw_fHXC_corrections(kss_ip, kss_jq, I_asp)
 
                 # self.timer.stop('Atomic corrections')
-                Ia = self.lr_comms.dd_comm.sum(Ia)
+                Ia = self.lr_comms.dd_comm.sum_scalar(Ia)
 
                 # Total integral
                 Itot = Ig + Ia
@@ -457,7 +458,7 @@ class Kmatrix:
 
             Pip_ni = self.calc.wfs.kpt_u[kss_ip.spin_ind].P_ani[a]
             Dip_ii = np.outer(Pip_ni[i], Pip_ni[p])
-            Dip_p = pack(Dip_ii)
+            Dip_p = pack_density(Dip_ii)
 
             # finite difference plus
             D_sp = self.calc.density.D_asp[a].copy()
@@ -488,11 +489,11 @@ class Kmatrix:
         for a, P_ni in self.calc.wfs.kpt_u[kss_jq.spin_ind].P_ani.items():
             Pip_ni = self.calc.wfs.kpt_u[kss_ip.spin_ind].P_ani[a]
             Dip_ii = np.outer(Pip_ni[i], Pip_ni[p])
-            Dip_p = pack(Dip_ii)
+            Dip_p = pack_density(Dip_ii)
 
             Pjq_ni = self.calc.wfs.kpt_u[kss_jq.spin_ind].P_ani[a]
             Djq_ii = np.outer(Pjq_ni[j], Pjq_ni[q])
-            Djq_p = pack(Djq_ii)
+            Djq_p = pack_density(Djq_ii)
 
             # Hartree part
             C_pp = self.calc.wfs.setups[a].M_pp

@@ -1,5 +1,6 @@
 from math import log
 
+import numpy as np
 import pytest
 from ase import Atoms
 from ase.db import connect
@@ -7,11 +8,10 @@ from ase.io import iread, read, write
 from ase.units import Bohr
 
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
 
 @pytest.mark.later
-def test_generic_hydrogen(in_tmp_dir):
+def test_generic_hydrogen(in_tmp_dir, needs_ase_master):
     a = 4.0
     h = 0.2
     hydrogen = Atoms('H',
@@ -25,17 +25,17 @@ def test_generic_hydrogen(in_tmp_dir):
     hydrogen.calc = GPAW(**params,
                          txt='h.txt')
     e1 = hydrogen.get_potential_energy()
-    equal(e1, 0.526939, 0.001)
+    assert e1 == pytest.approx(0.526939, abs=0.001)
 
     dens = hydrogen.calc.density
     c = dens.gd.find_center(dens.nt_sG[0]) * Bohr
-    equal(abs(c - a / 2).max(), 0, 1e-13)
+    assert abs(c - a / 2).max() == pytest.approx(0, abs=1e-13)
 
     kT = 0.001
     hydrogen.calc = GPAW(**params,
                          occupations=FermiDirac(width=kT))
     e2 = hydrogen.get_potential_energy()
-    equal(e1, e2 + log(2) * kT, 3.0e-7)
+    assert e1 == pytest.approx(e2 + log(2) * kT, abs=3.0e-7)
 
     # Test ase.db a bit:
     for name in ['h.json', 'h.db']:
@@ -65,4 +65,4 @@ def test_generic_hydrogen(in_tmp_dir):
 
     # Test get_electrostatic_potential() method
     v = hydrogen.calc.get_electrostatic_potential()
-    print(v.shape, v.ptp())
+    print(v.shape, np.ptp(v))

@@ -5,6 +5,7 @@ from math import pi, sqrt
 import numpy as np
 from numpy.linalg import solve, inv
 from scipy.linalg import eigh
+from ase.units import Ha
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
@@ -247,7 +248,7 @@ class Generator(AllElectron):
 
         t('Cutoffs:')
         for rc, s in zip(rcut_l, 'spdf'):
-            t('rc(%s)=%.3f' % (s, rc))
+            t(f'rc({s})={rc:.3f}')
         t('rc(vbar)=%.3f' % rcutvbar)
         t('rc(comp)=%.3f' % rcutcomp)
         t('rc(nct)=%.3f' % rcutmax)
@@ -574,13 +575,14 @@ class Generator(AllElectron):
                         n_n[n], 'spdf'[l], f, e_n[n],
                         np.dot(s_ln[l][n]**2, dr)))
                 else:
-                    t('*%s    : %12.6f' % ('spdf'[l], e_n[n]))
+                    t('*{}    : {:12.6f}'.format('spdf'[l], e_n[n]))
         t('--------------------------------')
 
         self.logd = {}
         if logderiv:
             ni = 300
             self.elog = np.linspace(-5.0, 1.0, ni)
+            delta = self.elog[1] - self.elog[0]
             # Calculate logarithmic derivatives:
             gld = gcutmax + 10
             self.rlog = r[gld]
@@ -600,6 +602,10 @@ class Generator(AllElectron):
                     ae = self.symbol + '.ae.ld.' + 'spdf'[l]
                     ps = self.symbol + '.ps.ld.' + 'spdf'[l]
                     with open(ae, 'w') as fae, open(ps, 'w') as fps:
+                        ld_ae = 1000
+                        ld_ps = 1000
+                        nodes_ae = []
+                        nodes_ps = []
                         for i, e in enumerate(self.elog):
                             # All-electron logarithmic derivative:
                             u[:] = 0.0
@@ -607,6 +613,9 @@ class Generator(AllElectron):
                                   c10, c2, self.scalarrel, gmax=gld)
                             dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                             ld = dudr / u[gld] - 1.0 / r[gld]
+                            if ld > ld_ae:
+                                nodes_ae.append(e)
+                            ld_ae = ld
                             print(e, ld, file=fae)
                             self.logd[l][0][i] = ld
 
@@ -626,9 +635,17 @@ class Generator(AllElectron):
 
                             dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                             ld = dsdr / s[gld] - 1.0 / r[gld]
+                            if ld > ld_ps:
+                                nodes_ps.append(e)
+                            ld_ps = ld
                             print(e, ld, file=fps)
                             self.logd[l][1][i] = ld
 
+                        for e1, e2 in zip(nodes_ae[::-1], nodes_ps[::-1]):
+                            if abs(e1 - e2) > 1.5 * delta:
+                                print(f'{self.symbol}(l={l})-GHOST?',
+                                      f'AE={e1 * Ha:.3f} eV,',
+                                      f'PS={e2 * Ha:.3f} eV')
             except KeyboardInterrupt:
                 pass
 
@@ -659,6 +676,8 @@ class Generator(AllElectron):
         self.vu_j = vu_j = []
         self.vs_j = vs_j = []
         self.vq_j = vq_j = []
+        gllb = 'w_ln' in extra_xc_data
+        self.vw_j = vw_j = []
         j_ln = [[0 for f in f_n] for f_n in f_ln]
         j = 0
         for l, n_n in enumerate(n_ln):
@@ -671,6 +690,8 @@ class Generator(AllElectron):
                     vu_j.append(u_ln[l][n])
                     vs_j.append(s_ln[l][n])
                     vq_j.append(q_ln[l][n])
+                    if gllb:
+                        vw_j.append(extra_xc_data['w_ln'][l][n])
                     j_ln[l][n] = j
                     j += 1
         for l, n_n in enumerate(n_ln):
@@ -683,10 +704,14 @@ class Generator(AllElectron):
                     vu_j.append(u_ln[l][n])
                     vs_j.append(s_ln[l][n])
                     vq_j.append(q_ln[l][n])
+                    if gllb:
+                        vw_j.append(extra_xc_data['w_ln'][l][n])
                     j_ln[l][n] = j
                     j += 1
         nj = j
-
+        if gllb:
+            extra_xc_data['w_j'] = vw_j
+            del extra_xc_data['w_ln']
         self.dK_jj = np.zeros((nj, nj))
         for l, j_n in enumerate(j_ln):
             for n1, j1 in enumerate(j_n):
@@ -788,7 +813,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata = data
         setup.orbital_free = self.orbital_free
-        setup.version = '0.6'
+        setup.version = '0.8'
 
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
@@ -853,7 +878,8 @@ class Generator(AllElectron):
                 else:
                     t()
             else:
-                t('*%s:                %12.6f' % ('spdf'[l], ePAW), end='')
+                t('*{}:                {:12.6f}'.format('spdf'[l], ePAW),
+                  end='')
                 if ePAW < self.emax:
                     t('  GHOST-STATE!')
                     self.ghost = True

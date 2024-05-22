@@ -1,6 +1,6 @@
 from gpaw import GPAW, restart, FD
 from ase.build import molecule
-from gpaw.test import equal
+import pytest
 
 
 def test_complex(in_tmp_dir, gpaw_new):
@@ -17,16 +17,17 @@ def test_complex(in_tmp_dir, gpaw_new):
     mol.calc = calc
 
     Eini = mol.get_potential_energy()
-    equal(Eini, Eini0, energy_eps * calc.get_number_of_electrons())
+    assert Eini == pytest.approx(
+        Eini0, abs=energy_eps * calc.get_number_of_electrons())
 
     calc.write('N2_complex.gpw', mode='all')
 
     mol, calc = restart('N2_complex.gpw')
 
     if gpaw_new:
-        calc.calculation.converge({'eigenstates': 3.5e-9,
-                                   'energy': energy_eps})
-        assert calc.calculation.state.ibzwfs.dtype == complex
+        calc.dft.converge({'eigenstates': 3.5e-9,
+                           'energy': energy_eps})
+        assert calc.dft.state.ibzwfs.dtype == complex
     else:
         assert calc.wfs.dtype == complex
         assert calc.wfs.kpt_u[0].psit_nG.dtype == complex
@@ -34,4 +35,5 @@ def test_complex(in_tmp_dir, gpaw_new):
         convergence = {'eigenstates': 3.5e-9, 'energy': energy_eps}
         mol.calc = calc.new(convergence=convergence)
     E = mol.get_potential_energy()
-    equal(E, Eini, energy_eps * calc.get_number_of_electrons())
+    assert E == pytest.approx(
+        Eini, abs=energy_eps * calc.get_number_of_electrons())

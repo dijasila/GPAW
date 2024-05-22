@@ -10,9 +10,109 @@ Git master branch
 
 :git:`master <>`.
 
-* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
+* A new ``adjust_cell()`` function is added to replace the
+  ``Cluster.minimal_box()``, and the Cluster object will be
+  discontinued. he new  ``adjust_cell()`` function expands the ``minimal_box()``
+  unction but considers the ``pbc`` for periodic calculations and
+  only adjusts the cell in the non-periodic directions.
+
+* Fixed a bug in the electron-phonon module which constructed the PAW
+  corrections to the Hamiltonian with incorrect off-diagonal elements. Our
+  testing has not revealed any critical changes in results; however, if you've
+  been using the electron-phonon module, we still recommend that you verify
+  your results.
+
+* New 14 electron Cr PAW potential added to our :ref:`setup releases`.
+  For high accuracy, it is recommented over the old 6-electron version
+  (which is still the default).  You can use it by
+  specifying ``setups={'Cr': '14'}`` (see also :ref:`manual_setups`).
+  It has been generated with the following command::
+
+    $ gpaw dataset Cr -sw -r2.0 -P3s,4s,3p,4p,3d,d,F -fPBE -t 14 -b
+
+  There is also an LDA version of the potential.
+
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
+.. warning::
+
+   PW-mode `\Gamma`-point calculations could sometimes find a fake
+   eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
+   expansion of the real-valued wave functions:
+
+   .. math::
+
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
+
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
+
+   For systems with vacuum in the cell, the 0 eV state would be unoccupied,
+   but for fully periodic systems, the 0 eV state could be occupied.
+   So, if you have done
+
+   * PW-mode calculations
+   * fully periodic systems
+   * only `\Gamma`-point sampling
+   * ``nbands`` set to a number large enough to trigger random
+     wave functions
+
+   then please check your results to see if you are affected by this bug.
+
+   Fixed in :mr:`2114`.
+
+* Minimum version requirements: Python 3.8, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* Functionality has been added to calculate various local properties of the
+  magnetic sites of a crystal, see :ref:`sites`.
+
+* Python 3.7 no longer supported.
+
+* Calculations of ground and excited states in FD and PW modes can now be
+  done using direct orbital optimization (see :ref:`directmin`). Use
+  ``eigensolver='etdm-fdpw'`` (or import ``gpaw.directmin.etdm_fdpw.FDPWETDM``
+  ). The LCAO implementation of direct optimization available also in previous
+  versions can be used by specifying ``eigensolver='etdm-lcao'`` (or by
+  importing ``gpaw.directmin.etdm_lcao.LCAOETDM``).
+
+  Direct optimization can also be used to perform calculations with
+  Perdew-Zunger self-interaction correction (PZ-SIC) for both FD, PW and LCAO
+  modes. Use (FD and PW modes)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_fdpw import FDPWETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  or (LCAO mode)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_lcao import LCAOETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  For excited state calculations, use direct optimization together with
+  :ref:`MOM <mom>` (available for all modes) or with
+  :ref:`generalized mode following <do-gmf>` (available only for LCAO).
+
+* A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
+  :issue:`828`.
+
+* A bug resulting in slight inaccuracies when calculating inner products
+  between radial partial waves was fixed. This bug affected the calculation
+  of spin magnetic moments inside PAW spheres and the Hubbard correction when
+  it was applied to p-states. See :issue:`1068`.
 
 Version 23.9.1
 ==============

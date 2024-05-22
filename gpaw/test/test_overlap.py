@@ -5,9 +5,8 @@ from ase.parallel import parprint, world
 
 from gpaw import GPAW
 from gpaw.analyse.overlap import Overlap
-from gpaw.cluster import Cluster
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.lrtddft import LrTDDFT
-from gpaw.test import equal
 
 """Evaluate the overlap between two independent calculations
 
@@ -34,8 +33,8 @@ def test_overlap(in_tmp_dir):
     txt = '-'
     txt = None
 
-    H2 = Cluster(molecule('H2'))
-    H2.minimal_box(box, h)
+    H2 = molecule('H2')
+    adjust_cell(H2, box, h)
 
     c1 = GPAW(**get_kwargs(eigensolver='dav', nbands=nbands))
     c1.calculate(H2)
@@ -48,7 +47,8 @@ def test_overlap(in_tmp_dir):
     parprint('pseudo(not normalized):\n', ov)
     ov = Overlap(c1).full(c1)
     parprint('full:\n', ov)
-    equal(ov[0], np.eye(ov[0].shape[0], dtype=ov.dtype), 1e-10)
+    assert ov[0] == pytest.approx(np.eye(ov[0].shape[0], dtype=ov.dtype),
+                                  abs=1e-10)
 
     def show(c2):
         c2.calculate(H2)

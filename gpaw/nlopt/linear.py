@@ -1,37 +1,51 @@
 import numpy as np
-from ase.units import Bohr, _hbar, _e, _me, _eps0
+from ase.units import Ha
 
-from gpaw.nlopt.basic import load_data
 from gpaw.mpi import world
 
 
 def get_chi_tensor(
+        nlodata,
         freqs=[1.0], eta=0.05,
         ftol=1e-4, Etol=1e-6, eshift=0.0,
-        band_n=None, mml_name='mml.npz', out_name=None):
+        band_n=None, out_name=None):
     """
-    Calculate full linear susceptibility tensor for nonmagnetic semiconductors.
+    Calculate full linear susceptibility tensor for nonmagnetic semiconductors;
+    array will be saved to disk if out_name is given.
 
-    Input:
-        freqs           Excitation frequency array (a numpy array or list)
-        eta             Broadening, a number or an array (default 0.05 eV)
-        Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        eshift          Bandgap correction
-        band_n          List of bands in the sum (default 0 to nb)
-        out_name        If it is given: output filename
-        mml_name        The momentum filename (default 'mml.npz')
-    Output:
-        chi_vvl         The output tensor (3, 3, nw)
-        chi.npy         If specified: array containing the spectrum and freqs
+    Parameters
+    ----------
+    nlodata
+        Data object of type NLOData.
+    freqs
+        Excitation frequency array (a numpy array or list).
+    eta
+        Broadening, a number or an array (default 0.05 eV).
+    Etol, ftol
+        Tolerance in energy and occupancy to consider degeneracy.
+    eshift
+        Bandgap correction.
+    band_n
+        List of bands in the sum (default 0 to nb).
+    out_name
+        If it is given: output filename.
+
+    Returns
+    -------
+    np.ndarray:
+        Full linear susceptibility tensor (3, 3, nw).
 
     """
 
+    # Covert inputs in eV to Ha
     freqs = np.array(freqs)
     nw = len(freqs)
-    w_lc = freqs + 1j * eta
+    w_lc = (freqs + 1j * eta) / Ha
+    Etol /= Ha
+    eshift /= Ha
 
     # Load the required data
-    k_info = load_data(mml_name=mml_name)
+    k_info = nlodata.distribute()
     if k_info:
         tmp = list(k_info.values())[0]
         nb = len(tmp[1])
@@ -56,13 +70,9 @@ def get_chi_tensor(
 
     world.sum(sum_vvl)
 
-    # Make the output in SI unit
-    dim_sigma = 1j * _e**2 * _hbar / (_me**2 * (2 * np.pi)**3)
-    dim_chi = 1j * _hbar / (_eps0 * _e)
-    dim_sum = (_hbar / (Bohr * 1e-10))**2 / \
-        (_e**2 * (Bohr * 1e-10)**3)
-    dim_SI = dim_sigma * dim_chi * dim_sum
-    chi_vvl = dim_SI * sum_vvl
+    # Multiply prefactors (4pi from eps0, 8pi^3 from BZ)
+    prefactor = 4 * np.pi / (2 * np.pi)**3
+    chi_vvl = prefactor * sum_vvl
 
     # Save it to the file
     if world.rank == 0 and out_name is not None:
@@ -111,6 +121,6 @@ def calc_chi(
             # *2 for real, /2 for TRS, *2 for m<n
             sum_l += 2 * fnm * np.real(
                 p_vnn[pol_v[0], nni, mmi] * p_vnn[pol_v[1], mmi, nni]) \
-                / (Emn * (w_l**2 - Emn**2))
+                / (Emn * (Emn**2 - w_l**2))
 
     return sum_l

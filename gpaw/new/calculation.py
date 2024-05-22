@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Any, Union
 
 import numpy as np
@@ -11,9 +12,9 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float, world
-from gpaw.new import cached_property, zips
+from gpaw.new import trace, zips
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
@@ -27,9 +28,17 @@ from gpaw.utilities.partition import AtomPartition
 
 
 class ReuseWaveFunctionsError(Exception):
-    """Reusing the old wave functions after cell change failed.
+    """Reusing the old wave functions after cell-change failed.
 
     Most likekly, the number of k-points changed.
+    """
+
+
+class CalculationModeError(Exception):
+    """Calculation mode does not match what is expected from a given method.
+
+    For example, if a method only works in collinear mode and receives a
+    calculator in non-collinear mode, this exception should be raised.
     """
 
 
@@ -40,6 +49,7 @@ units = {'energy': Ha,
          'dipole': Bohr,
          'magmom': 1.0,
          'magmoms': 1.0,
+         'non_collinear_magmom': 1.0,
          'non_collinear_magmoms': 1.0}
 
 
@@ -63,6 +73,7 @@ class DFTState:
     def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
         self.density.move(fracpos_ac, atomdist)
+        self.potential.move(atomdist)
 
 
 class DFTCalculation:
@@ -116,10 +127,14 @@ class DFTCalculation:
         scf_loop = builder.create_scf_loop()
 
         pot_calc = builder.create_potential_calculator()
-        potential, _ = pot_calc.calculate(
+        potential, _ = pot_calc.calculate_without_orbitals(
             density, kpt_band_comm=builder.communicators['D'])
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
+
+        if ibzwfs.wfs_qs[0][0]._eig_n is not None:
+            ibzwfs.calculate_occs(scf_loop.occ_calc)
+
         state = DFTState(ibzwfs, density, potential)
 
         write_atoms(atoms, builder.initial_magmom_av, log)
@@ -153,14 +168,14 @@ class DFTCalculation:
 
     def iconverge(self, convergence=None, maxiter=None, calculate_forces=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
-        for ctx in self.scf_loop.iterate(self.state,
+        yield from self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
                                          calculate_forces,
-                                         log=self.log):
-            yield ctx
+                                         log=self.log)
 
+    @trace
     def converge(self,
                  convergence=None,
                  maxiter=None,
@@ -195,6 +210,8 @@ class DFTCalculation:
         self.results['energy'] = total_extrapolated
 
     def dipole(self):
+        if 'dipole' in self.results:
+            return
         dipole_v = self.state.density.calculate_dipole_moment(self.fracpos_ac)
         x, y, z = dipole_v * Bohr
         self.log(f'dipole moment: [{x:.6f}, {y:.6f}, {z:.6f}]  # |e|*Ang\n')
@@ -205,6 +222,7 @@ class DFTCalculation:
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
         self.results['non_collinear_magmoms'] = mm_av
+        self.results['non_collinear_magmom'] = mm_v
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
@@ -220,6 +238,20 @@ class DFTCalculation:
 
     def forces(self, silent=False):
         """Calculate atomic forces."""
+        if 'forces' not in self.results or silent:
+            self._calculate_forces()
+
+            if silent:
+                return
+            self.log('\nforces: [  # eV/Ang')
+            F_av = self.results['forces'] * (Ha / Bohr)
+            for a, setup in enumerate(self.setups):
+                x, y, z = F_av[a]
+                c = ',' if a < len(F_av) - 1 else ']'
+                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
+                         f'  # {setup.symbol:2} {a}')
+
+    def _calculate_forces(self):
         xc = self.pot_calc.xc
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
@@ -255,20 +287,12 @@ class DFTCalculation:
         domain_comm.sum(F_av)
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
-
-        if not silent:
-            self.log('\nforces: [  # eV/Ang')
-            s = Ha / Bohr
-            for a, setup in enumerate(self.setups):
-                x, y, z = F_av[a] * s
-                c = ',' if a < len(F_av) - 1 else ']'
-                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                         f'  # {setup.symbol:2} {a}')
-
         self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
+        if 'stress' in self.results:
+            return
         stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zips(stress_vv * (Ha / Bohr**3), ',,]'):
@@ -277,6 +301,7 @@ class DFTCalculation:
 
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
+
         self.log.fd.flush()
 
     def electrostatic_potential(self) -> ElectrostaticPotential:
@@ -301,6 +326,10 @@ class DFTCalculation:
         if params.mode['name'] != 'pw':
             raise ReuseWaveFunctionsError
 
+        ibzwfs = self.state.ibzwfs
+        if ibzwfs.domain_comm.size != 1:
+            raise ReuseWaveFunctionsError
+
         if not self.state.density.nt_sR.desc.pbc_c.all():
             raise ReuseWaveFunctionsError
 
@@ -310,7 +339,7 @@ class DFTCalculation:
         builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
-        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
+        old_kpt_kc = ibzwfs.ibz.kpt_kc
         if len(kpt_kc) != len(old_kpt_kc):
             raise ReuseWaveFunctionsError
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
@@ -335,7 +364,7 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, _ = pot_calc.calculate(density)
 
-        old_ibzwfs = self.state.ibzwfs
+        old_ibzwfs = ibzwfs
 
         def create_wfs(spin, q, k, kpt_c, weight):
             wfs = old_ibzwfs.wfs_qs[q][spin]
@@ -344,7 +373,7 @@ class DFTCalculation:
                 builder.fracpos_ac,
                 builder.atomdist)
 
-        ibzwfs = create_ibz_wave_functions(
+        ibzwfs = ibzwfs.create(
             ibz=builder.ibz,
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
@@ -371,6 +400,10 @@ def combine_energies(potential: Potential,
     energies = potential.energies.copy()
     energies.pop('stress', 0.0)
     energies['kinetic'] += ibzwfs.energies['band']
+    energies['kinetic'] += ibzwfs.energies.get('exx_kinetic', 0.0)
+    energies['xc'] += (ibzwfs.energies.get('exx_vv', 0.0) +
+                       ibzwfs.energies.get('exx_vc', 0.0) +
+                       ibzwfs.energies.get('exx_cc', 0.0))
     energies['entropy'] = ibzwfs.energies['entropy']
     energies['total_free'] = sum(energies.values())
     energies['total_extrapolated'] = (energies['total_free'] +

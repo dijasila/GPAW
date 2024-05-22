@@ -56,8 +56,11 @@ def test_nicl2_pair_potential(gpw_files):
             # Average out the in-plane degrees of freedom
             wt_mytz = np.average(wt_mytR, axis=(1, 2))
 
+            # Gather all the transitions
+            wt_tz = kptpair.tblocks.all_gather(wt_mytz)
+
             # import matplotlib.pyplot as plt
-            # for wt_z in wt_mytz:
+            # for wt_z in wt_tz:
             #     plt.subplot(1, 2, 1)
             #     plt.plot(np.arange(len(wt_z)), wt_z.real)
             #     plt.subplot(1, 2, 2)
@@ -67,7 +70,7 @@ def test_nicl2_pair_potential(gpw_files):
             # Find the maximum absolute value of the pair potential and make
             # sure that the pair potential is much smaller than that close to
             # the cell boundary for all the transitions
-            abswt_mytz = np.abs(wt_mytz)
-            max_wt = np.max(abswt_mytz)
-            assert np.all(abswt_mytz[:, :10] < max_wt / 25.)
-            assert np.all(abswt_mytz[:, -10:] < max_wt / 25.)
+            abswt_tz = np.abs(wt_tz)
+            max_wt = np.max(abswt_tz)
+            assert np.all(abswt_tz[:, :10] < max_wt / 25.)
+            assert np.all(abswt_tz[:, -10:] < max_wt / 25.)

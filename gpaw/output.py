@@ -1,5 +1,5 @@
 import numpy as np
-from _gpaw import get_num_threads
+from gpaw.cgpaw import get_num_threads
 from ase import Atoms
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
@@ -22,7 +22,7 @@ def print_cell(gd, pbc_c, log):
     log('  Angles:  {:10.6f} {:10.6f} {:10.6f}\n'.format(*par[3:]))
 
     h_eff = gd.dv**(1.0 / 3.0) * Bohr
-    log('Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff))
+    log(f'Effective grid spacing dv^(1/3) = {h_eff:.4f}')
     log()
 
 
@@ -66,7 +66,7 @@ def print_parallelization_details(wfs, ham, log):
         log('Parallelization over states: %d' % wfs.bd.comm.size)
 
     if get_num_threads() > 1:  # OpenMP threading
-        log('OpenMP threads: {}'.format(get_num_threads()))
+        log(f'OpenMP threads: {get_num_threads()}')
     log()
 
 

@@ -7,7 +7,7 @@ from typing import Tuple
 from ase.utils import gcd
 import numpy as np
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 
 
@@ -310,7 +310,7 @@ class Symmetry:
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
     def check_grid(self, N_c) -> bool:
-        """Check that symmetries are comensurate with grid."""
+        """Check that symmetries are commensurate with grid."""
         for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
@@ -367,16 +367,16 @@ class Symmetry:
             return a_g.conj()
         # General point group symmetry
         else:
-            import _gpaw
+            import gpaw.cgpaw as cgpaw
             b_g = np.zeros_like(a_g)
             if time_reversal:
                 # assert abs(np.dot(op_cc, kibz_c) - -kbz_c) < tol
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                cgpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
                                               kibz_c, -kbz_c)
                 return b_g.conj()
             else:
                 # assert abs(np.dot(op_cc, kibz_c) - kbz_c) < tol
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                cgpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
                                               kibz_c, kbz_c)
                 return b_g
 
@@ -393,10 +393,10 @@ class Symmetry:
     def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        lines = ['Symmetries present (total): {0}'.format(n)]
+        lines = [f'Symmetries present (total): {n}']
         if not self.symmorphic:
             lines.append(
-                'Symmetries with fractional translations: {0}'.format(nft))
+                f'Symmetries with fractional translations: {nft}')
 
         # X-Y grid of symmetry matrices:
 
@@ -450,14 +450,14 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     nbzkpts = len(bzk_kc)
     ka = nbzkpts * comm.rank // comm.size
     kb = nbzkpts * (comm.rank + 1) // comm.size
-    assert comm.sum(kb - ka) == nbzkpts
+    assert comm.sum_scalar(kb - ka) == nbzkpts
 
     if time_reversal:
         U_scc = np.concatenate([U_scc, -U_scc])
 
     bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
     bz2bz_ks[ka:kb] = -1
-    _gpaw.map_k_points(np.ascontiguousarray(bzk_kc),
+    cgpaw.map_k_points(np.ascontiguousarray(bzk_kc),
                        np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks

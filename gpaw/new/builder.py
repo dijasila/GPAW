@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from functools import cached_property
 from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
@@ -18,7 +19,7 @@ from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import (MPIComm, Parallelization, serial_comm, synchronize_atoms,
                       world)
-from gpaw.new import cached_property, prod
+from gpaw.new import prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
@@ -29,7 +30,7 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
-from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
 from gpaw.new.c import GPU_AWARE_MPI
@@ -51,6 +52,7 @@ def builder(atoms: Atoms,
 
     mode = params.mode.copy()
     name = mode.pop('name')
+    mode.pop('force_complex_dtype', False)
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
@@ -82,7 +84,8 @@ class DFTComponentsBuilder:
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
         if isinstance(params.xc, (dict, str)):
-            self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4),
+                          xp=self.xp)
         else:
             self._xc = params.xc
 
@@ -101,7 +104,10 @@ class DFTComponentsBuilder:
                                               self.setups.id_a,
                                               self.initial_magmom_av,
                                               params.symmetry)
-        assert not (self.ncomponents == 4 and len(symmetries) > 1)
+        if self.ncomponents == 4:
+            assert (len(symmetries) == 1 and not
+                    symmetries.symmetry.time_reversal)
+
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetries.reduce(bz, strict=False)
 
@@ -125,15 +131,14 @@ class DFTComponentsBuilder:
         if self.ncomponents == 4:
             self.nbands *= 2
 
-        self.dtype = params.dtype
-        if self.dtype is None:
-            if self.ibz.bz.gamma_only:
+        self.dtype: DTypeLike
+        if self.params.mode.get('force_complex_dtype', False):
+            self.dtype = complex
+        else:
+            if self.ibz.bz.gamma_only and self.ncomponents < 4:
                 self.dtype = float
             else:
                 self.dtype = complex
-        elif not self.ibz.bz.gamma_only and self.dtype != complex:
-            raise ValueError('Can not use dtype=float for non gamma-point '
-                             'calculation')
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
@@ -145,17 +150,21 @@ class DFTComponentsBuilder:
 
         self.interpolation_desc: Domain
         self.electrostatic_potential_desc: Domain
-        self.atomdist: AtomDistribution
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+
+    @cached_property
+    def atomdist(self) -> AtomDistribution:
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     def create_uniform_grids(self):
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return create_functional(self._xc,
-                                 self.fine_grid)
+        return create_functional(self._xc, self.fine_grid, self.xp)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -264,13 +273,11 @@ class DFTComponentsBuilder:
         """
         ha = reader.ha
 
+        domain_comm = self.communicators['d']
+        band_comm = self.communicators['b']
+
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
-        if self.communicators['d'].rank == 0:
-            P_sknI = reader.wave_functions.projections
-            P_sknI = P_sknI.astype(ibzwfs.dtype)
-        else:
-            P_sknI = None
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
@@ -278,16 +285,24 @@ class DFTComponentsBuilder:
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       atomdist=self.atomdist,
                                       dtype=self.dtype)
-            data = None
             if self.ncomponents < 4:
-                wfs._P_ani = AtomArrays(layout, dims=(self.nbands,))
-                if P_sknI is not None:
-                    data = P_sknI[wfs.spin, wfs.k]
+                dims = [self.nbands]
+                index = [wfs.spin, wfs.k]
             else:
-                wfs._P_ani = AtomArrays(layout, dims=(self.nbands, 2))
-                if P_sknI is not None:
-                    data = P_sknI[wfs.k]
-            wfs._P_ani.scatter_from(data)
+                dims = [self.nbands, 2]
+                index = [wfs.k]
+
+            P_ani = AtomArrays(layout, dims=dims, comm=band_comm)
+
+            if domain_comm.rank == 0:
+                P_nI = reader.wave_functions.proxy('projections', *index)
+                b1, b2 = P_ani.my_slice()  # my bands
+                data = P_nI[b1:b2].astype(ibzwfs.dtype)  # read from file
+            else:
+                data = None
+
+            P_ani.scatter_from(data)  # distribute over atoms
+            wfs._P_ani = P_ani
 
         try:
             ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
@@ -377,6 +392,9 @@ def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     if 'kpts' in kpts:
         assert len(kpts) == 1, kpts
         return BZPoints(kpts['kpts'])
+    if 'path' in kpts:
+        path = atoms.cell.bandpath(pbc=atoms.pbc, **kpts)
+        return BZPoints(path.kpts)
     size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
     return MonkhorstPackKPoints(size, offset)
 
@@ -407,7 +425,7 @@ def calculate_number_of_bands(nbands: int | str | None,
         # Number of bound partial waves:
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
-        N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+        N = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
         N = min(N, nbandsmax)
         if is_lcao and N > nao:
             N = nao
@@ -446,8 +464,10 @@ def create_uniform_grid(mode: str,
         h /= Bohr
 
     realspace = (mode != 'pw' and interpolation != 'fft')
-    if not realspace:
-        pbc = (True, True, True)
+    if realspace:
+        zerobc = [not periodic for periodic in pbc]
+    else:
+        zerobc = [False] * 3
 
     if gpts is not None:
         size = gpts
@@ -455,4 +475,4 @@ def create_uniform_grid(mode: str,
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
         size = get_number_of_grid_points(cell, h, modeobj, realspace,
                                          symmetry.symmetry)
-    return UGDesc(cell=cell, pbc=pbc, size=size, comm=comm)
+    return UGDesc(cell=cell, pbc=pbc, zerobc=zerobc, size=size, comm=comm)

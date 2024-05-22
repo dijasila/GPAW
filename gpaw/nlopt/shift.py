@@ -1,61 +1,67 @@
-
 import numpy as np
-from ase.units import Bohr, _hbar, _e, _me
-from ase.utils.timing import Timer
 from ase.parallel import parprint
+from ase.units import _e, _hbar, Ha, J
+from ase.utils.timing import Timer
+
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data
-from gpaw.nlopt.matrixel import get_rml, get_derivative
+from gpaw.nlopt.matrixel import get_derivative, get_rml
 from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_shift(
+        nlodata,
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
         eshift=0.0,
         ftol=1e-4, Etol=1e-6,
         band_n=None,
-        out_name='shift.npy',
-        mml_name='mml.npz'):
-    """Calculate RPA shift current for nonmagnetic semiconductors.
+        out_name='shift.npy'):
+    """
+    Calculate RPA shift current for nonmagnetic semiconductors.
 
     Parameters
-    ==========
-    freqs:
+    ----------
+    nlodata
+        Data object of class NLOData.
+    freqs
         Excitation frequency array (a numpy array or list).
-    eta:
+    eta
         Broadening, a number or an array (default 0.05 eV).
-    pol:
+    pol
         Tensor element (default 'yyy').
-    Etol, ftol:
-        Tol. in energy and fermi to consider degeneracy.
-    band_n:
+    Etol, ftol
+        Tolerance in energy and fermi to consider degeneracy.
+    band_n
         List of bands in the sum (default 0 to nb).
-    out_name:
+    out_name
         Output filename (default 'shift.npy').
-    mml_name:
-        The momentum filename (default 'mml.npz').
 
     Returns
-    =======
+    -------
     np.ndarray
         Numpy array containing the spectrum and frequencies.
+
     """
 
     # Start a timer
     timer = Timer()
-    parprint('Calculating shift current (in {:d} cores).'.format(world.size))
+    parprint(f'Calculating shift current (in {world.size:d} cores).')
+
+    # Covert inputs in eV to Ha
+    nw = len(freqs)
+    w_l = np.array(freqs) / Ha
+    eta /= Ha
+    Etol /= Ha
 
     # Useful variables
     pol_v = ['xyz'.index(ii) for ii in pol]
-    w_l = np.array(freqs)
-    nw = len(freqs)
-    parprint('Calculation for element {}.'.format(pol))
+
+    parprint(f'Calculation for element {pol}.')
 
     # Load the required data
     with timer('Load and distribute the data'):
-        k_info = load_data(mml_name=mml_name)
+        k_info = nlodata.distribute()
         if k_info:
             tmp = list(k_info.values())[0]
             nb = len(tmp[1])
@@ -101,12 +107,12 @@ def get_shift(
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 
-    # Make the output in SI unit
-    dim_init = -1j * _e**3 / (2 * _hbar * (2.0 * np.pi)**3)
-    dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
-        (_e**4 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
-    dim_SI = 1j * dim_init * dim_sum  # 1j due to imag in loop
-    sigma_l = dim_SI * sum2_l.real
+    # Multiply prefactors
+    prefactor = 1 / (2 * (2.0 * np.pi)**3)
+    # Convert to SI units [A / V^2] = [C^3 / (J^2 * s)]
+    prefactor *= _e**3 / (_hbar * (Ha / J))
+
+    sigma_l = prefactor * sum2_l.real
 
     # A multi-col output
     shift = np.vstack((freqs, sigma_l))
@@ -123,7 +129,7 @@ def get_shift(
 
 def shift_current(
         eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
-        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0):
+        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0.0):
     """
     Loop over bands for computing in length gauge
 

@@ -119,7 +119,7 @@ def main(args, parser):
                     marking = ' [*]'
                 else:
                     marking = '    '
-                print(' %s %s' % (marking, url))
+                print(f' {marking} {url}')
 
         if len(urls) == 0:
             url = baseurls[args.source]
@@ -237,6 +237,11 @@ def main(args, parser):
         print('following line to %s:' % rcfilepath)
         print()
         print(rcline)
+        print()
+        print('Or if you prefer to use environment variables, you can')
+        print('set GPAW_SETUP_PATH. For example:')
+        print()
+        print(f'export GPAW_SETUP_PATH={setup_path}')
         print()
     print('Installation complete.')
 

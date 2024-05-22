@@ -8,7 +8,7 @@ from ase import __version__ as ase_version
 from ase.utils import search_current_git_hash, IOContext
 
 import gpaw
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.utilities.memory import maxrss
 
 
@@ -72,15 +72,15 @@ class GPAWLogger:
                 if isinstance(value, dict):
                     sep = ',\n     ' + ' ' * len(key)
                     keys = sorted(value, key=lambda k: (str(type(k)), k))
-                    s = sep.join('{0}: {1}'.format(k, value[k]) for k in keys)
-                    self('  {0}: {{{1}}}'.format(key, s))
+                    s = sep.join(f'{k}: {value[k]}' for k in keys)
+                    self(f'  {key}: {{{s}}}')
                 elif hasattr(value, '__len__'):
                     value = np.asarray(value)
                     sep = ',\n    ' + ' ' * len(key)
                     s = sep.join(str(value).splitlines())
-                    self('  {0}: {1}'.format(key, s))
+                    self(f'  {key}: {s}')
                 else:
-                    self('  {0}: {1}'.format(key, value))
+                    self(f'  {key}: {value}')
         finally:
             np.set_printoptions(**options)
 
@@ -120,28 +120,28 @@ def write_header(log, world):
     log('Arch:  ', machine)
     log('Pid:   ', os.getpid())
     log('CWD:   ', os.getcwd())
-    log('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
+    log('Python: {}.{}.{}'.format(*sys.version_info[:3]))
     # GPAW
     line = os.path.dirname(gpaw.__file__)
     githash = search_current_git_hash(gpaw, world)
     if githash is not None:
-        line += ' ({:.10})'.format(githash)
+        line += f' ({githash:.10})'
     log('gpaw:  ', line)
 
     # Find C-code:
-    c = getattr(_gpaw, '__file__', None)
+    c = getattr(cgpaw._gpaw, '__file__', None)
     if not c:
         c = sys.executable
     line = os.path.normpath(c)
-    if hasattr(_gpaw, 'githash'):
-        line += ' ({:.10})'.format(_gpaw.githash())
+    if hasattr(cgpaw, 'githash'):
+        line += f' ({cgpaw.githash():.10})'
     log('_gpaw: ', cut(line))
 
     # ASE
-    line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
+    line = f'{os.path.dirname(ase.__file__)} (version {ase_version}'
     githash = search_current_git_hash(ase, world)
     if githash is not None:
-        line += '-{:.10}'.format(githash)
+        line += f'-{githash:.10}'
     line += ')'
     log('ase:   ', line)
 
@@ -153,10 +153,10 @@ def write_header(log, world):
     # Explicitly deleting SciPy seems to remove garbage collection
     # problem of unknown cause
     del sp
-    log('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
+    log('libxc: ', getattr(cgpaw, 'libxc_version', '2.x.y'))
     log('units:  Angstrom and eV')
     log('cores:', world.size)
-    log('OpenMP:', _gpaw.have_openmp)
+    log('OpenMP:', cgpaw.have_openmp)
     log('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
     if gpaw.debug:

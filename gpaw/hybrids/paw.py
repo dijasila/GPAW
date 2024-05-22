@@ -1,14 +1,15 @@
+from __future__ import annotations
 from typing import NamedTuple, Dict, List
 
 import numpy as np
 
 from gpaw.mpi import broadcast
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
-                            unpack2, unpack, packed_index)
+                            unpack_density, unpack_hermitian, packed_index)
 
 
 class PAWThings(NamedTuple):
-    VC_aii: Dict[int, np.ndarray]
+    VC_aii: Dict[int, np.ndarray | None]
     VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
 
@@ -29,15 +30,18 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
     for a, D_sp in D_asp.items():
         data = wfs.setups[a]
         for VV_aii, D_p in zip(VV_saii, D_sp):
-            D_ii = unpack2(D_p) * (dens.nspins / 2)
+            D_ii = unpack_density(D_p) * (dens.nspins / 2)
             VV_ii = pawexxvv(data.M_pp, D_ii)
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
-    VC_aii = {}
+    VC_aii: Dict[int, np.ndarray | None] = {}
     for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
-        VC_aii[a] = unpack(data.X_p)
+        if data.X_p is None:
+            VC_aii[a] = None
+        else:
+            VC_aii[a] = unpack_hermitian(data.X_p)
 
     return [PAWThings(VC_aii, VV_aii, Delta_aiiL)
             for VV_aii in VV_saii]

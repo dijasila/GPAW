@@ -25,7 +25,7 @@ for L in [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]:
         mode=PW(pwcutoff, force_complex_dtype=True),
         xc='PBE',
         txt='si_isolated_pbe.txt',
-        occupations=FermiDirac(0.01, fixmagmom=True),
+        occupations=FermiDirac(0.01),
         spinpol=True,
         hund=True,
         convergence={'density': 1.e-6},
@@ -37,7 +37,8 @@ for L in [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]:
     isolated_calc.write('si.pbe+exx.isolated.gpw', mode='all')
 
     # Now the exact exchange
-    si_isolated_exx = nsc_energy('si.pbe+exx.isolated.gpw', 'EXX')
+    si_isolated_exx = nsc_energy('si.pbe+exx.isolated.gpw',
+                                 'EXX').sum()
 
     s = str(L)
     s += ' '

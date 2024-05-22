@@ -188,7 +188,7 @@ class IBZ2BZMap:
             # necessarily lie within the unit cell)
             b = self.b_a[a]
             cell_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
-            assert np.allclose(cell_shift_c.round(), cell_shift_c)
+            assert np.allclose(cell_shift_c.round(), cell_shift_c, atol=1e-6)
             # This means, that when we want to extract the projections at K for
             # atom a according to psi_K(r_a) = psi_ik(U^T r_a), we need the
             # projections at U^T r_a for k-point ik. Since we only have the
@@ -208,10 +208,6 @@ def get_overlap(bands,
                 proj2: Projections,
                 dO_aii):
     """Computes the overlap between all-electron wave functions.
-
-    Similar to gpaw.berryphase.get_overlap but adapted to work with projector
-    objects rather than arrays.
-    Eventually berryphase.get_overlap should be replaced by this function. XXX
 
     Parameters
     ----------

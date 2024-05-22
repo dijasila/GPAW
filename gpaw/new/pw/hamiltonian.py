@@ -7,16 +7,21 @@ from gpaw.core.plane_waves import PWArray
 from gpaw.core.uniform_grid import UGArray
 from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.gpu import cupy as cp
-from gpaw.new import zips
+from gpaw.new import trace, zips
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.c import pw_precond
 
 
 class PWHamiltonian(Hamiltonian):
-    def __init__(self, grid, pw, xp):
-        self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
+    def __init__(self, grid, pw, xp=np):
+        self.grid_local = grid.new(comm=None, dtype=pw.dtype)
+        self.plan = self.grid_local.fft_plans(xp=xp)
+        # It's a bit too expensive to create all the local PW-descriptors
+        # for all the k-points every time we apply the Hamiltonian, so we
+        # cache them:
         self.pw_cache = {}
 
+    @trace
     def apply_local_potential(self,
                               vt_R: UGArray,
                               psit_nG: XArray,
@@ -29,8 +34,7 @@ class PWHamiltonian(Hamiltonian):
         if xp is not np and pw.comm.size == 1 and pw.dtype == complex:
             return apply_local_potential_gpu(vt_R, psit_nG, out_nG)
         vt_R = vt_R.gather(broadcast=True)
-        grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
-        tmp_R = grid.empty(xp=xp)
+        tmp_R = self.grid_local.empty(xp=xp)
         if pw.comm.size == 1:
             pw_local = pw
         else:
@@ -44,13 +48,14 @@ class PWHamiltonian(Hamiltonian):
         domain_comm = psit_nG.desc.comm
         mynbands = psit_nG.mydims[0]
         vtpsit_G = pw_local.empty(xp=xp)
+
         for n1 in range(0, mynbands, domain_comm.size):
             n2 = min(n1 + domain_comm.size, mynbands)
             psit_nG[n1:n2].gather_all(psit_G)
             if domain_comm.rank < n2 - n1:
-                psit_G.ifft(out=tmp_R)
+                psit_G.ifft(out=tmp_R, plan=self.plan)
                 tmp_R.data *= vt_R.data
-                tmp_R.fft(out=vtpsit_G)
+                tmp_R.fft(out=vtpsit_G, plan=self.plan)
                 psit_G.data *= e_kin_G
                 vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
@@ -74,13 +79,15 @@ class PWHamiltonian(Hamiltonian):
                 vt_G.data -= 0.5j * Gplusk1_Gv[:, v] * tmp_G.data
 
     def create_preconditioner(self,
-                              blocksize: int
+                              blocksize: int,
+                              xp=np
                               ) -> Callable[[PWArray,
                                              PWArray,
                                              PWArray], None]:
         return precondition
 
 
+@trace
 def precondition(psit_nG: PWArray,
                  residual_nG: PWArray,
                  out: PWArray) -> None:
@@ -129,9 +136,15 @@ def spinor_precondition(psit_nsG, residual_nsG, out):
 
 
 class SpinorPWHamiltonian(Hamiltonian):
+    def __init__(self, qspiral_v):
+        super().__init__()
+        self.qspiral_v = qspiral_v
+
     def apply(self,
               vt_xR: UGArray,
               dedtaut_xR: UGArray | None,
+              ibzwfs,
+              D_asii,
               psit_nsG: XArray,
               out: XArray,
               spin: int) -> XArray:
@@ -139,12 +152,12 @@ class SpinorPWHamiltonian(Hamiltonian):
         out_nsG = out
         pw = psit_nsG.desc
 
-        if pw.qspiral_v is None:
+        if self.qspiral_v is None:
             np.multiply(pw.ekin_G, psit_nsG.data, out_nsG.data)
         else:
             for s, sign in enumerate([1, -1]):
                 ekin_G = 0.5 * ((pw.G_plus_k_Gv +
-                                 0.5 * sign * pw.qspiral_v)**2).sum(1)
+                                 0.5 * sign * self.qspiral_v)**2).sum(1)
                 np.multiply(ekin_G, psit_nsG.data[:, s], out_nsG.data[:, s])
 
         grid = vt_xR.desc.new(dtype=complex)
@@ -165,7 +178,7 @@ class SpinorPWHamiltonian(Hamiltonian):
 
         return out_nsG
 
-    def create_preconditioner(self, blocksize):
+    def create_preconditioner(self, blocksize, xp):
         return spinor_precondition
 
 

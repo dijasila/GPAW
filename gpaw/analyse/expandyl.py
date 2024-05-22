@@ -7,6 +7,7 @@ from ase.utils import IOContext
 
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities.tools import coordinates
+from gpaw.mpi import serial_comm
 
 
 class AngularIntegral:
@@ -151,7 +152,7 @@ class ExpandYl(AngularIntegral):
     def expand(self, psit_g):
         """Expand a wave function"""
 
-        gamma_l = np.zeros((self.lmax + 1))
+        gamma_l = np.zeros(self.lmax + 1)
         nL = len(self.L_l)
         L_l = self.L_l
 
@@ -179,7 +180,7 @@ class ExpandYl(AngularIntegral):
         """Expand a range of wave functions and write the result
         to a file"""
         with IOContext() as io:
-            fd = io.openfile(filename)
+            fd = io.openfile(filename, comm=serial_comm)
 
             if not spins:
                 srange = range(calculator.wfs.nspins)
@@ -220,16 +221,15 @@ class ExpandYl(AngularIntegral):
                         gsum = np.sum(gl)
                         gl = 100 * gl / gsum
 
-                        print('%2d %5d %5d' % (s, k, n), end=' ', file=fd)
-                        print('%6.4f %10.4f %8.4f' % (kpt.weight,
-                                                      kpt.eps_n[n] * Hartree,
-                                                      kpt.f_n[n]),
+                        print(f'{s:2d} {k:5d} {n:5d}', end=' ', file=fd)
+                        print(f'{kpt.weight:6.4f} '
+                              f'{(kpt.eps_n[n] * Hartree):10.4f} '
+                              f'{kpt.f_n[n]:8.4f}', end=' ', file=fd)
+                        print(f'{norm:8.4f} {gsum:8.4f} {weight:8.4f}',
                               end=' ', file=fd)
-                        print('%8.4f %8.4f %8.4f' %
-                              (norm, gsum, weight), end=' ', file=fd)
 
                         for g in gl:
-                            print('%8.2f' % g, end=' ', file=fd)
+                            print(f'{g:8.2f}', end=' ', file=fd)
                         print(file=fd)
                         fd.flush()
 

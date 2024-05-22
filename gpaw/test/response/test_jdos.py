@@ -18,7 +18,7 @@ from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
 from gpaw.test.response.test_chiks import (generate_system_s,
                                            generate_qrel_q, get_q_c)
-from gpaw.test.conftest import response_band_cutoff
+from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.response
@@ -104,7 +104,7 @@ class MyManualJDOS:
         eta = eta / Hartree
         # Allocate array
         jdos_w = np.zeros_like(omega_w)
-        
+
         for K1, k1_c in enumerate(self.kd.bzk_kc):
             # de = e2 - e1, df = f2 - f1
             de_t, df_t = self.get_transitions(K1, k1_c, q_c,
@@ -176,4 +176,3 @@ class MyManualJDOS:
         df_t = np.array(df_t)
 
         return de_t, df_t
-        

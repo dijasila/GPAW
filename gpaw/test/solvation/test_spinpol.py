@@ -1,5 +1,5 @@
-from gpaw.test import equal
-from gpaw.cluster import Cluster
+import pytest
+from gpaw.utilities.adjust_cell import adjust_cell
 from ase.build import molecule
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
@@ -29,8 +29,8 @@ def test_solvation_spinpol():
     def atomic_radii(atoms):
         return [vdw_radii[n] for n in atoms.numbers]
 
-    atoms = Cluster(molecule('CN'))
-    atoms.minimal_box(vac, h)
+    atoms = molecule('CN')
+    adjust_cell(atoms, vac, h)
     atoms2 = atoms.copy()
     atoms2.set_initial_magnetic_moments(None)
 
@@ -65,8 +65,8 @@ def test_solvation_spinpol():
 
     # compare to expected difference of a gas phase calc
     print('difference E: ', Es[0] - Es[1])
-    equal(Es[0], Es[1], 0.0002)
+    assert Es[0] == pytest.approx(Es[1], abs=0.0002)
     print('difference F: ', np.abs(Fs[0] - Fs[1]).max())
-    equal(Fs[0], Fs[1], 0.003)
+    assert Fs[0] == pytest.approx(Fs[1], abs=0.003)
 
     # XXX add test case where spin matters, e.g. charge=0 for CN?

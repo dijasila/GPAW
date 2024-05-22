@@ -6,8 +6,8 @@ The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
 """
 
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.test import equal
+from gpaw.utilities.adjust_cell import adjust_cell
+import pytest
 from ase.build import molecule
 from ase.units import mol, kcal, Pascal, m, Bohr
 from gpaw.solvation import (
@@ -41,8 +41,8 @@ convergence = {
 
 
 def test_solvation_adm12():
-    atoms = Cluster(molecule('H2O'))
-    atoms.minimal_box(vac, h)
+    atoms = molecule('H2O')
+    adjust_cell(atoms, vac, h)
 
     if not SKIP_VAC_CALC:
         atoms.calc = GPAW(mode='fd', xc='PBE', h=h, convergence=convergence)
@@ -78,4 +78,4 @@ def test_solvation_adm12():
     DGSol = (Ewater - Evac) / (kcal / mol)
     print('Delta Gsol: %s kcal / mol' % DGSol)
 
-    equal(DGSol, -6.3, 2.)
+    assert DGSol == pytest.approx(-6.3, abs=2.)

@@ -11,11 +11,14 @@ For radial grid descriptors, look atom/radialgd.py.
 import numbers
 from math import pi
 from typing import Sequence
+from numpy import lcm
+from fractions import Fraction
 
 import numpy as np
+
 from scipy.ndimage import map_coordinates
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.new import prod
@@ -138,7 +141,7 @@ class GridDescriptor(Domain):
                     n_p[:] = (np.arange(self.parsize_c[c] + 1) +
                               1 - self.pbc_c[c]).clip(0, self.N_c[c])
                 else:
-                    msg = ('Grid {0} too small for {1} cores!'
+                    msg = ('Grid {} too small for {} cores!'
                            .format('x'.join(str(n) for n in self.N_c),
                                    'x'.join(str(n) for n in self.parsize_c)))
                     raise BadGridError(msg)
@@ -292,7 +295,7 @@ class GridDescriptor(Domain):
             result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
             if global_integral:
                 if result.ndim == 0:
-                    result = self.comm.sum_scalar(result)
+                    result = self.comm.sum_scalar(result.item())
                 else:
                     self.comm.sum(result)
             return result
@@ -447,20 +450,51 @@ class GridDescriptor(Domain):
         if ft_sc is not None and not ft_sc.any():
             ft_sc = None
 
+        if ft_sc is not None:
+            compat = self.check_grid_compatibility(ft_sc)
+            if not compat:
+                newN_c = self.get_nearest_compatible_grid(ft_sc)
+                e = 'The specified number of grid points, ' \
+                    + str(self.N_c) + ', is not compatible with the'\
+                    ' symmetry of the atoms. Nearest compatible grid'\
+                    ' size is ' + str(newN_c) + '.'
+                raise ValueError(e)
+
         A_g = self.collect(a_g)
         if self.comm.rank == 0:
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
+                    cgpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
                     t_c = (ft_sc[s] * self.N_c).round().astype(int)
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                    cgpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
                                         1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
+
+    def check_grid_compatibility(self, ft_sc):
+        # checks that grid is compatible with fractional translations
+        t_sc = ft_sc * self.N_c
+        intt_sc = t_sc.round().astype(int)
+        compat = np.allclose(t_sc, intt_sc, atol=1e-6)
+        return compat
+
+    def get_nearest_compatible_grid(self, ft_sc):
+        newN_c = np.zeros(self.N_c.shape)
+        for c, N in enumerate(self.N_c):
+            frac_s = [Fraction(str(ft_c[c])).limit_denominator(1000)
+                      for ft_c in ft_sc]
+            lcm_denom = lcm.reduce([frac.denominator for frac in frac_s])
+            dNminus = N - (N % lcm_denom)
+            dNplus = dNminus + lcm_denom
+            if dNminus > 0 and np.abs(dNminus - N) < np.abs(dNplus - N):
+                newN_c[c] = dNminus
+            else:
+                newN_c[c] = dNplus
+        return newN_c.astype(int)
 
     def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""

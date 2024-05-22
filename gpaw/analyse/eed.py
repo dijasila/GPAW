@@ -3,7 +3,7 @@ from ase.units import Bohr, Hartree
 from ase.parallel import paropen
 from ase.data import vdw_radii
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.io.fmf import FMF
 
 
@@ -24,13 +24,13 @@ class ExteriorElectronDensity:
 
         n = len(atoms)
         atom_c = atoms.positions / Bohr
-        vdWradius = np.empty((n))
+        vdWradius = np.empty(n)
         for a, atom in enumerate(atoms):
             vdWradius[a] = self.get_vdWradius(atom.number)
 
         # define the exterior region mask
         mask = gd.empty(dtype=int)
-        _gpaw.eed_region(mask, atom_c, gd.beg_c, gd.end_c,
+        cgpaw.eed_region(mask, atom_c, gd.beg_c, gd.end_c,
                          gd.h_cv.diagonal().copy(), vdWradius)
         self.mask = mask
 

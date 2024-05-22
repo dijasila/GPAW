@@ -12,7 +12,7 @@ from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, KPointPairFactory
+from gpaw.response.pair import get_gs_and_context
 
 
 def default_ecut_extrapolation(ecut, extrapolate):
@@ -159,7 +159,7 @@ class RPACalculator:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
-    def calculate(self, *, nbands=None, spin=False):
+    def calculate(self, *, nbands=None, spin=False, txt=''):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
@@ -169,6 +169,8 @@ class RPACalculator:
         spin: bool
             Separate spin in response function.
             (Only needed for beyond RPA methods that inherit this function).
+        txt:
+            Prefix for the chi0.txt file. Added as {txt}_chi0.txt
         """
 
         p = functools.partial(self.context.print, flush=False)
@@ -182,7 +184,7 @@ class RPACalculator:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
         for e in ecut_i:
-            p(' {0:.3f}'.format(e * Hartree), end='')
+            p(f' {e * Hartree:.3f}', end='')
         p()
         p(self.coulomb.description())
         self.context.print('')
@@ -194,21 +196,17 @@ class RPACalculator:
 
             self.context.comm.barrier()
 
-        wd = FrequencyDescriptor(1j * self.omega_w)
+        chi0calc = Chi0Calculator(
+            self.gs, self.context.with_txt(
+                f'{txt + "_" if txt else ""}chi0.txt'),
+            nblocks=self.nblocks,
+            wd=FrequencyDescriptor(1j * self.omega_w),
+            eta=0.0,
+            intraband=False,
+            hilbert=False,
+            ecut=ecutmax * Hartree)
 
-        kptpair_factory = KPointPairFactory(
-            self.gs,
-            context=self.context.with_txt('chi0.txt'),
-            nblocks=self.nblocks)
-
-        chi0calc = Chi0Calculator(wd=wd,
-                                  kptpair_factory=kptpair_factory,
-                                  eta=0.0,
-                                  intraband=False,
-                                  hilbert=False,
-                                  ecut=ecutmax * Hartree)
-
-        self.blockcomm = chi0calc.chi0_body_calc.integrator.blockcomm
+        self.blockcomm = chi0calc.chi0_body_calc.blockcomm
 
         energy_qi = []
         nq = len(energy_qi)
@@ -232,7 +230,7 @@ class RPACalculator:
 
             # First not completely filled band:
             m1 = self.gs.nocc1
-            p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
+            p(f'# {len(energy_qi)}  -  {ctime().split()[-2]}')
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
@@ -272,7 +270,7 @@ class RPACalculator:
         p()
         p('Total correlation energy:')
         for e_cut, e in zip(ecut_i, e_i):
-            p('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree))
+            p(f'{e_cut * Hartree:6.0f}:   {e * Hartree:6.4f} eV')
         p()
 
         if len(e_i) > 1:
@@ -298,7 +296,7 @@ class RPACalculator:
         chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
-        if not chi0.qpd.kd.gamma:
+        if not chi0.qpd.optical_limit:
             e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut)
             self.context.print('%.3f eV' % (e * Hartree))
         else:

@@ -1,22 +1,21 @@
+from functools import cached_property
 from math import pi
 
 import numpy as np
 from ase.units import Bohr, Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import PWArray
-from gpaw.new import cached_property
 from gpaw.new.poisson import PoissonSolver
 from scipy.special import erf
 
 
 def make_poisson_solver(pw: PWDesc,
                         grid: UGDesc,
-                        pbc_c,
                         charge: float,
                         strength: float = 1.0,
                         dipolelayer: bool = False,
                         **kwargs) -> PoissonSolver:
-    if charge != 0.0 and not pbc_c.any():
+    if charge != 0.0 and not grid.pbc_c.any():
         return ChargedPWPoissonSolver(pw, grid, charge, strength, **kwargs)
 
     ps = PWPoissonSolver(pw, charge, strength)

@@ -26,7 +26,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw import setup_paths
 import gpaw.mpi as mpi
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 def T(w, x, y, z):
@@ -270,8 +270,8 @@ class VDWFunctionalBase:
                             self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
 
         if self.verbose:
-            print(('VDW: q0 (min, mean, max): (%f, %f, %f)' %
-                   (q0_g.min(), q0_g.mean(), q0_g.max())))
+            print('VDW: q0 (min, mean, max): '
+                  f'({q0_g.min():f}, {q0_g.mean():f}, {q0_g.max():f})')
 
         if self.soft_correction:
             dEcnl = -gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
@@ -292,9 +292,8 @@ class VDWFunctionalBase:
         return Ecnl
 
     def read_table(self):
-        name = ('phi-%.3f-%.3f-%.3f-%d-%d.txt' %
-                (self.phi0, self.ds, self.D_j[-1],
-                 len(self.delta_i), len(self.D_j)))
+        name = (f'phi-{self.phi0:.3f}-{self.ds:.3f}-{self.D_j[-1]:.3f}'
+                f'-{len(self.delta_i):d}-{len(self.D_j):d}.txt')
         dirs = setup_paths + ['.']
 
         for dir in dirs:
@@ -338,9 +337,9 @@ class VDWFunctionalBase:
 
         print()
         print('VDW: Done!')
-        header = ('phi0={0:.3f}, ds={1:.3f}, Dmax={2:.3f}, nD={3}, ndelta={4}'
-                  .format(self.phi0, self.ds, self.D_j[-1],
-                          len(self.delta_i), len(self.D_j)))
+        header = (f'phi0={self.phi0:.3f}, ds={self.ds:.3f}, '
+                  f'Dmax={self.D_j[-1]:.3f}, nD={len(self.delta_i)}, '
+                  f'ndelta={len(self.D_j)}')
         if self.world.rank == 0:
             np.savetxt(name, self.phi_ij, header=header)
 
@@ -467,7 +466,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
         dD = 0.05
         if self.verbose:
             start = time.time()
-        E_vdwnl = _gpaw.vdw(n_i, q0_i, R_ic, gd.cell_cv.diagonal().copy(),
+        E_vdwnl = cgpaw.vdw(n_i, q0_i, R_ic, gd.cell_cv.diagonal().copy(),
                             gd.pbc_c,
                             repeat_c,
                             self.phi_ij, self.delta_i[1], self.D_j[1],
@@ -562,11 +561,11 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 print('VDW: density array size:',
                       self.gd.get_size_of_global_array())
                 print('VDW: zero-padded array size:', self.shape)
-                print(('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2)))
+                print('VDW: maximum kinetic energy: '
+                      f'{(0.5 * k_k.max()**2):.3f} Hartree')
 
-            assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
-                                                   self.Nr)
+            assert self.j_k.max() < self.Nr // 2, \
+                f'Use larger Nr than {self.Nr:d}.'
 
         else:
             self.dj_k = None
@@ -585,8 +584,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
         q = q1 * (lambd**np.arange(n) - 1) / (lambd - 1)
 
         if self.verbose:
-            print(('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
-                   (n, q1, q[-2], q[-1])))
+            print(f'VDW: using {n:d} cubic splines: 0.00, '
+                  f'{q1:.2f}, ..., {q[-2]:.2f}, {q[-1]:.2f}')
 
         y = np.eye(n)
         a = y
@@ -631,8 +630,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
         k_j = np.arange(M // 2) * (2 * pi / rcut)
 
         if self.verbose:
-            print(("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
-                   (0.5 * k_j[-1]**2)))
+            print(f'VDW: cutoff for fft\'ed kernel: '
+                  f'{(0.5 * k_j[-1]**2):.3f} Hartree')
 
         for a in range(self.Nalpha):
             qa = self.q_a[a]
@@ -732,7 +731,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
                                 self.shape[2] // 2 + 1), complex)
             self.timer.start('Convolution')
             for b in self.alphas:
-                _gpaw.vdw2(self.phi_aajp[a, b], self.j_k, dj_k,
+                cgpaw.vdw2(self.phi_aajp[a, b], self.j_k, dj_k,
                            theta_ak[b], F_k)
             self.timer.stop()
 
@@ -775,7 +774,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
             self.timer.stop()
 
         self.timer.stop()
-        return 0.5 * world.sum(energy) * gd.dv / self.shape.prod()
+        return 0.5 * world.sum_scalar(energy) * gd.dv / self.shape.prod()
 
     def calculate_potential(self, n_g, a2_g, i_g, dq0_g, p_ag, F_ag,
                             e_LDAc_g, v_LDAc_g, v_g, deda2_g):

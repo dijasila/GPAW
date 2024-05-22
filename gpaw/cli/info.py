@@ -1,16 +1,16 @@
 import os
-import subprocess
 import sys
 
-from ase.utils import import_module
-from ase.utils import search_current_git_hash
+from ase.utils import import_module, search_current_git_hash
 
+import gpaw.cgpaw as cgpaw
 import gpaw
-import _gpaw
 import gpaw.fftw as fftw
-from gpaw.mpi import rank, have_mpi
-from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.mpi import have_mpi, rank
+from gpaw.new.c import GPU_AWARE_MPI, GPU_ENABLED
+from gpaw.utilities import compiled_with_libvdwxc, compiled_with_sl
 from gpaw.utilities.elpa import LibElpa
+from gpaw.gpu import cupy
 
 
 def info():
@@ -27,31 +27,32 @@ def info():
             if githash is None:
                 githash = ''
             else:
-                githash = '-{:.10}'.format(githash)
+                githash = f'-{githash:.10}'
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
 
-    libxc = gpaw.libraries['libxc']
+    libs = gpaw.get_libraries()
+
+    libxc = libs['libxc']
     if libxc:
         results.append((f'libxc-{libxc}', True))
     else:
         results.append(('libxc', False))
 
-    module = import_module('_gpaw')
-    if hasattr(module, 'githash'):
-        githash = '-{:.10}'.format(module.githash())
+    if hasattr(cgpaw, 'githash'):
+        githash = f'-{cgpaw.githash():.10}'
     else:
         githash = ''
+
     results.append(('_gpaw' + githash,
-                    os.path.normpath(getattr(module, '__file__',
+                    os.path.normpath(getattr(cgpaw._gpaw, '__file__',
                                              'built-in'))))
-    if '_gpaw' in sys.builtin_module_names or not have_mpi:
-        p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-        results.append(('parallel',
-                        p.communicate()[0].strip().decode() or False))
+
     results.append(('MPI enabled', have_mpi))
-    results.append(('OpenMP enabled', _gpaw.have_openmp))
-    results.append(('GPU-aware MPI', getattr(_gpaw, 'gpu_aware_mpi', False)))
+    results.append(('OpenMP enabled', cgpaw.have_openmp))
+    results.append(('GPU enabled', GPU_ENABLED))
+    results.append(('GPU-aware MPI', GPU_AWARE_MPI))
+    results.append(('CUPY', cupy.__file__))
     if have_mpi:
         have_sl = compiled_with_sl()
         have_elpa = LibElpa.have_elpa()
@@ -63,7 +64,7 @@ def info():
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
 
-    if not hasattr(_gpaw, 'mmm'):
+    if not hasattr(cgpaw, 'mmm'):
         results.append(('BLAS', 'using scipy.linalg.blas and numpy.dot()'))
 
     results.append(('scalapack', have_sl))

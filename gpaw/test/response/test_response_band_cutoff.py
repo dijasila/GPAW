@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from ase.io.ulm import ulmopen
-from gpaw.test.conftest import response_band_cutoff
+from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.response
@@ -44,4 +44,4 @@ def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-3):
             # find minimum cutoff that works for all k
             allset = thisset & allset
 
-    return allset
+    return {int(n) for n in allset}

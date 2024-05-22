@@ -33,6 +33,16 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
     mpa_dict = {'npoles': 1, 'wrange': [1e-10j, 1j * Ha],
                 'wshift': [0.1 * Ha, 0.1 * Ha], 'alpha': 1}
 
+from gpaw.mpi import world
+
+
+@pytest.mark.response
+def test_ppa(in_tmp_dir, gpw_files, scalapack, needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
+    ref_result = np.asarray([[[11.30094393, 21.62842077],
+                              [5.33751513, 16.06905725],
+                              [8.75269938, 22.46579489]]])
     gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
               nbands=9,

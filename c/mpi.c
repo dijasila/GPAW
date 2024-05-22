@@ -332,6 +332,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
     n *= Array_DIM(a, d);
   if (block)
     {
+      maybeSynchronize(a);
       int ret = MPI_Recv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
 			 MPI_STATUS_IGNORE);
       if (ret != MPI_SUCCESS)
@@ -347,6 +348,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
       if (req == NULL) return NULL;
       req->buffer = (PyObject*)a;
       Py_INCREF(req->buffer);
+      maybeSynchronize(a);
       int ret = MPI_Irecv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
 			  &(req->rq));
       if (ret != MPI_SUCCESS)
@@ -422,7 +424,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 }
 
 
-static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
+static PyObject * mpi_name(MPIObject *self, PyObject* Py_UNUSED(noargs))
 {
   char name[MPI_MAX_PROCESSOR_NAME];
   int resultlen;
@@ -440,7 +442,7 @@ static PyObject * mpi_abort(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyObject * mpi_barrier(MPIObject *self)
+static PyObject * mpi_barrier(MPIObject *self, PyObject* noargs)
 {
   MPI_Barrier(self->comm);
   Py_RETURN_NONE;
@@ -872,7 +874,7 @@ static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
   int n = Array_ITEMSIZE(recvobj);
   for (int d = 0; d < Array_NDIM(recvobj); d++)
     n *= Array_DIM(recvobj,d);
-  maybeSynchronize(sendobj);
+  maybeSynchronize(recvobj);
   MPI_Scatter(source, n, MPI_BYTE, Array_BYTES(recvobj),
 	      n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
@@ -1121,7 +1123,7 @@ static PyMethodDef mpi_methods[] = {
      "abort(errcode) aborts all MPI tasks."},
     {"name",             (PyCFunction)mpi_name,         METH_NOARGS,
      "name() returns the name of the processor node."},
-    {"barrier",          (PyCFunction)mpi_barrier,      METH_VARARGS,
+    {"barrier",          (PyCFunction)mpi_barrier,      METH_NOARGS,
      "barrier() synchronizes all MPI tasks"},
     {"test",             (PyCFunction)mpi_test,         METH_VARARGS,
      "test(request) tests if a nonblocking communication is complete."},

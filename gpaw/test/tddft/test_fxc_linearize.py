@@ -3,7 +3,6 @@ import numpy as np
 
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.mpi import world
-from gpaw.test import equal
 
 
 @pytest.mark.later
@@ -13,7 +12,7 @@ def test_tddft_fxc_linearize(in_tmp_dir, gpw_files):
 
     fxc = 'LDA'
     # Time-propagation calculation with linearize_to_fxc()
-    td_calc = TDDFT(gpw_files['sih4_xc_gllbsc'], txt='td.out')
+    td_calc = TDDFT(gpw_files['sih4_xc_gllbsc_fd'], txt='td.out')
     td_calc.linearize_to_xc(fxc)
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
@@ -58,4 +57,4 @@ def test_tddft_fxc_linearize(in_tmp_dir, gpw_files):
            1.423890659304e-04]
 
     tol = 1e-7
-    equal(data, ref, tol)
+    assert data == pytest.approx(ref, abs=tol)

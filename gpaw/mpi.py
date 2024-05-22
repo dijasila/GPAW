@@ -1,20 +1,24 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from __future__ import annotations
+
+import atexit
+import pickle
 import sys
 import time
 import traceback
-import atexit
-import pickle
 from contextlib import contextmanager
 from typing import Any
 
-from ase.parallel import world as aseworld, MPI as ASE_MPI
+import gpaw.cgpaw as cgpaw
 import numpy as np
+import warnings
+from ase.parallel import MPI as ASE_MPI
+from ase.parallel import world as aseworld
 
 import gpaw
-from .broadcast_imports import world as _world
-import _gpaw
+
+from ._broadcast_imports import world as _world
 
 MASTER = 0
 
@@ -40,12 +44,12 @@ def broadcast_exception(comm):
     try:
         yield
     except Exception as ex:
-        rank = comm.max(comm.rank)
+        rank = comm.max_scalar(comm.rank)
         if rank == comm.rank:
             broadcast(ex, rank, comm)
             raise
     else:
-        rank = comm.max(-1)
+        rank = comm.max_scalar(-1)
     # rank will now be the highest failing rank or -1
     if rank >= 0:
         raise broadcast(None, rank, comm)
@@ -119,7 +123,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float, complex)):
-            return self.comm.sum(a, root)
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
+            return self.comm.sum_scalar(a, root)
         else:
             # assert a.ndim != 0
             tc = a.dtype
@@ -152,6 +157,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
+            1 / 0
             return self.comm.product(a, root)
         else:
             tc = a.dtype
@@ -180,7 +186,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            return self.comm.max(a, root)
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
+            return self.comm.max_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
@@ -212,7 +219,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            return self.comm.min(a, root)
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
+            return self.comm.min_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
@@ -243,8 +251,10 @@ class _Communicator:
         Example::
 
           # The master has all the interesting data. Distribute it.
+          seed = 123456
+          rng = np.random.default_rng(seed)
           if comm.rank == 0:
-              data = np.random.normal(size=N*comm.size)
+              data = rng.normal(size=N*comm.size)
           else:
               data = None
           mydata = np.empty(N, dtype=float)
@@ -330,7 +340,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Gather on all ranks.
-          mydata = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata = rng.normal(size=N)
           data = np.empty(N*comm.size, dtype=float)
           comm.all_gather(mydata, data)
 
@@ -377,7 +389,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Gather it on master.
-          mydata = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata = rng.normal(size=N)
           if comm.rank == 0:
               data = np.empty(N*comm.size, dtype=float)
           else:
@@ -424,7 +438,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Take a given index.
-          mydata[:] = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata[:] = rng.normal(size=N)
 
           # Who has the element at global index 13? Everybody needs it!
           index = 13
@@ -615,7 +631,7 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        if isinstance(c_obj, _gpaw.Communicator):
+        if isinstance(c_obj, cgpaw.Communicator):
             return c_obj
         return c_obj.get_c_object()
 
@@ -636,6 +652,7 @@ class SerialCommunicator:
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
             return array
 
     def sum_scalar(self, a, root=-1):
@@ -645,13 +662,17 @@ class SerialCommunicator:
         r[:] = s
 
     def min(self, value, root=-1):
-        return value
+        if isinstance(value, (int, float, complex)):
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
+            return value
 
     def min_scalar(self, value, root=-1):
         return value
 
     def max(self, value, root=-1):
-        return value
+        if isinstance(value, (int, float, complex)):
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
+            return value
 
     def max_scalar(self, value, root=-1):
         return value
@@ -1092,7 +1113,7 @@ class Parallelization:
 
         # We want a communicator for kpts/bands, i.e. the complement of the
         # grid comm: a communicator uniting all cores with the same domain.
-        c1, c2, c3 = [communicators[name] for name in order]
+        c1, c2, c3 = (communicators[name] for name in order)
         allranks = [range(c1.size), range(c2.size), range(c3.size)]
 
         def get_communicator_complement(name):
@@ -1195,7 +1216,7 @@ def print_mpi_stack_trace(type, value, tb):
 
     for lineno, line in enumerate(lines):
         lineno = ('%%0%dd' % line_ndigits) % lineno
-        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
+        sys.stderr.write(f'rank={rankstring} L{lineno}: {line}\n')
 
 
 if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
@@ -1213,7 +1234,7 @@ def exit(error='Manual exit'):
     else:
         cleanup(error)
     world.barrier()  # sync up before exiting
-    sys.exit()  # quit for serial case, return to _gpaw.c for parallel case
+    sys.exit()  # quit for serial case, return to cgpaw.c for parallel case
 
 
 atexit.register(cleanup)

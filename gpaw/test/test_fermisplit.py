@@ -2,10 +2,11 @@
 # fermi-levels when using fixmagmom:
 #
 # yes, fermi-level-splitting sounds a little bit strange
-
+import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, FermiDirac, MixerSum
-from gpaw.test import equal
 
 
 def test_fermisplit(in_tmp_dir):
@@ -23,7 +24,7 @@ def test_fermisplit(in_tmp_dir):
     atoms.get_potential_energy()
 
     ef1 = calc.get_fermi_levels().mean()
-    efsplit1 = calc.get_fermi_levels().ptp()
+    efsplit1 = np.ptp(calc.get_fermi_levels())
 
     ef3 = calc.get_fermi_levels()
     calc.write('test.gpw')
@@ -31,16 +32,16 @@ def test_fermisplit(in_tmp_dir):
     # check number one: is the splitting value saved?
     readtest = GPAW('test.gpw')
     ef2 = readtest.get_fermi_levels().mean()
-    efsplit2 = readtest.get_fermi_levels().ptp()
+    efsplit2 = np.ptp(readtest.get_fermi_levels())
 
     # numpy arrays
     ef4 = readtest.get_fermi_levels()
 
     # These values should be identic
-    equal(ef1, ef2, 1e-9)
-    equal(efsplit1, efsplit2, 1e-9)
-    equal(ef3.mean(), ef1, 1e-9)
-    equal(ef3.mean(), ef2, 1e-9)
-    equal(ef3.mean(), ef4.mean(), 1e-9)
-    equal(ef3[0] - ef3[1], ef4[0] - ef4[1], 1e-9)
-    equal(efsplit1, ef4[0] - ef4[1], 1e-9)
+    assert ef1 == pytest.approx(ef2, abs=1e-9)
+    assert efsplit1 == pytest.approx(efsplit2, abs=1e-9)
+    assert ef3.mean() == pytest.approx(ef1, abs=1e-9)
+    assert ef3.mean() == pytest.approx(ef2, abs=1e-9)
+    assert ef3.mean() == pytest.approx(ef4.mean(), abs=1e-9)
+    assert ef3[0] - ef3[1] == pytest.approx(ef4[0] - ef4[1], abs=1e-9)
+    assert efsplit1 == pytest.approx(ef4[0] - ef4[1], abs=1e-9)

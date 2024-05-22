@@ -9,15 +9,15 @@ from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.mgga import MGGA
 import gpaw
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 def libvdwxc_has_mpi():
-    return have_mpi and _gpaw.libvdwxc_has('mpi')
+    return have_mpi and cgpaw.libvdwxc_has('mpi')
 
 
 def libvdwxc_has_pfft():
-    return have_mpi and _gpaw.libvdwxc_has('pfft')
+    return have_mpi and cgpaw.libvdwxc_has('pfft')
 
 
 def check_grid_descriptor(gd):
@@ -57,7 +57,7 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF-cx': 3}
 
 
-class LibVDWXC(object):
+class LibVDWXC:
     """Minimum-tomfoolery object-oriented interface to libvdwxc."""
     def __init__(self, funcname, N_c, cell_cv, comm, mode='auto',
                  pfft_grid=None, nspins=1):
@@ -69,7 +69,7 @@ class LibVDWXC(object):
         code = _VDW_NUMERICAL_CODES[funcname]
         self.shape = tuple(N_c)
         ptr = np.empty(1, np.intp)
-        _gpaw.libvdwxc_create(ptr, code, nspins, self.shape,
+        cgpaw.libvdwxc_create(ptr, code, nspins, self.shape,
                               tuple(np.ravel(cell_cv)))
         # assign ptr only now that it is initialized (so __del__ always works)
         self._ptr = ptr
@@ -109,17 +109,17 @@ class LibVDWXC(object):
         if mode == 'serial':
             assert comm.size == 1, ('You cannot run in serial with %d cores'
                                     % comm.size)
-            _gpaw.libvdwxc_init_serial(self._ptr)
+            cgpaw.libvdwxc_init_serial(self._ptr)
         elif gpaw.dry_run:
             pass
             # XXXXXX liable to cause really nasty errors.
         elif mode == 'mpi':
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')
-            _gpaw.libvdwxc_init_mpi(self._ptr, comm.get_c_object())
+            cgpaw.libvdwxc_init_mpi(self._ptr, comm.get_c_object())
         elif mode == 'pfft':
             nx, ny = self.pfft_grid
-            _gpaw.libvdwxc_init_pfft(self._ptr, comm.get_c_object(), nx, ny)
+            cgpaw.libvdwxc_init_pfft(self._ptr, comm.get_c_object(), nx, ny)
 
         self.initialized = True
 
@@ -133,7 +133,7 @@ class LibVDWXC(object):
             assert arr.dtype == float
             # XXX We cannot actually ask libvdwxc about its expected shape
             # assert arr.shape == self.shape, [arr.shape, self.shape]
-        energy = _gpaw.libvdwxc_calculate(self._ptr, n_sg, sigma_xg,
+        energy = cgpaw.libvdwxc_calculate(self._ptr, n_sg, sigma_xg,
                                           dedn_sg, dedsigma_xg)
         return energy
 
@@ -147,14 +147,14 @@ class LibVDWXC(object):
         else:
             assert self.mode == 'pfft'
             pardesc = 'pfft with %d x %d CPU grid' % self.pfft_grid
-        return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
+        return f'{self.vdw_functional_name} [libvdwxc/{pardesc}]'
 
     def tostring(self):
-        return _gpaw.libvdwxc_tostring(self._ptr)
+        return cgpaw.libvdwxc_tostring(self._ptr)
 
     def __del__(self):
         if hasattr(self, '_ptr'):
-            _gpaw.libvdwxc_free(self._ptr)
+            cgpaw.libvdwxc_free(self._ptr)
 
 
 class RedistWrapper:
@@ -313,16 +313,16 @@ class VDWXC(XCFunctional):
     def __str__(self):
         tokens = [self._mode]
         if self._libvdwxc_name != self.name:
-            tokens.append('nonlocal-name={0}'.format(self._libvdwxc_name))
-            tokens.append('gga-kernel={0}'
+            tokens.append(f'nonlocal-name={self._libvdwxc_name}')
+            tokens.append('gga-kernel={}'
                           .format(self.semilocal_xc.kernel.name))
         if self._pfft_grid is not None:
-            tokens.append('pfft={0}'.format(self._pfft_grid))
+            tokens.append(f'pfft={self._pfft_grid}')
         if self._vdwcoef != 1.0:
-            tokens.append('vdwcoef={0}'.format(self._vdwcoef))
+            tokens.append(f'vdwcoef={self._vdwcoef}')
 
         qualifier = ', '.join(tokens)
-        return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
+        return f'{self.name} [libvdwxc/{qualifier}]'
 
     def todict(self):
         dct = dict(backend='libvdwxc',
@@ -342,36 +342,35 @@ class VDWXC(XCFunctional):
     def get_description(self):
         lines = []
         app = lines.append
-        app('{} with libvdwxc'.format(self.name))
+        app(f'{self.name} with libvdwxc')
         mode = self.libvdwxc.mode
         ncores = self.libvdwxc.comm.size
         cores = 'core' if ncores == 1 else 'cores'
         if mode == 'mpi':
-            mode = 'mpi with {} {}'.format(ncores, cores)
+            mode = f'mpi with {ncores} {cores}'
         elif mode == 'pfft':
             nx, ny = self.libvdwxc.pfft_grid
-            mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
-        app('Mode: {}'.format(mode))
-        app('Semilocal: {}'.format(self.semilocal_xc.get_description()))
+            mode = f'pfft with {nx} x {ny} {cores}'
+        app(f'Mode: {mode}')
+        app(f'Semilocal: {self.semilocal_xc.get_description()}')
         if self.libvdwxc.vdw_functional_name != self.name:
             app('Corresponding non-local functional: {}'
                 .format(self.libvdwxc.vdw_functional_name))
         app('Local blocksize: {} x {} x {}'
             .format(*self.distribution.local_output_size_c))
-        app('PAW datasets: {}'.format(self.get_setup_name()))
+        app(f'PAW datasets: {self.get_setup_name()}')
         return '\n'.join(lines)
 
     def summary(self, log):
-        from ase.units import Hartree
-        enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
-        esl = self.gd.comm.sum(self.last_semilocal_energy)
+        from ase.units import Hartree as Ha
+        enl = self.libvdwxc.comm.sum_scalar(self.last_nonlocal_energy)
+        esl = self.gd.comm.sum_scalar(self.last_semilocal_energy)
         # In the current implementation these communicators have the same
         # processes always:
         assert self.libvdwxc.comm.size == self.gd.comm.size
-        log('Non-local %s correlation energy: %.6f' % (self.name,
-                                                       enl * Hartree))
-        log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
-                                           esl * Hartree))
+        log(f'Non-local {self.name} correlation energy: {(enl * Ha):.6f}')
+        log(f'Semilocal {self.semilocal_xc.kernel.name} '
+            f'energy: {esl * Ha:.6f}')
         log('(Not including atomic contributions)')
 
     def get_setup_name(self):
