@@ -546,7 +546,8 @@ class Hamiltonian:
 
         if self.gd.comm.rank == 0:
             self.update_atomic_hamiltonians(
-                unpack_atomic_matrices(dH_sP, self.setups))
+                unpack_atomic_matrices(dH_sP, self.setups,
+                                       new=reader.version >= 4))
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)

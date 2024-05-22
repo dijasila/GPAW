@@ -343,7 +343,7 @@ class GPAW(Calculator):
         self.log(f'Reading from {filename}')
 
         self.reader = reader = Reader(filename)
-        assert reader.version <= 3, 'Can\'t read new GPW-files'
+        # assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
