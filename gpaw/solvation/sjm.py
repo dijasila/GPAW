@@ -34,6 +34,7 @@ from gpaw.io.logger import indent
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import find_peaks
 
+
 class SJM(SolvationGPAW):
     r"""Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
@@ -177,7 +178,7 @@ class SJM(SolvationGPAW):
         autoinner: dict with {'nlayers':int, 'threshold':0.001}
             if inner_region is given, autoinner is automatically disabled
             nlayers: number of layers
-            threshold: Required threshold of peaks, the innerpotential 
+            threshold: Required threshold of peaks, the innerpotential
                     difference at neighboring grid points
         mu_pzc: float
             Fermi level at potential of zero charge
@@ -217,7 +218,7 @@ class SJM(SolvationGPAW):
          'slope': None,
          'mixer': 0.5,
          'dirichlet': False,
-         'cip': {'autoinner': {'nlayers': None, 
+         'cip': {'autoinner': {'nlayers': None,
                  'threshold': 0.0001},
                  'inner_region': None,
                  'mu_pzc': None,
@@ -245,7 +246,6 @@ class SJM(SolvationGPAW):
 
         # Note the below line calls self.set().
 
-
         SolvationGPAW.__init__(self, restart, **kwargs)
 
     def set(self, **kwargs):
@@ -261,13 +261,10 @@ class SJM(SolvationGPAW):
 
         # We handle 'sj' and 'background_charge' internally; passing to GPAW's
         # set function will trigger a deletion of the density, etc.
-        
         sj_changes = kwargs.pop('sj', {})
-        
         try:
             sj_changes = {key: value for key, value in sj_changes.items()
                           if not equal(value, p[key])}
-            
         except KeyError:
             raise InputError(
                 'Unexpected key(s) provided to sj dict. '
@@ -276,7 +273,6 @@ class SJM(SolvationGPAW):
                 .format(', '.join(sj_changes),
                         ', '.join(self.default_parameters['sj'])))
         p.update(sj_changes)
-
 
         background_charge = kwargs.pop('background_charge', None)
 
@@ -303,7 +299,8 @@ class SJM(SolvationGPAW):
             # If target potential is changed by the user and the slope is
             # known, a step towards the new potential is taken right away.
             try:
-                true_potential = self.get_electrode_potential(p.method, self.atoms)
+                true_potential = self.get_electrode_potential(p.method,
+                                                              self.atoms)
             # TypeError is needed for the case of starting from a gpw
             # file and changing the target potential at the start.
             except (AttributeError, TypeError):
@@ -327,7 +324,8 @@ class SJM(SolvationGPAW):
 
         if 'tol' in sj_changes:
             try:
-                true_potential = self.get_electrode_potential(p.method, self.atoms,)
+                true_potential = self.get_electrode_potential(p.method,
+                                                              self.atoms)
             except (AttributeError, TypeError):
                 pass
             else:
@@ -368,7 +366,6 @@ class SJM(SolvationGPAW):
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
-
 
     def _quick_reinitialization(self):
         """Minimal reinitialization of electronic-structure stuff when only
@@ -411,7 +408,8 @@ class SJM(SolvationGPAW):
             self.set(background_charge=self._create_jellium())
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             self.log('Potential found to be {:.5f} V (with {:+.5f} '
-                     'electrons)'.format(self.get_electrode_potential(p.method, self.atoms),
+                     'electrons)'.format(self.get_electrode_potential(p.method,
+                                        self.atoms),
                                          p.excess_electrons))
         else:
             self.log(' Constant-potential mode.')
@@ -445,7 +443,8 @@ class SJM(SolvationGPAW):
             self.log('Canonical energy was written into results.\n')
 
         self.results['excess_electrons'] = p.excess_electrons
-        self.results['electrode_potential'] = self.get_electrode_potential(p.method, self.atoms)
+        self.results['electrode_potential'] = self.get_electrode_potential(
+                                                       p.method, self.atoms)
         self.log.fd.flush()
 
     def _equilibrate_potential(self, atoms, system_changes):
@@ -596,26 +595,27 @@ class SJM(SolvationGPAW):
         p = self.parameters['sj']
 
         self.log()
-        mu_N = self.get_electrode_potential(p.method, self.atoms) * p.excess_electrons / Ha
+        mu_N = self.get_electrode_potential(p.method, self.atoms)
+        mu_N *= p.excess_electrons / Ha
         self.omega_free = self.hamiltonian.e_total_free + mu_N
         self.omega_extrapolated = self.hamiltonian.e_total_extrapolated + mu_N
         self.log('Legendre-transformed energies (grand potential, '
                  'Omega = E - N mu)')
-        self.log(' N (excess electrons):  {:+11.6f}'
-                 .format(p.excess_electrons))
-        
+        self.log(' N (excess electrons): {:+11.6f}'.format(p.excess_electrons))
+
         if p['method'] == 'wf':
-            self.log(' Electrode potential from workfunction: {:+11.6f} [eV]'
-                     .format(self.get_electrode_potential(p.method, self.atoms)))
+            self.log('Electrode potential from workfunction: {:+11.6f} [eV]'
+                .format(self.get_electrode_potential(p.method, self.atoms)))
         elif p['method'] == 'Fermi':
-            self.log(' Electrode potential from Fermi level: {:+11.6f} [eV]'
-                     .format(self.get_electrode_potential(p.method, self.atoms)))
+            self.log('Electrode potential from Fermi level: {:+11.6f} [eV]'
+                .format(self.get_electrode_potential(p.method, self.atoms)))
         elif p['method'] == 'CIP':
-            self.log(' Electrode potential from inner potential : {:+11.6f} [eV]'
-                     .format(self.get_electrode_potential(p.method, self.atoms)))
-            self.log(' The absolute inner potential is: {:+11.6f} [eV]'
-                     .format(self.get_inner_potential(self.atoms, p['cip']['inner_region'])))
-        
+            self.log('Electrode potential from inner potential: {:+11.6f} [eV]'
+                 .format(self.get_electrode_potential(p.method, self.atoms)))
+            self.log('The absolute inner potential is: {:+11.6f} [eV]'
+                     .format(self.get_inner_potential(self.atoms,
+                             p['cip']['inner_region'])))
+
         self.log(' (Grand) free energy:   {:+11.6f}'
                  .format(Ha * self.omega_free))
         self.log(' (Grand) extrapolated:  {:+11.6f}'
@@ -749,10 +749,11 @@ class SJM(SolvationGPAW):
                            z1=bottom,
                            z2=top)
 
-    def get_electrode_potential(self, method, atoms=None, return_referenced=True):
+    def get_electrode_potential(self, method, atoms=None,
+                                return_referenced=True):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
-        
+
         p = self.parameters['sj']
         print('From electrode potential', p)
         if method == 'wf':
@@ -763,11 +764,11 @@ class SJM(SolvationGPAW):
                 if 'electrode_potential' in self.results:
                     return self.results['electrode_potential']
                 else:
-                    msg = ('Electrode potential could not be read. Make sure a DFT'
-                           ' calculation has been performed before reading the '
-                           'potential.')
+                    msg = ('Electrode potential could not be read. Make sure'
+                           'a DFT calculation has been performed before '
+                           'reading the potential.')
                     raise PropertyNotPresent(textwrap.fill(msg))
-        
+
         elif method == 'Fermi':
             fermilevel = self.wfs.fermi_levels[0]
             if not p['dirichlet']:
@@ -783,9 +784,11 @@ class SJM(SolvationGPAW):
             return wf2
 
         elif method == 'CIP':
-            inner_potential = self.get_inner_potential(atoms, p['cip']['inner_region'])
+            inner_potential = self.get_inner_potential(atoms,
+                                                    p['cip']['inner_region'])
             if return_referenced is True:
-                inner_potential = - (p['cip']['mu_pzc'] - p['cip']['phi_pzc'] + inner_potential)
+                inner_potential = - (p['cip']['mu_pzc'] - p['cip']['phi_pzc'] +
+                                     inner_potential)
                 return inner_potential
 
             return self.p['cip']['phi_pzc'] - inner_potential
@@ -794,11 +797,10 @@ class SJM(SolvationGPAW):
         cip = self.parameters.sj.cip
 
         defaults_auto = self.default_parameters['sj']['cip']['autoinner']
-        print('auto', defaults_auto)
-        
+
         # Populate missing keywords
         # Mimics _create_jellium but maybe not the best place for this
-        
+
         missing = {'nlayers': None,
                    'threshold': None}
         for key in missing:
@@ -812,9 +814,8 @@ class SJM(SolvationGPAW):
 
         for key in missing:
             if key not in cip:
-                cip[key] = missing[key]
+                cip[key] = defaults_cip[key]
 
-        print('cip params', cip)
         el = self.hamiltonian.vHt_g * Ha
         gd = self.hamiltonian.finegd
         elstat = gd.collect(el, broadcast=True)
@@ -825,25 +826,24 @@ class SJM(SolvationGPAW):
             z_top = (np.abs(gd.coords(2) - z[1])).argmin()
             z_bottom = (np.abs(gd.coords(2) - z[0])).argmin()
             el_av = np.average(smooth_elstat_z[z_bottom:z_top])
-        
         else:
             # find minima of elstat potentials (position of nuclei)
-            peaks, _ = find_peaks(-smooth_elstat_z, 
+            peaks, _ = find_peaks(-smooth_elstat_z,
                                 threshold=cip['autoinner']['threshold'])
-            #choose central peaks (minima of elstatpot) using the number of layers
+            # choose maxima of elstatpot using the number of layers
             if (cip['autoinner']['nlayers'] % 2) == 0:
-                #even number of peaks
+                # even number of peaks
                 b = int(cip['autoinner']['nlayers'] / 2)
-                bottom = peaks[b-1]
+                bottom = peaks[b - 1]
                 top = peaks[b]
                 el_av = np.average(smooth_elstat_z[bottom:top])
             else:
                 # odd number of peaks
                 c = int((cip['autoinner']['nlayers'] - 1) / 2)
-                bottom = peaks[c-1]
-                top = peaks[c+1]
+                bottom = peaks[c - 1]
+                top = peaks[c + 1]
                 el_av = np.average(smooth_elstat_z[bottom:top])
-        
+
         return el_av
 
     def initialize(self, atoms=None, reading=False):
@@ -1341,7 +1341,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw -= (saw[0] + saw[-1] + step / eps_z[-1]) / 2.
         return saw
-    
+
     def dirichlet_sawtooth(self):
         # for imposing Dirichlet/Neumann boundary conditions in CIP
         gd = self.poissonsolver.gd
@@ -1356,7 +1356,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw = np.zeros((int(L / gd.h_cv[c, c])))
         saw[0] = -1.
         for i, eps in enumerate(eps_z):
-                saw[i+1] = saw[i] + step / eps
+            saw[i + 1] = saw[i] + step / eps
         saw -= saw[-1]
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw /= 2.
