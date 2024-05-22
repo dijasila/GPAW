@@ -161,7 +161,6 @@ class SJM(SolvationGPAW):
         new slope is established. E.g., new_slope = mixer * old_slope +
         (1. - mixer) * current_slope_estimate. Set to 0 for no damping.
         Default: 0.5.
-
     dirichlet: bool
         True: set the solvent phase electrostatic potential to zero.
         Changes also the way work functions computed
@@ -173,19 +172,19 @@ class SJM(SolvationGPAW):
         inner_region: list of floats: [bottom, top]
              bottom is the starting point for computing the inner potential,
              likewise top is the ending point.
-
+        filter: int
+            number of points for smoothing the el.stat. pot.
         autoinner: dict with {'nlayers':int, 'threshold':0.001}
+            if inner_region is given, autoinner is automatically disabled
             nlayers: number of layers
-            threshold: Required threshold of peaks, the innerpotential difference at neighboring grid points
-                if inner_region is specified, autoinner is automatically disabled
-            filter: number of points for smoothing the el.stat. pot.
+            threshold: Required threshold of peaks, the innerpotential 
+                    difference at neighboring grid points
         mu_pzc: float
             Fermi level at potential of zero charge
-            Sets the reference scale for the absolute potential level when using
-            inner potentials
+            Sets the reference scale for the absolute potential level for CIP
         phi_pzc: float
           Use only with method='CIP', the value corresponds to the inner
-            potential of the neutral electrode
+          potential of the neutral electrode
 
     Special SJM methods (in addition to those of GPAW/SolvationGPAW):
 
