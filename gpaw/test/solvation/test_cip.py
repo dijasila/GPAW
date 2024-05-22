@@ -36,7 +36,7 @@ def test_cip():
                 'method': 'Fermi',
                 'dirichlet': True,
                 'cip': {'filter': 10,
-                        'autoinner': {'nlayers': 4, 
+                        'autoinner': {'nlayers': 4,
                                       'threshold': 0.01}}
                 }
 
@@ -69,7 +69,8 @@ def test_cip():
     print(mu_pzc)
     assert np.isclose(mu_pzc, -4.39, 1e-1, 1e-1)
 
-    # Reset for CIP using computed potential of zero charge and fermi level 
+    # Reset for CIP using computed potential of zero charge and fermi level
+
     potential = 4.5
     tol = 0.02
     sj_cip = {'target_potential': potential,
@@ -78,7 +79,7 @@ def test_cip():
               'tol': tol,
               'method': 'CIP',
               'dirichlet': True,
-              'cip': {'autoinner': {'nlayers': 4, 
+              'cip': {'autoinner': {'nlayers': 4,
                       'threshold': 0.01},
                       'inner_region': None,
                       'mu_pzc': mu_pzc,
@@ -103,4 +104,5 @@ def test_cip():
 
     atoms.calc = calc
     atoms.get_potential_energy()
-    assert abs(calc.get_electrode_potential(sj_cip['method'], calc.atoms) - potential) < tol
+    assert abs(calc.get_electrode_potential(sj_cip['method'], calc.atoms) -
+               potential) < tol
