@@ -274,6 +274,23 @@ class SJM(SolvationGPAW):
                         ', '.join(self.default_parameters['sj'])))
         p.update(sj_changes)
 
+        if p.method == 'CIP':
+
+            self.fill_cip_keywords(p.cip)
+
+            if p.cip['inner_region'] is None and p.cip['autoinner'] is None:
+                raise RuntimeError("The inner region cannot be none" +
+                                   "when using inner potential as the" +
+                                   "reference. Please, set up the" +
+                                   "bottom/top values defining the bulk of " +
+                                   "the electrode or set autoinner to True")
+
+            if p.cip['inner_region'] is not None:
+                p.cip['inner_region'] = np.array(p.inner_region) / Bohr
+                p.cip['autoinner'] = None
+            else:
+                p.cip['autoinner']['nlayers'] is not None
+
         background_charge = kwargs.pop('background_charge', None)
 
         SolvationGPAW.set(self, **kwargs)
@@ -755,7 +772,6 @@ class SJM(SolvationGPAW):
         to the vacuum. This comes directly from the work function."""
 
         p = self.parameters['sj']
-        print('From electrode potential', p)
         if method == 'wf':
             try:
                 return Ha * self.hamiltonian.get_workfunctions(self.wfs)[1]
@@ -794,27 +810,9 @@ class SJM(SolvationGPAW):
             return self.p['cip']['phi_pzc'] - inner_potential
 
     def get_inner_potential(self, atoms, z=None):
+
         cip = self.parameters.sj.cip
-
-        defaults_auto = self.default_parameters['sj']['cip']['autoinner']
-
-        # Populate missing keywords
-        # Mimics _create_jellium but maybe not the best place for this
-
-        missing = {'nlayers': None,
-                   'threshold': None}
-        for key in missing:
-            if key not in cip['autoinner']:
-                cip['autoinner'][key] = defaults_auto[key]
-        defaults_cip = self.default_parameters['sj']['cip']['autoinner']
-        missing = {'inner_region': None,
-                   'mu_pzc': None,
-                   'phi_pzc': None,
-                   'filter': None}
-
-        for key in missing:
-            if key not in cip:
-                cip[key] = defaults_cip[key]
+        self.fill_cip_keywords(cip)
 
         el = self.hamiltonian.vHt_g * Ha
         gd = self.hamiltonian.finegd
@@ -829,7 +827,7 @@ class SJM(SolvationGPAW):
         else:
             # find minima of elstat potentials (position of nuclei)
             peaks, _ = find_peaks(-smooth_elstat_z,
-                                threshold=cip['autoinner']['threshold'])
+                                  threshold=cip['autoinner']['threshold'])
             # choose maxima of elstatpot using the number of layers
             if (cip['autoinner']['nlayers'] % 2) == 0:
                 # even number of peaks
@@ -845,6 +843,25 @@ class SJM(SolvationGPAW):
                 el_av = np.average(smooth_elstat_z[bottom:top])
 
         return el_av
+
+    def fill_cip_keywords(self, cip):
+
+        defaults_auto = self.default_parameters['sj']['cip']['autoinner']
+        missing = {'nlayers': None,
+                   'threshold': None}
+        for key in missing:
+            if key not in cip['autoinner']:
+                cip['autoinner'][key] = defaults_auto[key]
+
+        defaults_cip = self.default_parameters['sj']['cip']
+        missing = {'inner_region': None,
+                   'mu_pzc': None,
+                   'phi_pzc': None,
+                   'filter': None}
+
+        for key in missing:
+            if key not in cip:
+                cip[key] = defaults_cip[key]
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization.
