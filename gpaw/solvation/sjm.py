@@ -286,10 +286,10 @@ class SJM(SolvationGPAW):
                                    "the electrode or set autoinner to True")
 
             if p.cip['inner_region'] is not None:
-                p.cip['inner_region'] = np.array(p.inner_region) / Bohr
+                p.cip['inner_region'] = np.array(p.inner_region)
                 p.cip['autoinner'] = None
             else:
-                p.cip['autoinner']['nlayers'] is not None
+                assert p.cip['autoinner']['nlayers'] is not None
 
         background_charge = kwargs.pop('background_charge', None)
 
@@ -821,8 +821,9 @@ class SJM(SolvationGPAW):
         smooth_elstat_z = uniform_filter1d(el_stat_z, size=cip['filter'])
 
         if cip['inner_region'] is not None:
-            z_top = (np.abs(gd.coords(2) - z[1])).argmin()
-            z_bottom = (np.abs(gd.coords(2) - z[0])).argmin()
+
+            z_top = (np.abs(gd.coords(2) - (z[1] / Bohr))).argmin()
+            z_bottom = (np.abs(gd.coords(2) - (z[0] / Bohr))).argmin()
             el_av = np.average(smooth_elstat_z[z_bottom:z_top])
         else:
             # find minima of elstat potentials (position of nuclei)
