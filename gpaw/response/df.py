@@ -211,7 +211,7 @@ class Chi0DysonEquations:
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
-        return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+        return CustomizedDielectricFunction.from_chi0_dyson_eqs(self, eps_wGG)
 
     def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
         """Calculate ε(q,ω) using modified response functions.
@@ -247,7 +247,7 @@ class Chi0DysonEquations:
         from which ϵ(q,ω) can be constructed.
         """
         assert xc == 'RPA'
-        VP_symm_wGG, VPbar_symm_wGG, _ = self.calculate_Vchi_symm(
+        VP_symm_wGG, VPbar_symm_wGG, _ = self.calculate_vchi_symm(
             xc=xc, *args, **kwargs)
         return ModifiedDielectricFunction.from_chi0_dyson_eqs(
             self, VP_symm_wGG, VPbar_symm_wGG)
@@ -378,33 +378,32 @@ class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
 
 
 @dataclass
-class DielectricMatrixData(DielectricFunctionBase):
-    """Data class for the dielectric matrix Ε(q,ω).
+class CustomizedDielectricFunction(DielectricFunctionBase):
+    """Data class for the customized dielectric function Ε(q,ω).
 
-    The dielectric function can generally be written in terms of the Coulomb
-    potential v and polarizability operator P [Rev. Mod. Phys. 74, 601 (2002)],
-
-    ε(q,ω) = 1 - v(q) P(q,ω).
-
-    Here, we define the dielectric matrix as
+    The customized dielectric function is defined by replacing the bare Coulomb
+    interaction v(q) with the specified Coulomb interaction V(q) in the formula
+    for the dielectric function,
 
     Ε(q,ω) = 1 - V(q) P(q,ω),
 
-    where V(q) may be a truncated version of the bare Coulomb potential v(q).
-    Thus, in the case of truncation, Ε(q,ω) ≠ ε(q,ω) and Ε⁻¹(q,ω) ≠ ε⁻¹(q,ω).
+    where P is the polarizability operator [Rev. Mod. Phys. 74, 601 (2002)].
+    Thus, for any truncated or otherwise cusomized interaction V(q) ≠ v(q),
+    Ε(q,ω) ≠ ε(q,ω) and Ε⁻¹(q,ω) ≠ ε⁻¹(q,ω).
     """
     Eps_wGG: np.ndarray
 
-    def dielectric_function(self):
-        """Get the macroscopic dielectric function Ε_M(q,ω).
+    def dielectric_function(self):  # rename to macroscopic? XXX
+        """Get the macroscopic customized dielectric function Ε_M(q,ω).
 
-        One can define a macroscopic dielectric function based on the inverse
-        of the dielectric matrix
+        We define the macroscopic customized dielectric function as
 
                        1
         Ε_M(q,ω) =  ‾‾‾‾‾‾‾‾
                     Ε⁻¹(q,ω)
                      00
+
+        such that Ε_M(q,ω) = ε_M(q,ω) for V(q) = v(q).
         """
         # Ignoring local field effects
         Eps0_W = self.wblocks.all_gather(self.Eps_wGG[:, 0, 0])
