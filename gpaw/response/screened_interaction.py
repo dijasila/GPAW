@@ -457,7 +457,6 @@ class MPACalculator(WBaseCalculator):
                                            self.xckernel,
                                            fxc_mode)
 
-        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
         
@@ -482,14 +481,29 @@ class MPACalculator(WBaseCalculator):
         E_pGG = chi0.body.blockdist.distribute_as(E_pGG,
                                                   self.mpa['npoles'], 'wGG')
 
-        W_pGG = pi * R_pGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
-            * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
-        
-        if chi0.optical_limit or self.integrate_gamma != 0:
+
+
+        if self.integrate_gamma == 'WS':
+            from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
+            wstc = WignerSeitzTruncatedCoulomb(chi0.qpd.gd.cell_cv,
+                                               dfc.coulomb.N_c)
+            sqrtV_G = wstc.get_potential(chi0.qpd)**0.5
+        else:
+            sqrtV_G = dfc.sqrtV_G
+            V0, sqrtV0 = self.get_V0sqrtV0(chi0)
+
+        W_pGG = pi * R_pGG * sqrtV_G[np.newaxis, :, np.newaxis] \
+            * sqrtV_G[np.newaxis, np.newaxis, :]
+
+        assert self.q0_corrector is None        
+        if (self.integrate_gamma == 0 and chi0.optical_limit) or\
+                self.integrate_gamma in {1, 2}:
+            V0, sqrtV0 = self.get_V0sqrtV0(chi0)
             for W_GG, R_GG in zip(W_pGG, R_pGG):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
+
         W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
         E_pGG = np.transpose(E_pGG, axes=(0, 2, 1))
 

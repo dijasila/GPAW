@@ -51,36 +51,24 @@ def compare_inputs(inp1, inp2, rel_tol=1e-14, abs_tol=1e-14):
     """
     from math import isclose
 
-    for key in dict1.keys():
-        val1 = dict1[key]
-        val2 = dict2[key]
-
-        if isinstance(val1, dict) and isinstance(val2, dict):
-            # recursive func call to ensure nested structures are also compared
-            if not compare_dicts(val1, val2, rel_tol, abs_tol):
+    if isinstance(inp1, dict):
+        if inp1.keys() != inp2.keys():
+            return False
+        for key in set().union(inp1, inp2):
+            val1 = inp1[key]
+            val2 = inp2[key]
+            if not compare_inputs(val1, val2,
+                                  rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
-        elif isinstance(val1, (np.float64, float)) and isinstance(val2, (np.float64, float)):
-            if not np.isclose(val1, val2, rtol=rel_tol, atol=abs_tol):
-                return False
-        elif isinstance(val1, np.ndarray) and isinstance(val2, np.ndarray):
-            if val1.shape != val2.shape:
-                return False
-            if not np.allclose(val1, val2, atol=abs_tol, rtol=rel_tol):
-                return False
-        elif isinstance(val1, list) and isinstance(val2, list):
-            if len(val1) != len(val2):
-                return False
-            for v1, v2 in zip(val1, val2):
-                if isinstance(v1, (float, np.float64)):
-                    if not np.isclose(v1, v2, rtol=rel_tol, atol=abs_tol):
-                        return False
-                else:
-                    if v1 != v2:
-                        print('type', type(v1), v1, v2)
-                        return False
-        else:
-            if val1 != val2:
-                print('below type', type(val1), val1, val2)
+    elif isinstance(inp1, float):
+        if not isclose(inp1, inp2, rel_tol=rel_tol, abs_tol=abs_tol):
+            return False
+    elif not isinstance(inp1, str) and isinstance(inp1, Iterable):
+        if len(inp1) != len(inp2):
+            return False
+        for val1, val2 in zip(inp1, inp2):
+            if not compare_inputs(val1, val2,
+                                  rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
     else:
         if inp1 != inp2:
@@ -115,7 +103,7 @@ class Sigma:
         return self
 
     def validate_inputs(self, inputs):
-        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-10,
+        equals = compare_inputs(inputs, self.inputs, rel_tol=1e-10,
                                abs_tol=1e-10)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
