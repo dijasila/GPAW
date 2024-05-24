@@ -407,11 +407,11 @@ class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
 
 @dataclass
 class CustomizableDielectricFunction(DielectricFunctionBase):
-    """Data class for the customized dielectric function Ε(q,ω).
+    """Data class for customized dielectric functions Ε(q,ω).
 
-    The customized dielectric function is defined by replacing the bare Coulomb
-    interaction v(q) with the specified Coulomb interaction V(q) in the formula
-    for the dielectric function,
+    Ε(q,ω) is customizable in the sense that bare Coulomb interaction v(q) is
+    replaced with the an arbitrary interaction V(q) in the formula for the
+    dielectric function,
 
     Ε(q,ω) = 1 - V(q) P(q,ω),
 
