@@ -199,19 +199,20 @@ class Chi0DysonEquations:
         """Construct the dielectric function ε(q,ω)."""
         V_G = self.coulomb.V(self.chi0.qpd)
         if abs(V_G[0]) > 1e-8:
-            return self._dielectric_function(*args, **kwargs)
+            return self.customized_dielectric_function(*args, **kwargs)
         else:
             return self._modified_dielectric_function(*args, **kwargs)
 
-    def _dielectric_function(self, *args, **kwargs):
-        """Calculate ε(q,ω) = 1 - V(q) P(q,ω) literally."""
+    def customized_dielectric_function(self, *args, **kwargs):
+        """Calculate Ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
         P_wGG = self.polarizability_operator(*args, **kwargs)
         nG = len(V_GG)
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
-        return CustomizedDielectricFunction.from_chi0_dyson_eqs(self, eps_wGG)
+        return CustomizableDielectricFunction.from_chi0_dyson_eqs(
+            self, eps_wGG)
 
     def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
         """Calculate ε(q,ω) using modified response functions.
@@ -378,7 +379,7 @@ class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
 
 
 @dataclass
-class CustomizedDielectricFunction(DielectricFunctionBase):
+class CustomizableDielectricFunction(DielectricFunctionBase):
     """Data class for the customized dielectric function Ε(q,ω).
 
     The customized dielectric function is defined by replacing the bare Coulomb
@@ -391,7 +392,7 @@ class CustomizedDielectricFunction(DielectricFunctionBase):
     Thus, for any truncated or otherwise cusomized interaction V(q) ≠ v(q),
     Ε(q,ω) ≠ ε(q,ω) and Ε⁻¹(q,ω) ≠ ε⁻¹(q,ω).
     """
-    Eps_wGG: np.ndarray
+    eps_wGG: np.ndarray
 
     def dielectric_function(self):  # rename to macroscopic? XXX
         """Get the macroscopic customized dielectric function Ε_M(q,ω).
@@ -406,15 +407,15 @@ class CustomizedDielectricFunction(DielectricFunctionBase):
         such that Ε_M(q,ω) = ε_M(q,ω) for V(q) = v(q).
         """
         # Ignoring local field effects
-        Eps0_W = self.wblocks.all_gather(self.Eps_wGG[:, 0, 0])
+        eps0_W = self.wblocks.all_gather(self.eps_wGG[:, 0, 0])
 
         # Accouting for local field effects
-        Eps_w = np.zeros((self.wblocks.nlocal,), complex)
-        for w, Eps_GG in enumerate(self.Eps_wGG):
-            Eps_w[w] = 1 / np.linalg.inv(Eps_GG)[0, 0]
-        Eps_W = self.wblocks.all_gather(Eps_w)
+        eps_w = np.zeros((self.wblocks.nlocal,), complex)
+        for w, eps_GG in enumerate(self.eps_wGG):
+            eps_w[w] = 1 / np.linalg.inv(eps_GG)[0, 0]
+        eps_W = self.wblocks.all_gather(eps_w)
 
-        return ScalarResponseFunctionSet(self.wd, Eps0_W, Eps_W)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
 @dataclass
@@ -543,6 +544,21 @@ class DielectricFunctionCalculator:
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
+            direction=direction, **xckwargs)
+
+    def get_literal_dielectric_function(self, *args, **kwargs):
+        """Calculate the dielectric function ε(q,ω) = 1 - v(q) P(q,ω)."""
+        return self.get_customized_dielectric_function(
+            truncation=None, *args, **kwargs)
+
+    def get_customized_dielectric_function(self, *, truncation: str | None,
+                                           q_c=[0, 0, 0], direction='x',
+                                           **xckwargs):
+        # NB: ignores self.coulomb while this still exists XXX
+        chi0_dyson_equation = self.calculate_chi0(q_c)
+        chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
+            truncation=truncation)
+        return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',
