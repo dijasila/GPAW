@@ -3,6 +3,7 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -23,6 +24,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
+from gpaw.response.mpa_sampling import mpa_frequency_sampling
 from gpaw.mpi import broadcast_exception
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
@@ -30,26 +32,24 @@ from contextlib import ExitStack
 from ase.parallel import broadcast
 
 
-def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
+def compare_inputs(inp1, inp2, rel_tol=1e-14, abs_tol=1e-14):
     """
-    Compare each key-value pair within dictionaries that contain nested data
-    structures of arbitrary depth. If a kvp contains floats, you may specify
-    the tolerance (abs or rel) to which the floats are compared. Individual
-    elements within lists are not compared to floating point precision.
+    Compares nested structures of dictionarys, lists, etc. and
+    makes sure the nested structure is the same, and also that all
+    floating points match within the given tolerances.
 
-    :params dict1: Dictionary containing kvp to compare with other dictionary.
-    :params dict2: Second dictionary.
+    :params inp1: Structure 1 to compare.
+    :params inp2: Structure 2 to compare.
     :params rel_tol: Maximum difference for being considered "close",
     relative to the magnitude of the input values as defined by math.isclose().
     :params abs_tol: Maximum difference for being considered "close",
     regardless of the magnitude of the input values as defined by
     math.isclose().
 
-    :returns: bool indicating kvp's don't match (False) or do match (True)
+    :returns: bool indicating if structures don't match (False) or do match
+    (True)
     """
     from math import isclose
-    if dict1.keys() != dict2.keys():
-        return False
 
     for key in dict1.keys():
         val1 = dict1[key]
@@ -82,12 +82,15 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
             if val1 != val2:
                 print('below type', type(val1), val1, val2)
                 return False
+    else:
+        if inp1 != inp2:
+            return False
 
     return True
 
 
 class Sigma:
-    def __init__(self, iq, q_c, fxc, esknshape, **inputs):
+    def __init__(self, iq, q_c, fxc, esknshape, esknwshape, **inputs):
         """Inputs are used for cache invalidation, and are stored for each
            file.
         """
@@ -98,14 +101,17 @@ class Sigma:
         # self-energies and derivatives:
         self.sigma_eskn, self.dsigma_eskn = self._buf
 
+        self.sigma_eskwn = np.zeros(esknwshape, dtype=complex)
         self.inputs = inputs
 
     def sum(self, comm):
         comm.sum(self._buf)
+        comm.sum(self.sigma_eskwn)
 
     def __iadd__(self, other):
         self.validate_inputs(other.inputs)
         self._buf += other._buf
+        self.sigma_eskwn += other.sigma_eskwn
         return self
 
     def validate_inputs(self, inputs):
@@ -118,9 +124,11 @@ class Sigma:
     @classmethod
     def fromdict(cls, dct):
         instance = cls(dct['iq'], dct['q_c'], dct['fxc'],
-                       dct['sigma_eskn'].shape, **dct['inputs'])
+                       dct['sigma_eskn'].shape, dct['sigma_eskwn'].shape,
+                       **dct['inputs'])
         instance.sigma_eskn[:] = dct['sigma_eskn']
         instance.dsigma_eskn[:] = dct['dsigma_eskn']
+        instance.sigma_eskwn[:] = dct['sigma_eskwn']
         return instance
 
     def todict(self):
@@ -128,13 +136,14 @@ class Sigma:
                 'q_c': self.q_c,
                 'fxc': self.fxc,
                 'sigma_eskn': self.sigma_eskn,
+                'sigma_eskwn': self.sigma_eskwn,
                 'dsigma_eskn': self.dsigma_eskn,
                 'inputs': self.inputs}
 
 
 class G0W0Outputs:
     def __init__(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn,
-                 eps_skn, vxc_skn, exx_skn, f_skn):
+                 sigma_eskwn, eps_skn, vxc_skn, exx_skn, f_skn):
         self.extrapolate(context, shape, ecut_e, sigma_eskn, dsigma_eskn)
         self.Z_skn = 1 / (1 - self.dsigma_skn)
 
@@ -152,6 +161,7 @@ class G0W0Outputs:
         self.vxc_skn = vxc_skn
         self.exx_skn = exx_skn
         self.f_skn = f_skn
+        self.sigma_eskwn = sigma_eskwn
 
     def extrapolate(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
@@ -212,7 +222,8 @@ class G0W0Outputs:
 
         results.update(
             sigma_eskn=self.sigma_eskn * Ha,
-            dsigma_eskn=self.dsigma_eskn)
+            dsigma_eskn=self.dsigma_eskn,
+            sigma_eskwn=self.sigma_eskwn * Ha)
 
         if self.sigr2_skn is not None:
             assert self.dsigr2_skn is not None
@@ -478,7 +489,9 @@ class G0W0Calculator:
                  exx_vxc_calculator,
                  qcache,
                  ppa=False,
-                 qpoints=None):
+                 qpoints=None,
+                 mpa=False,
+                 evaluate_sigma=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -516,11 +529,34 @@ class G0W0Calculator:
         ppa: bool
             Use Godby-Needs plasmon-pole approximation for screened interaction
             and self-energy
+        mpa: dictionary
+            Use multipole approximation for screened interaction
+            and self-energy [PRB 104, 115157 (2021)]
+            This method uses a sampling along two lines in the complex
+            frequency plane.
+
+            MPA parameters
+            ----------
+            npoles: number of poles (positive integer generally lower than 15)
+            wrange: real and imaginary intervals defining the range of energy
+                    along each axis of the upper line of the sampling
+                    (array of two complex numbers)
+            wshift: shifts along the imaginary axis of the lower sampling line
+                    close to the real axis (array of two positive real numbers,
+                    the first one for the origin of coordinates, while the
+                    second is common to all the other point with a finite real
+                    component)
+            alpha: exponent of the power distribution of points along the real
+                   frequency axis [PRB 107, 155130 (2023)]
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
+        self.mpa = mpa
+        if evaluate_sigma is None:
+            evaluate_sigma = np.array([])
+        self.evaluate_sigma = evaluate_sigma
         self.qcache = qcache
         self.qpoints = qpoints
 
@@ -563,6 +599,8 @@ class G0W0Calculator:
 
         b1, b2 = self.bands
         self.shape = (self.wcalc.gs.nspins, len(self.kpts), b2 - b1)
+        self.wshape = (self.wcalc.gs.nspins, len(self.kpts),
+                       len(self.evaluate_sigma), b2 - b1)
 
         self.nbands = nbands
 
@@ -586,8 +624,20 @@ class G0W0Calculator:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
                                % self.wd.omega_w[1].imag)
+        elif self.mpa:
+            omega_w = self.chi0calc.wd.omega_w
+            self.context.print('Using multipole approximation:')
+            self.context.print(f'  Number of poles: {len(omega_w) // 2}')
+            self.context.print(
+                f'  Energy range: Re(E[-1]) = {omega_w[-1].real:.3f} Hartee')
+            self.context.print('  Imaginary range: Im(E[-1]) = %.3f Hartee'
+                               % self.wd.omega_w[-1].imag)
+            self.context.print('  Imaginary shift: Im(E[1]) = %.3f Hartee'
+                               % self.wd.omega_w[1].imag)
+            self.context.print('  Origin shift: Im(E[0]) = %.3f Hartee'
+                               % self.wd.omega_w[0].imag)
         else:
-            self.context.print('Using full frequency integration')
+            self.context.print('Using full-frequency real axis integration')
 
     def print_parameters(self, kpts, b1, b2):
         isl = ['',
@@ -765,20 +815,33 @@ class G0W0Calculator:
             nn = kpt1.n1 + n - self.bands[0]
 
             assert set(Wdict) == set(sigmas)
+
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
+
                 # m is band index of all (both unoccupied and occupied) wave
                 # functions in G
                 for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
                     # 2 * f - 1 will be used to select the branch of Hilbert
                     # transform, see get_HW of screened_interaction.py
                     # at FullFrequencyHWModel class.
-                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
-                    if S_GG is None:
-                        continue
 
                     nc_G = n_G.conj()
+                    myn_G = n_G[blocks1d.myslice]
+
+                    if self.evaluate_sigma is not None:
+                        for w, omega in enumerate(self.evaluate_sigma):
+                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, f)
+                            if S_GG is None:
+                                continue
+                            # print(myn_G.shape, S_GG.shape, nc_G.shape)
+                            sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += \
+                                myn_G @ S_GG @ nc_G
+
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, f)
+                    if S_GG is None:
+                        continue
 
                     # ie: ecut index for extrapolation
                     # kpt1.s: spin index of *
@@ -787,7 +850,6 @@ class G0W0Calculator:
                     # * wave function, where the sigma expectation value is
                     # evaluated
                     slot = ie, kpt1.s, k, nn
-                    myn_G = n_G[blocks1d.myslice]
                     sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
                     sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
 
@@ -885,8 +947,9 @@ class G0W0Calculator:
     def calculate_q_point(self, iq, q_c, pb, chi0calc):
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
-        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
-                                  **self.get_validation_inputs())
+        sigmawshape = (len(self.ecut_e), *self.wshape)
+        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape, sigmawshape,
+                  **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
         chi0 = chi0calc.create_chi0(q_c)
@@ -923,7 +986,6 @@ class G0W0Calculator:
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
-
                     self.calculate_q(ie, i, kpt1, kpt2, qpdi, Wdict,
                                      symop=symop,
                                      sigmas=sigmas,
@@ -965,6 +1027,7 @@ class G0W0Calculator:
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
+                assert not self.mpa
 
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
@@ -1037,6 +1100,7 @@ class G0W0Calculator:
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
                            dsigma_eskn=sigma.dsigma_eskn,
+                           sigma_eskwn=sigma.sigma_eskwn,
                            **kwargs)
 
 
@@ -1059,6 +1123,7 @@ class G0W0(G0W0Calculator):
                  ecut_extrapolation=False,
                  xc='RPA',
                  ppa=False,
+                 mpa=False,
                  E0=Ha,
                  eta=0.1,
                  nbands=None,
@@ -1073,6 +1138,7 @@ class G0W0(G0W0Calculator):
                  world=mpi.world,
                  timer=None,
                  fxc_mode='GW',
+                 fxc_modes=None,
                  truncation=None,
                  integrate_gamma=0,
                  q0_correction=False,
@@ -1119,6 +1185,9 @@ class G0W0(G0W0Calculator):
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
+         mpa: bool
+            Sets whether the multipole approximation for the
+            dielectric function should be used.
         xc: str
             Kernel to use when including vertex corrections.
         fxc_mode: str
@@ -1156,6 +1225,12 @@ class G0W0(G0W0Calculator):
             results are not provided, but only the q-point wise result
             will be cached for future use.
         """
+        if fxc_mode:
+            assert fxc_modes is None
+        if fxc_modes:
+            assert fxc_mode is None
+
+        frequencies = get_frequencies(frequencies, domega0, omega2)
         # We pass a serial communicator because the parallel handling
         # is somewhat wonky, we'd rather do that ourselves:
         try:
@@ -1194,12 +1269,28 @@ class G0W0(G0W0Calculator):
                     'nbands cannot be supplied with ecut-extrapolation.')
 
         if ppa:
+            assert not mpa
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * E0]
 
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
+        elif mpa:
+            assert not ppa
+
+            frequencies = mpa_frequency_sampling(npoles=mpa['npoles'], 
+                                                 wrange=mpa['wrange'],
+                                                 varpi=mpa['varpi'],
+                                                 eta0=mpa['eta0'],
+                                                 eta_rest=mpa['eta_rest'],
+                                                 parallel_lines=2,
+                                                 alpha=mpa['alpha'])
+
+            parameters = {'eta': 0.000001,
+                          'hilbert': False,
+                          'timeordered': False}
+
         else:
             # use nonlinear frequency grid
             frequencies = get_frequencies(frequencies, domega0, omega2)
@@ -1227,12 +1318,15 @@ class G0W0(G0W0Calculator):
         # XXX called below. This needs to be cleaned up.
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
+                                        mpa=mpa,
                                         xc=xc,
                                         E0=E0, eta=eta / Ha, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)
 
-        fxc_modes = [fxc_mode]
+        if fxc_mode:
+            fxc_modes = [fxc_mode]
+
         if do_GW_too:
             fxc_modes.append('GW')
 
@@ -1254,6 +1348,7 @@ class G0W0(G0W0Calculator):
                          exx_vxc_calculator=exx_vxc_calculator,
                          qcache=qcache,
                          ppa=ppa,
+                         mpa=mpa,
                          qpoints=qpoints,
                          **kwargs)
 

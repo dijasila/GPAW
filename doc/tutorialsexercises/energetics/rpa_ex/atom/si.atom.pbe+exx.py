@@ -25,7 +25,7 @@ for L in [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]:
         mode=PW(pwcutoff, force_complex_dtype=True),
         xc='PBE',
         txt='si_isolated_pbe.txt',
-        occupations=FermiDirac(0.01, fixmagmom=True),
+        occupations=FermiDirac(0.01),
         spinpol=True,
         hund=True,
         convergence={'density': 1.e-6},
