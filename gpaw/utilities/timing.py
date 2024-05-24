@@ -117,6 +117,7 @@ class ParallelTimer(DebugTimer):
 class Profiler(Timer):
     def __init__(self, prefix, comm=mpi.world):
         import atexit
+        Timer.__init__(self, 1000)
 
         self.prefix = prefix
         self.comm = comm
@@ -129,14 +130,20 @@ class Profiler(Timer):
         self.u = 1_000_000
 
         # Synchronize in order to have same time reference
+        self.ref = self.get_synchronized_time()
+
+    def get_synchronized_time(self):
         ref = np.zeros(1)
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             ref[0] = time.time()
-        comm.broadcast(ref, 0)
-        self.ref = ref[0]
-        Timer.__init__(self, 1000)
+        self.comm.broadcast(ref, 0)
+        return ref[0]
+
+    def finalize(self):
+        pass
 
     def finish_trace(self):
+        self.finalize()
         self.txt.close()
         self.comm.barrier()
         if self.comm.rank == 0:
@@ -166,6 +173,61 @@ class Profiler(Timer):
                        f""""pid": {self.pid}, "tid": {self.ranktxt}, """
                        f""""ts": {int((time.time()-self.ref)*self.u)}}},\n""")
         Timer.stop(self, name)
+
+
+class GPUProfiler(Profiler):
+    def __init__(self, prefix, comm=mpi.world):
+        Profiler.__init__(self, prefix, comm=comm)
+        import cupy
+        self.cupy = cupy
+        self.gpu_eventstack = []
+        self.gpu_postprocess = []
+
+        # Synchronize
+        self.start_event = self.cupy.cuda.stream.Event()
+        self.comm.barrier()
+        self.cupy.cuda.runtime.deviceSynchronize()
+        self.comm.barrier()
+        self.start_event.record()
+        ref_gpu = self.get_synchronized_time()
+        self.offset = ref_gpu - self.ref
+
+    def finalize(self):
+        self.cupy.cuda.runtime.deviceSynchronize()
+        self.filter_events()
+
+
+    def filter_events(self):
+        ready = []
+        for i, (name, start, stop) in enumerate(self.gpu_postprocess):
+            if not (start.done and stop.done):
+                continue
+            ready.append(i)
+            start_ts = (self.offset + self.cupy.cuda.get_elapsed_time(self.start_event, start) / 1000) * self.u
+            stop_ts = (self.offset + self.cupy.cuda.get_elapsed_time(self.start_event, stop) / 1000) * self.u
+            for ph, ts in [('B', start_ts), ('E', stop_ts)]:
+                self.txt.write(f"""{{"name": "{name}", "cat": "GPU", """
+                               f""""ph": "{ph}", "pid": 1, "tid": """
+                               f"""{self.ranktxt}, """
+                               f""""ts": {int(ts)} }},\n""")
+        for i in reversed(ready):
+            del self.gpu_postprocess[i]
+
+
+    def start(self, name):
+        self.gpu_eventstack.append((name, 
+                                    self.cupy.cuda.stream.Event(),
+                                    self.cupy.cuda.stream.Event()))
+        self.gpu_eventstack[-1][1].record()
+        Profiler.start(self, name)
+    
+    def stop(self, name=None):
+        events = self.gpu_eventstack.pop()
+        events[2].record()
+        self.gpu_postprocess.append(events)
+        Profiler.stop(self, name)
+        if len(self.gpu_postprocess) > 100:
+            self.filter_events()
 
 
 class HPMTimer(Timer):
