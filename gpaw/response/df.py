@@ -326,8 +326,32 @@ class InverseDielectricFunction(DielectricFunctionRelatedData):
         vchi_W = self._get_macroscopic_component(self.vchi_symm_wGG)
         return vchi0_W, vchi_W
 
+    def macroscopic_dielectric_function(self):
+        """Get the macroscopic dielectric function.
+
+        Calculates
+
+                       1
+        ε (q,ω) =  ‾‾‾‾‾‾‾‾
+         M         ε⁻¹(q,ω)
+                    00
+
+        along with the macroscopic dielectric function in the independent-
+        particle random-phase approximation [Rev. Mod. Phys. 74, 601 (2002)],
+
+         IP
+        ε (q,ω) = 1 - v(q) χ⁰(q,ω)
+         M                  00
+
+        that is, neglecting local field effects entirely.
+        """
+        vchi0_W, vchi_W = self.macroscopic_components()
+        eps0_W = 1 - vchi0_W
+        eps_W = 1 / (1 + vchi_W)
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
+
     def dynamic_susceptibility(self):
-        """Get the macroscopic component of χ(q,ω)."""
+        """Get the macroscopic components of χ(q,ω) and χ₀(q,ω)."""
         vchi0_W, vchi_W = self.macroscopic_components()
         v0 = self.v_G[0]  # Macroscopic Coulomb potential (4π/q²)
         return ScalarResponseFunctionSet(self.wd, vchi0_W / v0, vchi_W / v0)
@@ -335,19 +359,22 @@ class InverseDielectricFunction(DielectricFunctionRelatedData):
     def eels_spectrum(self):
         """Get the macroscopic EELS spectrum.
 
-        Here, we define the EELS spectrum to be the spectral part of the
-        inverse dielectric function. In the plane-wave representation,
+        The spectrum is defined as
 
-        EELS(G+q,ω) = -Im ε⁻¹(G+q,ω) = -Im v(G+q) χ(G+q,ω),
-
-        where ε⁻¹(G+q,ω) denotes the G'th diagonal element.
+                                          1
+        EELS(q,ω) ≡ -Im ε⁻¹(q,ω) = -Im ‾‾‾‾‾‾‾.
+                         00            ε (q,ω)
+                                        M
 
         In addition to the many-body spectrum, we also calculate the
-        macroscopic EELS spectrum in the independent-particle random-phase
-        approximation, that is, using the RPA dielectric function ε = 1 - vχ₀
-        and neglecting local field effects [Rev. Mod. Phys. 74, 601 (2002)]:
+        EELS spectrum in the independent-particle random-phase approximation,
+        here defined as
 
-        EELS₀(ω) = -Im 1 / (1 - v(q) χ₀(q,ω)).
+                          1
+        EELS₀(ω) = -Im ‾‾‾‾‾‾‾.
+                        IP
+                       ε (q,ω)
+                        M
         """
         vchi0_W, vchi_W = self.macroscopic_components()
         eels0_W = -(1. / (1. - vchi0_W)).imag
@@ -530,8 +557,8 @@ class DielectricFunctionCalculator:
             *args, **kwargs).dynamic_susceptibility()
 
     def _new_dielectric_function(self, *args, **kwargs):
-        return self.get_dielectric_matrix(
-            *args, **kwargs).dielectric_function()
+        return self.get_inverse_dielectric_function(
+            *args, **kwargs).macroscopic_dielectric_function()
 
     def _new_eels_spectrum(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
