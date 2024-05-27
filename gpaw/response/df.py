@@ -1,4 +1,5 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import sys
 
@@ -75,10 +76,10 @@ class Chi0DysonEquations:
         K(q) = V^(-1/2)(q) K_Hxc(q) V^(-1/2)(q),
 
         where V(q) is the bare Coulomb potential and
-                   ˍ
-        K_Hxc(q) = V(q) + K_xc(q),
-                                 ˍ
-        where the Hartree kernel V(q) might be truncated.
+
+        K_Hxc(q) = K_H(q) + K_xc(q),
+
+        where the Hartree kernel itself might be truncated.
         """
         qpd = self.chi0.qpd
         if self.coulomb.truncation is None:
@@ -130,8 +131,13 @@ class Chi0DysonEquations:
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
         return qpd, chi_wGG, self.wblocks
 
-    def inverse_dielectric_function(self, xc='RPA', direction='x', **xckwargs):
-        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed.
+    def inverse_dielectric_function(self, *args, **kwargs):
+        """Calculate V^(1/2) χ V^(1/2), from which ε⁻¹(q,ω) is constructed."""
+        return InverseDielectricFunction.from_chi0_dyson_eqs(
+            self, *self.calculate_Vchi_symm(*args, **kwargs))
+
+    def calculate_Vchi_symm(self, xc='RPA', direction='x', **xckwargs):
+        """Calculate V^(1/2) χ V^(1/2).
 
         Starting from the TDDFT Dyson equation
 
@@ -168,11 +174,18 @@ class Chi0DysonEquations:
         # Invert Dyson equation
         Vchi_symm_wGG = self.invert_dyson_like_equation(
             Vchi0_symm_wGG, K_GG, reuse_buffer=False)
-        return InverseDielectricFunction.from_chi0_dyson_eqs(
-            self, Vchi0_symm_wGG, Vchi_symm_wGG, V_G)
+        return Vchi0_symm_wGG, Vchi_symm_wGG, V_G
 
     def dielectric_matrix(self, *args, **kwargs):
-        """Calculate the dielectric function ε(q,ω) = 1 - V(q) P(q,ω)."""
+        """Construct the dielectric function ε(q,ω)."""
+        V_G = self.coulomb.V(self.chi0.qpd)
+        if abs(V_G[0]) > 1e-8:
+            return self._dielectric_function(*args, **kwargs)
+        else:
+            return self._modified_dielectric_function(*args, **kwargs)
+
+    def _dielectric_function(self, *args, **kwargs):
+        """Calculate ε(q,ω) = 1 - V(q) P(q,ω) literally."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
         P_wGG = self.polarizability_operator(*args, **kwargs)
         nG = len(V_GG)
@@ -180,6 +193,45 @@ class Chi0DysonEquations:
         for w, P_GG in enumerate(P_wGG):
             eps_wGG[w] = np.eye(nG) - V_GG @ P_GG
         return DielectricMatrixData.from_chi0_dyson_eqs(self, eps_wGG)
+
+    def _modified_dielectric_function(self, xc='RPA', *args, **kwargs):
+        """Calculate ε(q,ω) using modified response functions.
+
+        When using a modified Coulomb potential
+
+        ˍ      ( 0       for G = 0
+        V(q) = <
+               ( V(q)    for G > 0
+
+        one can introduce the local-field corrected dielectric function
+        ˍ                 ˍ
+        ϵ(q,ω) = 1 - V(q) P(q,ω)
+
+        defined so as to yield the correct macroscopic dielectric function
+        ε_M(q,ω) for G=G'=0, including all local-field effects according to the
+        unmodified Coulomb potential V(q) [Rev. Mod. Phys. 74, 601 (2002)].
+                                             ˍ
+        The modified polarizability operator P(q,ω) is itself given by the
+        Dyson-like equation
+        ˍ                        ˍ    ˍ
+        P(q,ω) = P(q,ω) + P(q,ω) V(q) P(q,ω).                        (3)
+
+        In the special of RPA, where P(q,ω) = χ₀(q,ω), one may notice that the
+        Dyson-like equation (3) is exactly identical to the TDDFT Dyson
+        equation (1) when replacing the Hartree-exchange-correlation kernel
+        with the modified Coulomb interaction:
+                    ˍ
+        K_Hxc(q) -> V(q).
+                                                                  ˍ
+        We may thus reuse that functionality to calculate V^(1/2) P V^(1/2)
+                   ˍ
+        from which ϵ(q,ω) can be constructed.
+        """
+        assert xc == 'RPA'
+        VP_symm_wGG, VPbar_symm_wGG, _ = self.calculate_Vchi_symm(
+            xc=xc, *args, **kwargs)
+        return ModifiedDielectricFunction.from_chi0_dyson_eqs(
+            self, VP_symm_wGG, VPbar_symm_wGG)
 
     def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
         """Calculate the polarizability operator P(q,ω).
@@ -198,12 +250,18 @@ class Chi0DysonEquations:
         if xc == 'RPA':
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
+        # WARNING: The TDDFT implementation seems to be invalid in the optical
+        # limit... Namely, the Coulomb interaction V(q) is only well-defined
+        # in products of V^(1/2) χ₀ V^(1/2), why a literal evaluation of
+        # V(q) P(q,ω) does not seem sensible. Furthermore, one should use the
+        # χ₀ body when calculating P(q,ω) and not usual version with head and
+        # wings which are only well defined up to factors of V(q).
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
 
 @dataclass
-class DielectricFunctionData:
+class DielectricFunctionRelatedData:
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
@@ -215,7 +273,7 @@ class DielectricFunctionData:
 
 
 @dataclass
-class InverseDielectricFunction(DielectricFunctionData):
+class InverseDielectricFunction(DielectricFunctionRelatedData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -276,17 +334,32 @@ class InverseDielectricFunction(DielectricFunctionData):
         eels_W = -Vchi_W.imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
-    def _suspicious_polarizability(self, L: float):
-        # thosk notes:
-        # This expression might be valid only for RPA in 2D for q == 0...
-        Vchi0_W, Vchi_W = self.macroscopic_components()
-        alpha0_W = -L / (4 * np.pi) * Vchi0_W
-        alpha_W = -L / (4 * np.pi) * Vchi_W
-        return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
+
+class DielectricFunctionBase(DielectricFunctionRelatedData, ABC):
+    """Base class for the dielectric function ε(q,ω)."""
+
+    @abstractmethod
+    def dielectric_function(self) -> ScalarResponseFunctionSet:
+        """Get the macroscopic dielectric function ε_M(q,ω)."""
+
+    def polarizability(self, L: float):
+        """Get the macroscopic polarizability α_M(q,ω).
+
+        Calculates the macroscopic polarizability
+
+        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+
+        where Λ (given as input L) is the nonperiodic hypervolume of the unit
+        cell.
+        """
+        df = self.dielectric_function()
+        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
+        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
+        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
 
 
 @dataclass
-class DielectricMatrixData(DielectricFunctionData):
+class DielectricMatrixData(DielectricFunctionBase):
     """Data class for the dielectric function ε(q,ω).
 
     The dielectric function is written in terms of the Coulomb potential V and
@@ -314,20 +387,34 @@ class DielectricMatrixData(DielectricFunctionData):
 
         return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
-    def polarizability(self, L: float):
-        """Get the macroscopic polarizability α_M(q,ω).
 
-        Calculates the macroscopic polarizability
+@dataclass
+class ModifiedDielectricFunction(DielectricFunctionBase):
+    """Data class for the local-field corrected dielectric function.
 
-        α_M(q,ω) = Λ/(4π) (ε_M(q,ω) - 1),
+    The field corrected dielectric function,
+    ˍ                 ˍ
+    ϵ(q,ω) = 1 - V(q) P(q,ω),
+                                               ˍ
+    is here represented in terms of V^(1/2)(q) P(q,ω) V^(1/2)(q).
+    """
+    VP_symm_wGG: np.ndarray  # V^(1/2) P V^(1/2)
+    VPbar_symm_wGG: np.ndarray
 
-        where Λ (given as input L) is the nonperiodic hypervolume of the unit
-        cell.
+    def dielectric_function(self):
+        """Get the macroscopic dielectric function ε_M(q,ω).
+
+        By design,
+                   ˍ
+        ε_M(q,ω) = ϵ (q,ω)
+                    00
+
+        when accounting for local field effects.
         """
-        df = self.dielectric_function()
-        alpha0_w = L / (4 * np.pi) * (df.rf0_w - 1.0)
-        alpha_w = L / (4 * np.pi) * (df.rf_w - 1.0)
-        return ScalarResponseFunctionSet(self.wd, alpha0_w, alpha_w)
+        # Without and with local-field effects
+        eps0_W = self.wblocks.all_gather(1. - self.VP_symm_wGG[:, 0, 0])
+        eps_W = self.wblocks.all_gather(1. - self.VPbar_symm_wGG[:, 0, 0])
+        return ScalarResponseFunctionSet(self.wd, eps0_W, eps_W)
 
 
 def nonperiodic_hypervolume(gs):
@@ -421,16 +508,9 @@ class DielectricFunctionCalculator:
             *args, **kwargs).eels_spectrum()
 
     def _new_polarizability(self, *args, **kwargs):
-        hypervol = nonperiodic_hypervolume(self.gs)
-        if self.coulomb.truncation:
-            # Since eps_M = 1.0 for a truncated Coulomb interaction, use
-            # alternative definition of the polarizability, namely
-            # α_M(q,ω) = - Λ/(4π) Vχ_M(q,ω)
-            return self.get_inverse_dielectric_function(
-                *args, **kwargs)._suspicious_polarizability(L=hypervol)
-        else:
-            return self.get_dielectric_matrix(
-                *args, **kwargs).polarizability(L=hypervol)
+        return self.get_dielectric_matrix(
+            *args, **kwargs).polarizability(
+                L=nonperiodic_hypervolume(self.gs))
 
     def get_dielectric_matrix(self, q_c=[0, 0, 0], direction='x', **xckwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
