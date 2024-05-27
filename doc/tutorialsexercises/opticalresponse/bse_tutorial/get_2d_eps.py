@@ -7,23 +7,25 @@ df = DielectricFunction('gs_MoS2.gpw',
                         hilbert=False,
                         ecut=50,
                         nbands=50)
-df_t = DielectricFunction('gs_MoS2.gpw',
-                          frequencies=[0.5],
-                          txt='eps_GG.txt',
-                          hilbert=False,
-                          ecut=50,
-                          nbands=50,
-                          truncation='2D')
 
 for iq in range(22):
-    eps = df.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0])
+    q_c = [iq / 42, iq / 42, 0]
+    eps = df.get_dielectric_matrix(q_c=q_c)
+    epsinv_GG = np.linalg.inv(eps.eps_wGG[0])
 
     # Periodic degrees of freedom
     Gvec_Gv = eps.qpd.get_reciprocal_vectors(add_q=False)
     z0 = eps.qpd.gd.cell_cv[2, 2] / 2  # Center of layer
 
-    epsinv_GG = np.linalg.inv(eps.eps_wGG[0])
-    eps_t = df_t.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0])
+    # Hack our way to get the modified dielectric function,
+    # ˍ            ˍ
+    # ε(q,ω) = 1 - V(q) P(q,ω)
+    #
+    # using the cached chi0
+    chi0_dyson_equation = df.calculate_chi0(q_c)
+    chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
+        truncation='2D')
+    eps_t = chi0_dyson_equation._dielectric_function()
     epsinv_t_GG = np.linalg.inv(eps_t.eps_wGG[0])
 
     epsinv = 0.0
