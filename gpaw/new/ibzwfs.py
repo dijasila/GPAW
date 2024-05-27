@@ -445,7 +445,8 @@ class IBZWaveFunctions(Generic[WFT]):
         try:
             from ase.dft.bandpath import GapInfo
         except ImportError:
-            return  # requires new ASE
+            log('No gapinfo -- requires new ASE')
+            return
 
         try:
             log()

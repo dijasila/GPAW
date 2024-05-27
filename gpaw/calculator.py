@@ -511,7 +511,8 @@ class GPAW(Calculator):
         try:
             from ase.dft.bandgap import GapInfo
         except ImportError:
-            return  # requires new ASE
+            print('No gapinfo -- requires new ASE', file=self.log.fd)
+            return
 
         if len(self.wfs.fermi_levels) == 1:
             try:
