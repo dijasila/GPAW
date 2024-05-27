@@ -14,7 +14,6 @@ import ase.io
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import (Parameters, equal, InputError,
                                         PropertyNotPresent)
-from ase.dft.bandgap import bandgap
 from ase.parallel import paropen
 
 import gpaw.mpi

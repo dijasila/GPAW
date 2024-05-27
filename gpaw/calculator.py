@@ -11,7 +11,6 @@ import gpaw.mpi as mpi
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import Calculator, kpts2ndarray
-from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer

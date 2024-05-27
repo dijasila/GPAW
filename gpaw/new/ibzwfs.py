@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Generator, TypeVar, Generic
 
 import numpy as np
-from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize, as_np
@@ -446,7 +445,7 @@ class IBZWaveFunctions(Generic[WFT]):
         try:
             from ase.dft.bandpath import GapInfo
         except ImportError:
-            return  # requieres new ASE
+            return  # requires new ASE
 
         try:
             log()
