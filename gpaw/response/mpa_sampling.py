@@ -150,3 +150,4 @@ def semi_homogenous_partition(npoles: int) -> Array1D:
     # Sum over the intervals to build the point grid
     w_grid = np.cumsum(dw_n) * dw
     return w_grid
+
