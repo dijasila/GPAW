@@ -484,7 +484,7 @@ class CustomizableDielectricFunction(DielectricFunctionData):
         if self.coulomb is not self.bare_coulomb:
             raise ValueError(
                 'The macroscopic dielectric function is defined in terms of '
-                'the bare Coulomb interaction. To truncate the Hartree'
+                'the bare Coulomb interaction. To truncate the Hartree '
                 'electron-electron correlations, please calculate the inverse '
                 'dielectric function instead.')
         return self.macroscopic_customized_dielectric_function()
@@ -616,8 +616,9 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
-                                    **xckwargs) -> DielectricFunctionData:
+    def _dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
+                                 **xckwargs) -> DielectricFunctionData:
+        # Temporary method until truncation becomes a method input XXX
         chi0_dyson_eqs = self.calculate_chi0(q_c)
         if self.coulomb.truncation:
             # eps: BareDielectricFunction
@@ -645,8 +646,11 @@ class DielectricFunctionCalculator:
             **xckwargs) -> CustomizableDielectricFunction:
         # NB: ignores self.coulomb while this still exists XXX
         chi0_dyson_equation = self.calculate_chi0(q_c)
-        chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
-            truncation=truncation)
+        if truncation is None:
+            chi0_dyson_equation.coulomb = chi0_dyson_equation.bare_coulomb
+        else:
+            chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
+                truncation=truncation)
         return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
@@ -789,7 +793,7 @@ class DielectricFunction(DielectricFunctionCalculator):
         alpha_w: np.ndarray
             Polarizability calculated with local-field corrections.
         """
-        pol = self.get_dielectric_function_new(
+        pol = self._dielectric_function_new(
             *args, **kwargs).polarizability()
         if filename:
             pol.write(filename)

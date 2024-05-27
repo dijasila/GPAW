@@ -41,7 +41,7 @@ def test_response_diamond_absorption(in_tmp_dir):
     dfcalc = DielectricFunction(
         'C.gpw', eta=0.25, ecut=50,
         frequencies=np.linspace(0, 24., 241), hilbert=False)
-    eps = dfcalc.get_dielectric_function_new()
+    eps = dfcalc.get_literal_dielectric_function()
 
     # Test the new interface to the dielectric constant
     eM1, eM2 = eps.dielectric_constant()
