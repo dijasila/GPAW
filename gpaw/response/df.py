@@ -282,9 +282,9 @@ class DielectricFunctionBase(ABC):
 
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
-        cd = chi0_dyson_eqs.gs.cell_descriptor
         chi0 = chi0_dyson_eqs.chi0
-        return cls(cd, chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks,
+        return cls(chi0_dyson_eqs.gs.cd, chi0.qpd,
+                   chi0.wd, chi0_dyson_eqs.wblocks,
                    chi0_dyson_eqs.coulomb, chi0_dyson_eqs.bare_coulomb,
                    *args, **kwargs)
 

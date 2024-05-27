@@ -840,7 +840,7 @@ class VChi:
 
     def alpha(self):
         assert self.optical
-        L = self.gs.cell_descriptor.nonperiodic_hypervolume
+        L = self.gs.cd.nonperiodic_hypervolume
         return -L * self.vchi_w / (4 * np.pi)
 
     def dielectric_function(self, filename='df_bse.csv'):

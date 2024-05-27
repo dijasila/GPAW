@@ -127,7 +127,7 @@ class ResponseGroundStateAdapter:
         return width
 
     @cached_property
-    def cell_descriptor(self):
+    def cd(self):
         return CellDescriptor(self.gd.cell_cv, self.pbc)
 
     @property
