@@ -58,7 +58,7 @@ class SJM(SolvationGPAW):
           Optionally, the 'excess_electrons' keyword can be supplied to specify
           the initial guess of the number of electrons.
         - Constant inner potential: The target potential (expressed as a inner
-          potential) can be specified with the method='CIP' and 
+          potential) can be specified with the method='CIP' and
           'target_potential' keywords. The CIP-DFT method is detailled in
           https://doi.org/10.1038/s41524-023-01184-4
 
@@ -70,20 +70,20 @@ class SJM(SolvationGPAW):
     used in subsequent free-energy calculations.
 
     Within this method, the potential is expressed as the top-side work
-    function of the slab or the inner potential of the electrode. 
-    In both cases, a potential of 0 V_SHE corresponds to target_potential of 
+    function of the slab or the inner potential of the electrode.
+    In both cases, a potential of 0 V_SHE corresponds to target_potential of
     roughly 4.4 eV. (That is, the user should specify
     target_potential as 4.4 in this case.) Because this method is
     attempting to bring either the work function or the inner potential to a 
-    target value, the work function and electrostatics need to be 
-    well-converged. For this reason, the 'work function' keyword is 
-    automatically added to the SCF convergence dictionary with a value of 
+    target value, the work function and electrostatics need to be
+    well-converged. For this reason, the 'work function' keyword is
+    automatically added to the SCF convergence dictionary with a value of
     0.001. This can be overriden by the user.
 
     All methods requires a dipole correction, and this is turned on
     automatically, but can be overridden with the poissonsolver keyword.
 
-    When using method='CIP', mixed Dirichlet/Neumann boundary conditions 
+    When using method='CIP', mixed Dirichlet/Neumann boundary conditions
     for the electrostatic potential are required.
 
     The SJM class takes a single argument, the sj dictionary. All other
