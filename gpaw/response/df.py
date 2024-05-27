@@ -629,18 +629,20 @@ class DielectricFunctionCalculator:
         return eps
 
     def get_bare_dielectric_function(self, q_c=[0, 0, 0], direction='x',
-                                     **xckwargs):
+                                     **xckwargs) -> BareDielectricFunction:
         return self.calculate_chi0(q_c).bare_dielectric_function(
             direction=direction, **xckwargs)
 
-    def get_literal_dielectric_function(self, *args, **kwargs):
+    def get_literal_dielectric_function(
+            self, *args, **kwargs) -> CustomizableDielectricFunction:
         """Calculate the dielectric function ε(q,ω) = 1 - v(q) P(q,ω)."""
         return self.get_customized_dielectric_function(
             truncation=None, *args, **kwargs)
 
-    def get_customized_dielectric_function(self, *, truncation: str | None,
-                                           q_c=[0, 0, 0], direction='x',
-                                           **xckwargs):
+    def get_customized_dielectric_function(
+            self, *, truncation: str | None,
+            q_c=[0, 0, 0], direction='x',
+            **xckwargs) -> CustomizableDielectricFunction:
         # NB: ignores self.coulomb while this still exists XXX
         chi0_dyson_equation = self.calculate_chi0(q_c)
         chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
@@ -648,12 +650,14 @@ class DielectricFunctionCalculator:
         return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
-    def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',
-                                        **xckwargs):
+    def get_inverse_dielectric_function(
+            self, q_c=[0, 0, 0], direction='x',
+            **xckwargs) -> InverseDielectricFunction:
         return self.calculate_chi0(q_c).inverse_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
+        # Used by the QEH code
         return self.calculate_chi0(q_c).rpa_density_response(
             direction=direction, qinf_v=qinf_v)
 
