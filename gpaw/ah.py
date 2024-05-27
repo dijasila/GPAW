@@ -60,6 +60,13 @@ class AppelbaumHamann(BaseSetup):
         self.dO_ii = np.zeros((1, 1))
         self.type = 'ah'
         self.fingerprint = None
+        self.rgd = None
+        self.rcut_j = [1.5]
+        self.data = self
+        self.phit_jg = None
+        self.phi_jg = None
+        self.N0_q = None
+        self.nabla_iiv = np.zeros((1, 1, 3))
 
     def build(self, basis):
         if basis is None:

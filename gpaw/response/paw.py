@@ -44,7 +44,7 @@ class LeanPAWDataset:
         # Maximum angular momentum index l
         self.lmax = np.max(self.l_j)
         # Grid cutoff to create spline representation
-        self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
+        #self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
         # Set up cache
         self.dn_g_cache = {}
