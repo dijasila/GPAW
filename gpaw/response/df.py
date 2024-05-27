@@ -204,12 +204,6 @@ class Chi0DysonEquations:
             vchi0_symm_wGG, K_GG, reuse_buffer=False)
         return vchi0_symm_wGG, vchi_symm_wGG
 
-    def dielectric_function(self, *args, **kwargs):
-        if self.coulomb.truncation:
-            return self.bare_dielectric_function(*args, **kwargs)
-        else:
-            return self.customized_dielectric_function(*args, **kwargs)
-
     def customized_dielectric_function(self, *args, **kwargs):
         """Calculate Ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
@@ -286,7 +280,7 @@ class Chi0DysonEquations:
 
 
 @dataclass
-class DielectricFunctionBase(ABC):
+class DielectricFunctionData(ABC):
     cd: CellDescriptor
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
@@ -382,7 +376,7 @@ class DielectricFunctionBase(ABC):
 
 
 @dataclass
-class InverseDielectricFunction(DielectricFunctionBase):
+class InverseDielectricFunction(DielectricFunctionData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -443,7 +437,7 @@ class InverseDielectricFunction(DielectricFunctionBase):
 
 
 @dataclass
-class CustomizableDielectricFunction(DielectricFunctionBase):
+class CustomizableDielectricFunction(DielectricFunctionData):
     """Data class for customized dielectric functions Ε(q,ω).
 
     Ε(q,ω) is customizable in the sense that bare Coulomb interaction v(q) is
@@ -497,7 +491,7 @@ class CustomizableDielectricFunction(DielectricFunctionBase):
 
 
 @dataclass
-class BareDielectricFunction(DielectricFunctionBase):
+class BareDielectricFunction(DielectricFunctionData):
     """Data class for the bare (unscreened) dielectric function.
 
     The bare dielectric function is defined in terms of the unscreened
@@ -581,7 +575,7 @@ class DielectricFunctionCalculator:
 
         self._chi0cache: dict = {}
 
-    def calculate_chi0(self, q_c: list | np.ndarray):
+    def calculate_chi0(self, q_c: list | np.ndarray) -> Chi0DysonEquations:
         """Calculates the response function.
 
         Calculate the response function for a specific momentum.
@@ -623,9 +617,16 @@ class DielectricFunctionCalculator:
         return self._chi0cache[key]
 
     def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
-                                    **xckwargs):
-        return self.calculate_chi0(q_c).dielectric_function(
-            direction=direction, **xckwargs)
+                                    **xckwargs) -> DielectricFunctionData:
+        chi0_dyson_eqs = self.calculate_chi0(q_c)
+        if self.coulomb.truncation:
+            # eps: BareDielectricFunction
+            method = chi0_dyson_eqs.bare_dielectric_function
+        else:
+            # eps: CustomizableDielectricFunction
+            method = chi0_dyson_eqs.customized_dielectric_function
+        eps = method(direction=direction, **xckwargs)
+        return eps
 
     def get_bare_dielectric_function(self, q_c=[0, 0, 0], direction='x',
                                      **xckwargs):
