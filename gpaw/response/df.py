@@ -221,7 +221,7 @@ class Chi0DysonEquations:
             self, eps_wGG)
 
     def bare_dielectric_function(self, xc='RPA', direction='x', **ignored):
-        """Calculate v^(1/2) ̄χ v^(1/2), from which ̄ϵ = 1 - v ̄χ is constructed.
+        """Calculate v^(1/2) ̄χ v^(1/2), from which ̄ϵ=1-v ̄χ is constructed.
 
         The unscreened susceptibility is given by the Dyson-like equation
         ˍ                        ˍ    ˍ
