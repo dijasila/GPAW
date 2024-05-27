@@ -622,14 +622,6 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def _new_eels_spectrum(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).eels_spectrum()
-
-    def _new_polarizability(self, *args, **kwargs):
-        return self.get_dielectric_function_new(
-            *args, **kwargs).polarizability()
-
     def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
                                     **xckwargs):
         return self.calculate_chi0(q_c).dielectric_function(
@@ -773,7 +765,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         eels_w: np.ndarray
             Fully screened EELS spectrum.
         """
-        eels = self._new_eels_spectrum(*args, **kwargs)
+        eels = self.get_inverse_dielectric_function(
+            *args, **kwargs).eels_spectrum()
         if filename:
             eels.write(filename)
         return eels.unpack()
@@ -791,7 +784,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         alpha_w: np.ndarray
             Polarizability calculated with local-field corrections.
         """
-        pol = self._new_polarizability(*args, **kwargs)
+        pol = self.get_dielectric_function_new(
+            *args, **kwargs).polarizability()
         if filename:
             pol.write(filename)
         return pol.unpack()
