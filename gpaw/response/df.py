@@ -238,7 +238,10 @@ class Chi0DysonEquations:
         We may thus reuse that functionality to calculate v^(1/2) χ v^(1/2).
         """
         if xc != 'RPA':
-            raise NotImplementedError
+            raise NotImplementedError(
+                'Calculation of the bare dielectric function within TDDFT has '
+                'not yet been implemented. For TDDFT dielectric properties, '
+                'please calculate the inverse dielectric function.')
         vP_symm_wGG, vchibar_symm_wGG = self.calculate_vchi_symm(
             xc=xc, direction=direction, modified=True)
         return BareDielectricFunction.from_chi0_dyson_eqs(
