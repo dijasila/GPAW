@@ -455,7 +455,7 @@ class IBZWaveFunctions(Generic[WFT]):
             log(gapinfo.description())
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
-            pass
+            log('Could not find a gap')
 
     def make_sure_wfs_are_read_from_gpw_file(self):
         for wfs in self:
