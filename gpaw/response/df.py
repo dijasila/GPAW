@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sys
 
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 
 import gpaw.mpi as mpi
 
@@ -19,6 +19,7 @@ from gpaw.response.pair import get_gs_and_context
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from gpaw.response.groundstate import CellDescriptor
     from gpaw.response.frequencies import FrequencyDescriptor
     from gpaw.response.pair_functions import SingleQPWDescriptor
 
@@ -272,6 +273,7 @@ class Chi0DysonEquations:
 
 @dataclass
 class DielectricFunctionBase(ABC):
+    cd: CellDescriptor
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
@@ -281,7 +283,8 @@ class DielectricFunctionBase(ABC):
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
         chi0 = chi0_dyson_eqs.chi0
-        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks,
+        return cls(chi0_dyson_eqs.gs.cd, chi0.qpd,
+                   chi0.wd, chi0_dyson_eqs.wblocks,
                    chi0_dyson_eqs.coulomb, chi0_dyson_eqs.bare_coulomb,
                    *args, **kwargs)
 
@@ -321,7 +324,7 @@ class DielectricFunctionBase(ABC):
         eels_W = -(1. / eps_W).imag
         return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
-    def polarizability(self, L: float):
+    def polarizability(self):
         """Get the macroscopic polarizability α_M(q,ω).
 
         In the special case where dielectric properties are calculated
@@ -347,9 +350,10 @@ class DielectricFunctionBase(ABC):
         """
         assert self.coulomb is self.bare_coulomb
         _, eps0_W, eps_W = self.macroscopic_dielectric_function().arrays
-        return self._polarizability(eps0_W, eps_W, L=L)
+        return self._polarizability(eps0_W, eps_W)
 
-    def _polarizability(self, eps0_W, eps_W, L: float):
+    def _polarizability(self, eps0_W, eps_W):
+        L = self.cd.nonperiodic_hypervolume
         alpha0_W = L / (4 * np.pi) * (eps0_W - 1)
         alpha_W = L / (4 * np.pi) * (eps_W - 1)
         return ScalarResponseFunctionSet(self.wd, alpha0_W, alpha_W)
@@ -519,7 +523,7 @@ class BareDielectricFunction(DielectricFunctionBase):
         assert self.coulomb is self.bare_coulomb
         return self.macroscopic_bare_dielectric_function()
 
-    def polarizability(self, L: float):
+    def polarizability(self):
         """Get the macroscopic polarizability α_M(q,ω).
 
         In the most general case, the electronic polarizability can be defined
@@ -532,34 +536,7 @@ class BareDielectricFunction(DielectricFunctionBase):
         to achieve convergence in a feasible way.
         """
         _, eps0_W, eps_W = self.macroscopic_bare_dielectric_function().arrays
-        return self._polarizability(eps0_W, eps_W, L=L)
-
-
-def nonperiodic_hypervolume(gs):
-    """Get the hypervolume of the cell along nonperiodic directions.
-
-    Returns the hypervolume Λ in units of Å, where
-
-    Λ = 1        in 3D
-    Λ = L        in 2D, where L is the out-of-plane cell vector length
-    Λ = A        in 1D, where A is the transverse cell area
-    Λ = V        in 0D, where V is the cell volume
-    """
-    cell_cv = gs.gd.cell_cv
-    pbc_c = gs.pbc
-    if pbc_c.all():
-        return 1.
-    else:
-        if sum(pbc_c) > 0:
-            # In 1D and 2D, we assume the cartesian representation of the unit
-            # cell to be block diagonal, separating the periodic and
-            # nonperiodic cell vectors in different blocks.
-            assert np.allclose(cell_cv[~pbc_c][:, pbc_c], 0.) and \
-                np.allclose(cell_cv[pbc_c][:, ~pbc_c], 0.), \
-                "In 1D and 2D, please put the periodic/nonperiodic axis " \
-                "along a cartesian component"
-        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
-        return V * Bohr**sum(~pbc_c)  # Bohr -> Å
+        return self._polarizability(eps0_W, eps_W)
 
 
 class DielectricFunctionCalculator:
@@ -627,8 +604,7 @@ class DielectricFunctionCalculator:
 
     def _new_polarizability(self, *args, **kwargs):
         return self.get_dielectric_function_new(
-            *args, **kwargs).polarizability(
-                L=nonperiodic_hypervolume(self.gs))
+            *args, **kwargs).polarizability()
 
     def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
                                     **xckwargs):
