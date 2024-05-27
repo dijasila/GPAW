@@ -260,12 +260,23 @@ class Chi0DysonEquations:
         if xc == 'RPA':
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
-        # WARNING: The TDDFT implementation seems to be invalid in the optical
-        # limit... Namely, the Coulomb interaction V(q) is only well-defined
-        # in products of V^(1/2) χ₀ V^(1/2), why a literal evaluation of
-        # V(q) P(q,ω) does not seem sensible. Furthermore, one should use the
-        # χ₀ body when calculating P(q,ω) and not usual version with head and
-        # wings which are only well defined up to factors of V(q).
+        if self.chi0.qpd.optical_limit:
+            raise NotImplementedError(
+                'Calculation of the TDDFT dielectric function via the '
+                'polarizability operator has not been implemented for the '
+                'optical limit. Please calculate the inverse dielectric '
+                'function instead.')
+            # The TDDFT implementation here is invalid in the optical limit
+            # since the chi0_wGG variable already contains Coulomb effects,
+            # chi0_wGG ~ V^(1/2) χ₀ V^(1/2)/(4π).
+            # Furthermore, a direct evaluation of V(q) P(q,ω) does not seem
+            # sensible, since it does not account for the exact cancellation
+            # of the q-dependences of the two functions.
+            # In principle, one could treat the v(q) P(q,ω) product in
+            # perturbation theory, similar to the χ₀(q,ω) v(q) product in the
+            # Dyson equation for χ, but unless we need to calculate the TDDFT
+            # polarizability using truncated kernels, this isn't really
+            # necessary.
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
