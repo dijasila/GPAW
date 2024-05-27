@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sys
 
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 
 import gpaw.mpi as mpi
 
@@ -19,6 +19,7 @@ from gpaw.response.pair import get_gs_and_context
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from gpaw.response.groundstate import CellDescriptor
     from gpaw.response.frequencies import FrequencyDescriptor
     from gpaw.response.pair_functions import SingleQPWDescriptor
 
@@ -281,7 +282,7 @@ class DielectricFunctionBase(ABC):
 
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
-        cd = CellDescriptor.from_gs(chi0_dyson_eqs.gs)
+        cd = chi0_dyson_eqs.gs.cell_descriptor
         chi0 = chi0_dyson_eqs.chi0
         return cls(cd, chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks,
                    chi0_dyson_eqs.coulomb, chi0_dyson_eqs.bare_coulomb,
@@ -536,45 +537,6 @@ class BareDielectricFunction(DielectricFunctionBase):
         """
         _, eps0_W, eps_W = self.macroscopic_bare_dielectric_function().arrays
         return self._polarizability(eps0_W, eps_W)
-
-
-@dataclass
-class CellDescriptor:
-    cell_cv: np.ndarray
-    pbc_c: np.ndarray
-
-    @classmethod
-    def from_gs(cls, gs):
-        return cls(gs.gd.cell_cv, gs.pbc)
-
-    @property
-    def nonperiodic_hypervolume(self):
-        return nonperiodic_hypervolume(self.cell_cv, self.pbc_c)
-
-
-def nonperiodic_hypervolume(cell_cv, pbc_c):
-    """Get the hypervolume of the cell along nonperiodic directions.
-
-    Returns the hypervolume Λ in units of Å, where
-
-    Λ = 1        in 3D
-    Λ = L        in 2D, where L is the out-of-plane cell vector length
-    Λ = A        in 1D, where A is the transverse cell area
-    Λ = V        in 0D, where V is the cell volume
-    """
-    if pbc_c.all():
-        return 1.
-    else:
-        if sum(pbc_c) > 0:
-            # In 1D and 2D, we assume the cartesian representation of the unit
-            # cell to be block diagonal, separating the periodic and
-            # nonperiodic cell vectors in different blocks.
-            assert np.allclose(cell_cv[~pbc_c][:, pbc_c], 0.) and \
-                np.allclose(cell_cv[pbc_c][:, ~pbc_c], 0.), \
-                "In 1D and 2D, please put the periodic/nonperiodic axis " \
-                "along a cartesian component"
-        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
-        return V * Bohr**sum(~pbc_c)  # Bohr -> Å
 
 
 class DielectricFunctionCalculator:
