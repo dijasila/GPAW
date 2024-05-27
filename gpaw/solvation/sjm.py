@@ -48,7 +48,7 @@ class SJM(SolvationGPAW):
     Further details are given in https://doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
 
-    The method can be run in two modes:
+    The method can be run in three modes:
 
         - Constant charge: The number of excess electrons in the simulation
           can be directly specified with the 'excess_electrons' keyword,
@@ -57,6 +57,10 @@ class SJM(SolvationGPAW):
           function) can be specified with the 'target_potential' keyword.
           Optionally, the 'excess_electrons' keyword can be supplied to specify
           the initial guess of the number of electrons.
+        - Constant inner potential: The target potential (expressed as a inner
+          potential) can be specified with the method='CIP' and 
+          'target_potential' keywords. The CIP-DFT method is detailled in
+          https://doi.org/10.1038/s41524-023-01184-4
 
     By default, this method writes the grand-potential energy to the output;
     that is, the energy that has been adjusted with `- \mu N` (in this case,
@@ -66,16 +70,21 @@ class SJM(SolvationGPAW):
     used in subsequent free-energy calculations.
 
     Within this method, the potential is expressed as the top-side work
-    function of the slab. Therefore, a potential of 0 V_SHE corresponds to
-    a work function of roughly 4.4 eV. (That is, the user should specify
+    function of the slab or the inner potential of the electrode. 
+    In both cases, a potential of 0 V_SHE corresponds to target_potential of 
+    roughly 4.4 eV. (That is, the user should specify
     target_potential as 4.4 in this case.) Because this method is
-    attempting to bring the work function to a target value, the work
-    function itself needs to be well-converged. For this reason, the
-    'work function' keyword is automatically added to the SCF convergence
-    dictionary with a value of 0.001. This can be overriden by the user.
+    attempting to bring either the work function or the inner potential to a 
+    target value, the work function and electrostatics need to be 
+    well-converged. For this reason, the 'work function' keyword is 
+    automatically added to the SCF convergence dictionary with a value of 
+    0.001. This can be overriden by the user.
 
-    This method requires a dipole correction, and this is turned on
+    All methods requires a dipole correction, and this is turned on
     automatically, but can be overridden with the poissonsolver keyword.
+
+    When using method='CIP', mixed Dirichlet/Neumann boundary conditions 
+    for the electrostatic potential are required.
 
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
@@ -237,6 +246,7 @@ class SJM(SolvationGPAW):
         deprecated_keys = ['ne', 'potential', 'write_grandcanonical_energy',
                            'potential_equilibration_mode', 'dpot',
                            'max_pot_deviation', 'doublelayer', 'verbose']
+
         msg = ('{:s} is no longer a supported keyword argument for the SJM '
                'class. All SJM arguments should be sent in via the "sj" '
                'dict.')
@@ -262,6 +272,7 @@ class SJM(SolvationGPAW):
         # We handle 'sj' and 'background_charge' internally; passing to GPAW's
         # set function will trigger a deletion of the density, etc.
         sj_changes = kwargs.pop('sj', {})
+
         try:
             sj_changes = {key: value for key, value in sj_changes.items()
                           if not equal(value, p[key])}
@@ -275,15 +286,16 @@ class SJM(SolvationGPAW):
         p.update(sj_changes)
 
         if p.method == 'CIP':
-
+            
+            assert p['dirichlet'] is True
             self.fill_cip_keywords(p.cip)
 
             if p.cip['inner_region'] is None and p.cip['autoinner'] is None:
                 raise RuntimeError("The inner region cannot be none" +
                                    "when using inner potential as the" +
                                    "reference. Please, set up the" +
-                                   "bottom/top values defining the bulk of " +
-                                   "the electrode or set autoinner to True")
+                                   "either bottom/top values defining the" +
+                                   "electrode bulk or set autoinner to True")
 
             if p.cip['inner_region'] is not None:
                 p.cip['inner_region'] = np.array(p.inner_region)
