@@ -444,11 +444,16 @@ class IBZWaveFunctions(Generic[WFT]):
                         f'    {e2:10.3f}   {f2:9.3f}')
 
         try:
+            from ase.dft.bandpath import GapInfo
+        except ImportError:
+            return  # requieres new ASE
+
+        try:
             log()
-            bandgap(eigenvalues=eig_skn,
-                    efermi=fl[0],
-                    output=log.fd,
-                    kpts=ibz.kpt_kc)
+            fermilevel = fl[0]
+            gapinfo = GapInfo(eigenvalues=eig_skn - fermilevel,
+                              kpts=ibz.kpt_kc)
+            log(gapinfo.description())
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             pass

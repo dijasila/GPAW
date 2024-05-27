@@ -565,13 +565,7 @@ class SJM(SolvationGPAW):
         self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
         self.wfs.summary(self.log)
-        if len(self.wfs.fermi_levels) == 1:
-            try:
-                bandgap(self,
-                        output=self.log.fd,
-                        efermi=self.wfs.fermi_level * Ha)
-            except ValueError:
-                pass
+        self._print_gapinfo()
         self.log.fd.flush()
 
     def _create_jellium(self):

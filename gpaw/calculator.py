@@ -508,18 +508,27 @@ class GPAW(Calculator):
                 else:
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
+    def _print_gapinfo(self):
+        try:
+            from ase.dft.bandgap import GapInfo
+        except ImportError:
+            return  # requires new ASE
+
+        if len(self.wfs.fermi_levels) == 1:
+            try:
+                gaptext = GapInfo.fromcalc(self).description()
+            except ValueError:
+                gaptext = 'Could not find a gap'
+
+            print(gaptext, file=self.log.fd)
+
     def summary(self):
         self.hamiltonian.summary(self.wfs, self.log)
         self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
         self.wfs.summary(self.log)
-        if len(self.wfs.fermi_levels) == 1:
-            try:
-                bandgap(self,
-                        output=self.log.fd,
-                        efermi=self.wfs.fermi_level * Ha)
-            except ValueError:
-                pass
+        self._print_gapinfo()
+
         self.log.fd.flush()
 
     def set(self, **kwargs):
