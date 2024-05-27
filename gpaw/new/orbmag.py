@@ -19,9 +19,16 @@ The orbital magnetic moments are returned in units of μ_B without the sign of
 the negative electronic charge, q = - e.
 """
 
+from itertools import chain
+
+from ase.parallel import parprint
+from ase.units import Ha
+from ase.utils.timing import Timer
 import numpy as np
+
 from gpaw.new import zips
 from gpaw.spinorbit import get_L_vlmm
+from gpaw.utilities.progressbar import ProgressBar
 
 L_vlmm = get_L_vlmm()
 
@@ -93,7 +100,7 @@ def modern_theory(mmedata, bands=None, fermishift=None):
     timer = Timer()
 
     # Convert input in eV to Ha
-    eshift /= Ha
+    fermishift /= Ha
 
     # Load the required data
     comm = mmedata.comm
@@ -105,10 +112,11 @@ def modern_theory(mmedata, bands=None, fermishift=None):
                 nb = len(list(data_k.values())[0][1])
                 bands = range(0, nb)
 
-    parprint(f'Calculating orbital magnetization vector (in {comm.size:d} cores).')
+    parprint('Calculating orbital magnetization vector ' +
+             f'(in {comm.size:d} cores).')
     orbmag_v = np.zeros(3, complex)
 
-    with timer('Performing Brillouin zone integral')
+    with timer('Performing Brillouin zone integral'):
         # Initial call to print 0 % progress
         if master == 0:
             count = 0
@@ -151,8 +159,6 @@ def modern_theory(mmedata, bands=None, fermishift=None):
             pb.finish()
         with timer('Summing over cores'):
             comm.sum(orbmag_v)
-
-        
 
     if master:
         timer.write()
