@@ -130,12 +130,6 @@ class ResponseGroundStateAdapter:
     def cell_descriptor(self):
         return CellDescriptor(self.gd.cell_cv, self.pbc)
 
-    def nonpbc_cell_product(self):
-        """Volume, area, or length, taken in all non-periodic directions."""
-        nonpbc = ~self.pbc
-        cell_cv = self.gd.cell_cv
-        return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
-
     @property
     def nt_sR(self):
         # Used by localft and fxc_kernels

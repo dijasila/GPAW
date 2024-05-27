@@ -840,12 +840,8 @@ class VChi:
 
     def alpha(self):
         assert self.optical
-        pbc_c = self.gs.pbc
-        V = self.gs.nonpbc_cell_product()
-
-        alpha_w = -V * self.vchi_w / (4 * np.pi)
-        alpha_w *= Bohr**(sum(~pbc_c))
-        return alpha_w
+        L = self.gs.cell_descriptor.nonperiodic_hypervolume
+        return -L * self.vchi_w / (4 * np.pi)
 
     def dielectric_function(self, filename='df_bse.csv'):
         """Returns and writes real and imaginary part of the dielectric
