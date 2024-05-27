@@ -359,7 +359,12 @@ class DielectricFunctionBase(ABC):
         polarizability in the relevant independent-particle approximation by
         replacing ϵ_M with ε_M^(IP).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'When using a truncated Coulomb kernel, the polarizability '
+                'cannot be calculated based on the macroscopic dielectric '
+                'function. Please calculate the bare dielectric function '
+                'instead.')
         _, eps0_W, eps_W = self.macroscopic_dielectric_function().arrays
         return self._polarizability(eps0_W, eps_W)
 
@@ -476,7 +481,12 @@ class CustomizableDielectricFunction(DielectricFunctionBase):
 
         In the special case V(q) = v(q), Ε_M(q,ω) = ε_M(q,ω).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'The macroscopic dielectric function is defined in terms of '
+                'the bare Coulomb interaction. To truncate the Hartree'
+                'electron-electron correlations, please calculate the inverse '
+                'dielectric function instead.')
         return self.macroscopic_customized_dielectric_function()
 
 
@@ -531,7 +541,12 @@ class BareDielectricFunction(DielectricFunctionBase):
 
         ε_M(q,ω) = ϵ_M(q,ω).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'The macroscopic dielectric function cannot be obtained from '
+                'the bare dielectric function calculated based on a truncated '
+                'Coulomb interaction. Please calculate the inverse dielectric '
+                'function instead')
         return self.macroscopic_bare_dielectric_function()
 
     def polarizability(self):
