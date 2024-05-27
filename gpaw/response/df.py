@@ -221,14 +221,14 @@ class Chi0DysonEquations:
             self, eps_wGG)
 
     def bare_dielectric_function(self, xc='RPA', direction='x', **ignored):
-        """Calculate v^(1/2) ̄χ v^(1/2), from which ̄ϵ is constructed.
+        """Calculate v^(1/2) ̄χ v^(1/2), from which ̄ϵ = 1 - v ̄χ is constructed.
 
         The unscreened susceptibility is given by the Dyson-like equation
         ˍ                        ˍ    ˍ
         χ(q,ω) = P(q,ω) + P(q,ω) V(q) χ(q,ω),                        (3)
 
-        In the special of RPA, where P(q,ω) = χ₀(q,ω), one may notice that the
-        Dyson-like equation (3) is exactly identical to the TDDFT Dyson
+        In the special case of RPA, where P(q,ω) = χ₀(q,ω), one may notice that
+        the Dyson-like equation (3) is exactly identical to the TDDFT Dyson
         equation (1) when replacing the Hartree-exchange-correlation kernel
         with the modified Coulomb interaction:
                     ˍ
