@@ -71,3 +71,90 @@ def calculate_orbmag_from_density(D_asii, n_aj, l_aj):
                                              L_vlmm[v][l]).real
             Ni += Nm
     return orbmag_av
+
+
+def modern_theory(mmedata, bands=None, fermishift=None):
+    """
+    Calculates the orbital magnetization vector for the unit cell
+    in units of Bohr magnetons / Bohr radii^3.
+
+    Parameters
+    ----------
+    mmedata
+        Data object of class NLOData. Contains energies wrt. Fermi level,
+        occupancies and momentum matrix elements.
+    bands
+        Range of band indices over which the summation is performed.
+    fermishift
+        Shift of the Fermi energy (in eV).
+    """
+
+    # Start timer
+    timer = Timer()
+
+    # Convert input in eV to Ha
+    eshift /= Ha
+
+    # Load the required data
+    comm = mmedata.comm
+    master = (comm.rank == 0)
+    with timer('Distributing matrix elements'):
+        data_k = mmedata.distribute()
+        if data_k:
+            if bands is None:
+                nb = len(list(data_k.values())[0][1])
+                bands = range(0, nb)
+
+    parprint(f'Calculating orbital magnetization vector (in {comm.size:d} cores).')
+    orbmag_v = np.zeros(3, complex)
+
+    with timer('Performing Brillouin zone integral')
+        # Initial call to print 0 % progress
+        if master == 0:
+            count = 0
+            ncount = len(data_k)
+            pb = ProgressBar()
+
+        with timer('Summing over bands'):
+            for dk, f_n, E_n, p_vnn in data_k.values():
+                px_nn = p_vnn[0]
+                py_nn = p_vnn[1]
+                pz_nn = p_vnn[2]
+
+                occ_n = f_n * dk
+
+                for n1 in bands:
+                    occ = occ_n[n1]
+                    En1 = E_n[n1]
+                    for n2 in chain(range(bands.start, n1),
+                                    range(n1 + 1, bands.stop)):
+                        factor = occ * (E_n[n2] + En1) / (E_n[n2] - En1)**2
+
+                        orbmag_v[0] += factor * np.imag(
+                            py_nn[n1, n2] * pz_nn[n2, n1] -
+                            pz_nn[n1, n2] * py_nn[n2, n1])
+                        orbmag_v[1] += factor * np.imag(
+                            pz_nn[n1, n2] * px_nn[n2, n1] -
+                            px_nn[n1, n2] * pz_nn[n2, n1])
+                        orbmag_v[2] += factor * np.imag(
+                            px_nn[n1, n2] * py_nn[n2, n1] -
+                            py_nn[n1, n2] * px_nn[n2, n1])
+
+                # Update progress bar
+                if master:
+                    pb.update(count / ncount)
+                    count += 1
+
+            orbmag_v /= 8 * np.pi**3
+
+        if master:
+            pb.finish()
+        with timer('Summing over cores'):
+            comm.sum(orbmag_v)
+
+        
+
+    if master:
+        timer.write()
+
+    return orbmag_v
