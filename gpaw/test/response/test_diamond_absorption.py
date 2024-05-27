@@ -66,17 +66,24 @@ def test_response_diamond_absorption(in_tmp_dir):
     assert w == pytest.approx(w_, abs=0.01)
     assert I == pytest.approx(I_, abs=0.01)
 
-    # To do XXX
-    # * rpa consistency
-    # * tddft
+    # Test that the macroscopic dielectric function can be calculated also from
+    # the inverse dielectric function and the bare dielectric function
+    epsinv = dfcalc.get_inverse_dielectric_function()
+    _, _, epsM_frominv_w = epsinv.macroscopic_dielectric_function().arrays
+    assert epsM_frominv_w == pytest.approx(epsM_w, rel=1e-6)
+    epsbare = dfcalc.get_bare_dielectric_function()
+    _, _, epsM_frombare_w = epsbare.macroscopic_dielectric_function().arrays
+    assert epsM_frombare_w == pytest.approx(epsM_w, rel=1e-6)
+
+    # ----- TDDFT absorption spectra ----- #
 
     # Absorption spectrum calculation ALDA
     w_ = 10.7562
     I_ = 5.8803
 
     epsinv = dfcalc.get_inverse_dielectric_function(xc='ALDA', rshelmax=0)
-    epsinv.polarizability().write(filename='ALDA_pol.csv')
     # Here we base the check on a written results file
+    epsinv.polarizability().write(filename='ALDA_pol.csv')
     dfcalc.context.comm.barrier()
     omega_w, a0alda_w, aalda_w = read_response_function('ALDA_pol.csv')
 
