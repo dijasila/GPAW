@@ -622,10 +622,6 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def _new_dielectric_function(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).macroscopic_dielectric_function()
-
     def _new_eels_spectrum(self, *args, **kwargs):
         return self.get_inverse_dielectric_function(
             *args, **kwargs).eels_spectrum()
@@ -759,7 +755,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         df_LFC_w: np.ndarray
             Dielectric functio with local field corrections.
         """
-        df = self._new_dielectric_function(*args, **kwargs)
+        df = self.get_inverse_dielectric_function(
+            *args, **kwargs).macroscopic_dielectric_function()
         if filename:
             df.write(filename)
         return df.unpack()
@@ -812,8 +809,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         eps: float
             Dielectric constant with local field correction. (RPA, ALDA)
         """
-        df = self._new_dielectric_function(xc=xc, direction=direction)
-        return df.static_limit.real
+        return self.get_inverse_dielectric_function(
+            xc=xc, direction=direction).dielectric_constant()
 
 
 # ----- Serialized dataclasses and IO ----- #
