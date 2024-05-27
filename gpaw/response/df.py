@@ -296,6 +296,31 @@ class DielectricFunctionBase(ABC):
     def macroscopic_dielectric_function(self) -> ScalarResponseFunctionSet:
         """Get the macroscopic dielectric function ε_M(q,ω)."""
 
+    def eels_spectrum(self):
+        """Get the macroscopic EELS spectrum.
+
+        The spectrum is defined as
+
+                                          1
+        EELS(q,ω) ≡ -Im ε⁻¹(q,ω) = -Im ‾‾‾‾‾‾‾.
+                         00            ε (q,ω)
+                                        M
+
+        In addition to the many-body spectrum, we also calculate the
+        EELS spectrum in the relevant independent-particle approximation,
+        here defined as
+
+                          1
+        EELS₀(ω) = -Im ‾‾‾‾‾‾‾.
+                        IP
+                       ε (q,ω)
+                        M
+        """
+        _, eps0_W, eps_W = self.macroscopic_dielectric_function().arrays
+        eels0_W = -(1. / eps0_W).imag
+        eels_W = -(1. / eps_W).imag
+        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
+
     def polarizability(self, L: float):
         """Get the macroscopic polarizability α_M(q,ω).
 
@@ -389,31 +414,6 @@ class InverseDielectricFunction(DielectricFunctionBase):
         vchi0_W, vchi_W = self.macroscopic_components()
         v0 = self.v_G[0]  # Macroscopic Coulomb potential (4π/q²)
         return ScalarResponseFunctionSet(self.wd, vchi0_W / v0, vchi_W / v0)
-
-    def eels_spectrum(self):  # promote to base class! XXX
-        """Get the macroscopic EELS spectrum.
-
-        The spectrum is defined as
-
-                                          1
-        EELS(q,ω) ≡ -Im ε⁻¹(q,ω) = -Im ‾‾‾‾‾‾‾.
-                         00            ε (q,ω)
-                                        M
-
-        In addition to the many-body spectrum, we also calculate the
-        EELS spectrum in the independent-particle random-phase approximation,
-        here defined as
-
-                          1
-        EELS₀(ω) = -Im ‾‾‾‾‾‾‾.
-                        IPRPA
-                       ε (q,ω)
-                        M
-        """
-        vchi0_W, vchi_W = self.macroscopic_components()
-        eels0_W = -(1. / (1. - vchi0_W)).imag
-        eels_W = -vchi_W.imag
-        return ScalarResponseFunctionSet(self.wd, eels0_W, eels_W)
 
 
 @dataclass
