@@ -51,6 +51,10 @@ class Chi0DysonEquations:
         self.gs = self.df.gs
         self.context = self.df.context
         self.coulomb = self.df.coulomb
+        if self.coulomb.truncation is None:
+            self.bare_coulomb = self.coulomb
+        else:
+            self.bare_coulomb = self.coulomb.new(truncation=None)
         # When inverting the Dyson equation, we distribute frequencies globally
         blockdist = self.chi0.body.blockdist.new_distributor(nblocks='max')
         self.wblocks = Blocks1D(blockdist.blockcomm, len(self.chi0.wd))
@@ -104,12 +108,11 @@ class Chi0DysonEquations:
         V(q) -> V(q)
         """
         qpd = self.chi0.qpd
-        if self.coulomb.truncation is None:
+        if self.coulomb is self.bare_coulomb:
             v_G = self.coulomb.V(qpd)  # bare Coulomb interaction
             K_GG = np.eye(len(v_G), dtype=complex)
         else:
-            bare_coulomb = self.coulomb.new(truncation=None)
-            v_G = bare_coulomb.V(qpd)
+            v_G = self.bare_coulomb.V(qpd)
             V_G = self.coulomb.V(qpd)
             K_GG = np.diag(V_G / v_G)
         if modified:
@@ -198,7 +201,7 @@ class Chi0DysonEquations:
         # Invert Dyson equation
         vchi_symm_wGG = self.invert_dyson_like_equation(
             vchi0_symm_wGG, K_GG, reuse_buffer=False)
-        return vchi0_symm_wGG, vchi_symm_wGG, v_G
+        return vchi0_symm_wGG, vchi_symm_wGG
 
     def dielectric_function(self, *args, **kwargs):
         if self.coulomb.truncation:
@@ -235,7 +238,7 @@ class Chi0DysonEquations:
         """
         if xc != 'RPA':
             raise NotImplementedError
-        vP_symm_wGG, vchibar_symm_wGG, _ = self.calculate_vchi_symm(
+        vP_symm_wGG, vchibar_symm_wGG = self.calculate_vchi_symm(
             xc=xc, direction=direction, modified=True)
         return BareDielectricFunction.from_chi0_dyson_eqs(
             self, vP_symm_wGG, vchibar_symm_wGG)
@@ -272,14 +275,22 @@ class DielectricFunctionBase(ABC):
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
     wblocks: Blocks1D
+    coulomb: CoulombKernel
+    bare_coulomb: CoulombKernel
 
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
         chi0 = chi0_dyson_eqs.chi0
-        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks, *args, **kwargs)
+        return cls(chi0.qpd, chi0.wd, chi0_dyson_eqs.wblocks,
+                   chi0_dyson_eqs.coulomb, chi0_dyson_eqs.bare_coulomb,
+                   *args, **kwargs)
 
     def _macroscopic_component(self, in_wGG):
         return self.wblocks.all_gather(in_wGG[:, 0, 0])
+
+    @property
+    def v_G(self):
+        return self.bare_coulomb.V(self.qpd)
 
     @abstractmethod
     def macroscopic_dielectric_function(self) -> ScalarResponseFunctionSet:
@@ -309,7 +320,7 @@ class DielectricFunctionBase(ABC):
         polarizability in the relevant independent-particle approximation by
         replacing ϵ_M with ε_M^(IP).
         """
-        # Assert bare Coulomb XXX
+        assert self.coulomb is self.bare_coulomb
         _, eps0_W, eps_W = self.macroscopic_dielectric_function().arrays
         return self._polarizability(eps0_W, eps_W, L=L)
 
@@ -343,7 +354,6 @@ class InverseDielectricFunction(DielectricFunctionBase):
     """
     vchi0_symm_wGG: np.ndarray  # v^(1/2)(q) χ₀(q,ω) v^(1/2)(q)
     vchi_symm_wGG: np.ndarray
-    v_G: np.ndarray
 
     def macroscopic_components(self):
         vchi0_W = self._macroscopic_component(self.vchi0_symm_wGG)
@@ -451,7 +461,7 @@ class CustomizableDielectricFunction(DielectricFunctionBase):
 
         In the special case V(q) = v(q), Ε_M(q,ω) = ε_M(q,ω).
         """
-        # insert assertion XXX
+        assert self.coulomb is self.bare_coulomb
         return self.macroscopic_customized_dielectric_function()
 
 
@@ -506,7 +516,7 @@ class BareDielectricFunction(DielectricFunctionBase):
 
         ε_M(q,ω) = ϵ_M(q,ω).
         """
-        # Some Coulomb interaction check here XXX
+        assert self.coulomb is self.bare_coulomb
         return self.macroscopic_bare_dielectric_function()
 
     def polarizability(self, L: float):
