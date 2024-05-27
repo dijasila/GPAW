@@ -93,14 +93,19 @@ def modern_theory(mmedata, bands=None, fermishift=None):
     bands
         Range of band indices over which the summation is performed.
     fermishift
-        Shift of the Fermi energy (in eV).
+        Shift of the Fermi energy in eV which has been set to zero during
+        matix element calculations.
     """
 
     # Start timer
     timer = Timer()
 
     # Convert input in eV to Ha
-    fermishift /= Ha
+    if fermishift is None:
+        E_F = 0
+    else:
+        E_F = fermishift * Ha
+        raise NotImplementedError()
 
     # Load the required data
     comm = mmedata.comm
@@ -114,11 +119,11 @@ def modern_theory(mmedata, bands=None, fermishift=None):
 
     parprint('Calculating orbital magnetization vector ' +
              f'(in {comm.size:d} cores).')
-    orbmag_v = np.zeros(3, complex)
+    orbmag_v = np.zeros([3])
 
     with timer('Performing Brillouin zone integral'):
         # Initial call to print 0 % progress
-        if master == 0:
+        if master:
             count = 0
             ncount = len(data_k)
             pb = ProgressBar()
@@ -129,6 +134,7 @@ def modern_theory(mmedata, bands=None, fermishift=None):
                 py_nn = p_vnn[1]
                 pz_nn = p_vnn[2]
 
+                E_n -= E_F
                 occ_n = f_n * dk
 
                 for n1 in bands:
