@@ -313,6 +313,9 @@ class DielectricFunctionBase(ABC):
     def macroscopic_dielectric_function(self) -> ScalarResponseFunctionSet:
         """Get the macroscopic dielectric function ε_M(q,ω)."""
 
+    def dielectric_constant(self):
+        return self.macroscopic_dielectric_function().static_limit.real
+
     def eels_spectrum(self):
         """Get the macroscopic EELS spectrum.
 

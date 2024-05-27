@@ -30,27 +30,26 @@ def test_response_diamond_absorption(in_tmp_dir):
     w_ = 10.7532
     I_ = 5.98
 
-    # Macroscopic dielectric constant calculation
+    # Test the old interface to the dielectric constant
     df = DielectricFunction('C.gpw', frequencies=(0.,), eta=0.001, ecut=50,
                             hilbert=False)
     eM1, eM2 = df.get_macroscopic_dielectric_constant()
     assert eM1 == pytest.approx(eM1_, abs=0.01)
     assert eM2 == pytest.approx(eM2_, abs=0.01)
 
-    # Absorption spectrum calculation RPA
+    # ----- RPA dielectric function ----- #
     dfcalc = DielectricFunction(
         'C.gpw', eta=0.25, ecut=50,
         frequencies=np.linspace(0, 24., 241), hilbert=False)
-    eps = dfcalc.get_dielectric_matrix()
+    eps = dfcalc.get_dielectric_function_new()
 
-    # Test dielectric constant again...
-    df = eps.dielectric_function()
-    eps0M, epsM = df.static_limit
-    assert eps0M.real == pytest.approx(eM1_, abs=0.01)
-    assert epsM.real == pytest.approx(eM2_, abs=0.01)
+    # Test the new interface to the dielectric constant
+    eM1, eM2 = eps.dielectric_constant()
+    assert eM1 == pytest.approx(eM1_, abs=0.01)
+    assert eM2 == pytest.approx(eM2_, abs=0.01)
 
-    # Test dielectric function
-    omega_w, eps0M_w, epsM_w = df.arrays
+    # Test the macroscopic dielectric function
+    omega_w, eps0M_w, epsM_w = eps.macroscopic_dielectric_function().arrays
     w0, I0 = findpeak(omega_w, eps0M_w.imag)
     assert w0 == pytest.approx(w0_, abs=0.01)
     assert I0 / (4 * np.pi) == pytest.approx(I0_, abs=0.1)
@@ -66,6 +65,10 @@ def test_response_diamond_absorption(in_tmp_dir):
     w, I = findpeak(omega_w, arpa_w.imag)
     assert w == pytest.approx(w_, abs=0.01)
     assert I == pytest.approx(I_, abs=0.01)
+
+    # To do XXX
+    # * rpa consistency
+    # * tddft
 
     # Absorption spectrum calculation ALDA
     w_ = 10.7562
