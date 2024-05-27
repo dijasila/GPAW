@@ -8,7 +8,7 @@ import contextlib
 from pathlib import Path
 from typing import List, Union, Any, TYPE_CHECKING
 
-__version__ = '24.1.0'
+__version__ = '24.5.0'
 __ase_version_required__ = '3.22.1'
 
 __all__ = ['GPAW',
