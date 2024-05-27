@@ -515,7 +515,8 @@ class GPAW(Calculator):
 
         if len(self.wfs.fermi_levels) == 1:
             try:
-                gaptext = GapInfo.fromcalc(self).description()
+                gaptext = GapInfo.fromcalc(self).description(
+                    ibz_kpoints=self.get_ibz_kpoints())
             except ValueError:
                 gaptext = 'Could not find a gap'
 

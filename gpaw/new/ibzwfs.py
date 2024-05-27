@@ -450,9 +450,8 @@ class IBZWaveFunctions(Generic[WFT]):
         try:
             log()
             fermilevel = fl[0]
-            gapinfo = GapInfo(eigenvalues=eig_skn - fermilevel,
-                              kpts=ibz.kpt_kc)
-            log(gapinfo.description())
+            gapinfo = GapInfo(eigenvalues=eig_skn - fermilevel)
+            log(gapinfo.description(ibz_kpoints=ibz.kpt_kc))
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             log('Could not find a gap')
