@@ -1,9 +1,57 @@
 """XC density kernels for response function calculations."""
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import numpy as np
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+
+
+@dataclass
+class DensityXCKernel(ABC):
+    gs: ResponseGroundStateAdapter
+    context: ResponseContext
+    functional: str
+
+    def __post_init__(self):
+        assert self.gs.nspins == 1
+
+    def __call__(self, qpd: SingleQPWDescriptor, chi0_wGG=None):
+        self.context.print(f'Calculating {self}')
+        return self.calculate(qpd=qpd, chi0_wGG=chi0_wGG)
+
+    @abstractmethod
+    def __repr__(self):
+        """String representation of the density xc kernel."""
+
+    @abstractmethod
+    def calculate(self, *args, **kwargs):
+        """Actual kernel calculation."""
+
+
+@dataclass
+class AdiabaticDensityKernel(DensityXCKernel):
+    rshe_kwargs: dict
+
+    def __post_init__(self):
+        super().__post_init__()
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            self.gs, self.context, **self.rshe_kwargs)
+        self.fxc_calc = AdiabaticFXCCalculator(localft_calc)
+
+    def __repr__(self):
+        return f'{self.functional} kernel'
+
+    def calculate(self, qpd: SingleQPWDescriptor, **ignored):
+        fxc_kernel = self.fxc_calc(self.functional, '00', qpd)
+        Kxc_GG = fxc_kernel.get_Kxc_GG()
+        if qpd.optical_limit:
+            Kxc_GG[0, :] = 0.0
+            Kxc_GG[:, 0] = 0.0
+        return Kxc_GG
 
 
 def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
@@ -16,18 +64,8 @@ def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
     assert nspins == 1
 
     if functional[0] == 'A':
-        # Standard adiabatic kernel
-        p('Calculating %s kernel' % functional)
-        localft_calc = LocalFTCalculator.from_rshe_parameters(
-            gs, context, **xckwargs)
-        fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-        fxc_kernel = fxc_calculator(functional, '00', qpd)
-        Kxc_GG = fxc_kernel.get_Kxc_GG()
-
-        if qpd.optical_limit:
-            Kxc_GG[0, :] = 0.0
-            Kxc_GG[:, 0] = 0.0
-        Kxc_sGG = np.array([Kxc_GG])
+        xc_kernel = AdiabaticDensityKernel(gs, context, functional, xckwargs)
+        return xc_kernel(qpd, chi0_wGG=chi0_wGG)
     elif functional[:2] == 'LR':
         p('Calculating LR kernel with alpha = %s' % functional[2:])
         Kxc_sGG = calculate_lr_kernel(qpd, alpha=float(functional[2:]))
