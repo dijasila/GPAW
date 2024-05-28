@@ -143,7 +143,11 @@ class Chi0DysonEquations:
         return out_wGG
 
     def rpa_density_response(self, direction='x', qinf_v=None):
-        """Calculate the RPA susceptibility for (semi-)finite q."""
+        """Calculate the RPA susceptibility for (semi-)finite q.
+
+        Currently this is only used by the QEH code, why we don't support a top
+        level user interface.
+        """
         # Extract χ₀(q,ω)
         qpd = self.chi0.qpd
         chi0_wGG = self.get_chi0_wGG(direction=direction)
@@ -566,10 +570,8 @@ class BareDielectricFunction(DielectricFunctionData):
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc: Chi0Calculator, coulomb: CoulombKernel):
+    def __init__(self, chi0calc: Chi0Calculator):
         self.chi0calc = chi0calc
-        self.coulomb = coulomb
-
         self.gs = chi0calc.gs
         self.context = chi0calc.context
 
@@ -599,24 +601,13 @@ class DielectricFunctionCalculator:
         coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         return Chi0DysonEquations(chi0, coulomb, self)
 
-    def _dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
-                                 **xckwargs) -> DielectricFunctionData:
-        # Temporary method until truncation becomes a method input XXX
-        truncation = self.coulomb.truncation
-        chi0_dyson_eqs = self.get_chi0_dyson_eqs(q_c, truncation=truncation)
-        if truncation:
-            # eps: BareDielectricFunction
-            method = chi0_dyson_eqs.bare_dielectric_function
-        else:
-            # eps: CustomizableDielectricFunction
-            method = chi0_dyson_eqs.customized_dielectric_function
-        eps = method(direction=direction, **xckwargs)
-        return eps
-
-    def get_bare_dielectric_function(self, q_c=[0, 0, 0], direction='x',
+    def get_bare_dielectric_function(self,
+                                     q_c: list | np.ndarray = [0, 0, 0],
+                                     truncation: str | None = None,
+                                     direction='x',
                                      **xckwargs) -> BareDielectricFunction:
         return self.get_chi0_dyson_eqs(
-            q_c, truncation=self.coulomb.truncation).bare_dielectric_function(
+            q_c, truncation=truncation).bare_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_literal_dielectric_function(
@@ -635,18 +626,15 @@ class DielectricFunctionCalculator:
         return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
-    def get_inverse_dielectric_function(
-            self, q_c=[0, 0, 0], direction='x',
-            **xckwargs) -> InverseDielectricFunction:
+    def get_inverse_dielectric_function(self,
+                                        q_c: list | np.ndarray = [0, 0, 0],
+                                        truncation: str | None = None,
+                                        direction='x',
+                                        **xckwargs
+                                        ) -> InverseDielectricFunction:
         return self.get_chi0_dyson_eqs(
-            q_c, truncation=self.coulomb.truncation).inverse_dielectric_function(
+            q_c, truncation=truncation).inverse_dielectric_function(
             direction=direction, **xckwargs)
-
-    def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
-        # Used by the QEH code
-        return self.get_chi0_dyson_eqs(
-            q_c, truncation=self.coulomb.truncation).rpa_density_response(
-            direction=direction, qinf_v=qinf_v)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -710,9 +698,8 @@ class DielectricFunction(DielectricFunctionCalculator):
             integrationmode=integrationmode,
             rate=rate, eshift=eshift
         )
-        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
-
-        super().__init__(chi0calc, coulomb)
+        super().__init__(chi0calc)
+        self.truncation = truncation
 
     def get_frequencies(self) -> np.ndarray:
         """Return frequencies (in eV) that the χ is evaluated on."""
@@ -722,7 +709,8 @@ class DielectricFunction(DielectricFunctionCalculator):
                                    filename='chiM_w.csv',
                                    **kwargs):
         dynsus = self.get_inverse_dielectric_function(
-            *args, xc=xc, **kwargs).dynamic_susceptibility()
+            *args, xc=xc, truncation=self.truncation,
+            **kwargs).dynamic_susceptibility()
         if filename:
             dynsus.write(filename)
         return dynsus.unpack()
@@ -740,7 +728,8 @@ class DielectricFunction(DielectricFunctionCalculator):
             Dielectric functio with local field corrections.
         """
         df = self.get_inverse_dielectric_function(
-            *args, **kwargs).macroscopic_dielectric_function()
+            *args, truncation=self.truncation,
+            **kwargs).macroscopic_dielectric_function()
         if filename:
             df.write(filename)
         return df.unpack()
@@ -758,13 +747,14 @@ class DielectricFunction(DielectricFunctionCalculator):
             Fully screened EELS spectrum.
         """
         eels = self.get_inverse_dielectric_function(
-            *args, **kwargs).eels_spectrum()
+            *args, truncation=self.truncation, **kwargs).eels_spectrum()
         if filename:
             eels.write(filename)
         return eels.unpack()
 
-    def get_polarizability(self, *args, filename='polarizability.csv',
-                           **kwargs):
+    def get_polarizability(self, q_c: list | np.ndarray = [0, 0, 0],
+                           direction='x', filename='polarizability.csv',
+                           **xckwargs):
         """Calculate the macroscopic polarizability.
 
         Generate a file 'polarizability.csv', unless filename is set to None.
@@ -776,8 +766,16 @@ class DielectricFunction(DielectricFunctionCalculator):
         alpha_w: np.ndarray
             Polarizability calculated with local-field corrections.
         """
-        pol = self._dielectric_function_new(
-            *args, **kwargs).polarizability()
+        chi0_dyson_eqs = self.get_chi0_dyson_eqs(
+            q_c, truncation=self.truncation)
+        if self.truncation:
+            # eps: BareDielectricFunction
+            method = chi0_dyson_eqs.bare_dielectric_function
+        else:
+            # eps: CustomizableDielectricFunction
+            method = chi0_dyson_eqs.customized_dielectric_function
+        eps = method(direction=direction, **xckwargs)
+        pol = eps.polarizability()
         if filename:
             pol.write(filename)
         return pol.unpack()
