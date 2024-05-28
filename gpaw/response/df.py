@@ -46,12 +46,12 @@ V or V(q): The modified Coulomb interaction. Equal to V(q) for finite
 @dataclass
 class Chi0DysonEquations:
     chi0: Chi0Data
+    coulomb: CoulombKernel
     df: 'DielectricFunctionCalculator'
 
     def __post_init__(self):
         self.gs = self.df.gs
         self.context = self.df.context
-        self.coulomb = self.df.coulomb
         if self.coulomb.truncation is None:
             self.bare_coulomb = self.coulomb
         else:
@@ -575,12 +575,12 @@ class DielectricFunctionCalculator:
 
         self._chi0cache: dict[tuple[str, ...], Chi0Data] = {}
 
-    def calculate_chi0(self, q_c: list | np.ndarray) -> Chi0Data:
-        """Calculates the Kohn-Sham susceptibility χ₀(q,ω) for wave vector q.
+    def get_chi0(self, q_c: list | np.ndarray) -> Chi0Data:
+        """Get the Kohn-Sham susceptibility χ₀(q,ω) for input wave vector q.
 
-        Keeps a cache of the latest calculated wave vector, allowing the user
-        to investigate multiple dielectric properties, Coulomb truncations,
-        xc kernels etc. without having to recalculate χ₀.
+        Keeps a cache of χ₀ for the latest calculated wave vector, thus
+        allowing the user to investigate multiple dielectric properties,
+        Coulomb truncations, xc kernels etc. without having to recalculate χ₀.
         """
         # As cache key, we round off and use a string representation.
         # Not very elegant, but it should work almost always.
@@ -591,15 +591,20 @@ class DielectricFunctionCalculator:
             self._chi0cache[key] = self.chi0calc.calculate(q_c)
         return self._chi0cache[key]
 
-    def get_chi0_dyson_eqs(self, q_c: list | np.ndarray) -> Chi0DysonEquations:
-        chi0 = self.calculate_chi0(q_c)
-        return Chi0DysonEquations(chi0, self)
+    def get_chi0_dyson_eqs(self,
+                           q_c: list | np.ndarray,
+                           truncation: str | None = None
+                           ) -> Chi0DysonEquations:
+        chi0 = self.get_chi0(q_c)
+        coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
+        return Chi0DysonEquations(chi0, coulomb, self)
 
     def _dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
                                  **xckwargs) -> DielectricFunctionData:
         # Temporary method until truncation becomes a method input XXX
-        chi0_dyson_eqs = self.get_chi0_dyson_eqs(q_c)
-        if self.coulomb.truncation:
+        truncation = self.coulomb.truncation
+        chi0_dyson_eqs = self.get_chi0_dyson_eqs(q_c, truncation=truncation)
+        if truncation:
             # eps: BareDielectricFunction
             method = chi0_dyson_eqs.bare_dielectric_function
         else:
@@ -610,7 +615,8 @@ class DielectricFunctionCalculator:
 
     def get_bare_dielectric_function(self, q_c=[0, 0, 0], direction='x',
                                      **xckwargs) -> BareDielectricFunction:
-        return self.get_chi0_dyson_eqs(q_c).bare_dielectric_function(
+        return self.get_chi0_dyson_eqs(
+            q_c, truncation=self.coulomb.truncation).bare_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_literal_dielectric_function(
@@ -624,24 +630,22 @@ class DielectricFunctionCalculator:
             q_c=[0, 0, 0], direction='x',
             **xckwargs) -> CustomizableDielectricFunction:
         # NB: ignores self.coulomb while this still exists XXX
-        chi0_dyson_equation = self.get_chi0_dyson_eqs(q_c)
-        if truncation is None:
-            chi0_dyson_equation.coulomb = chi0_dyson_equation.bare_coulomb
-        else:
-            chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
-                truncation=truncation)
+        chi0_dyson_equation = self.get_chi0_dyson_eqs(
+            q_c, truncation=truncation)
         return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_inverse_dielectric_function(
             self, q_c=[0, 0, 0], direction='x',
             **xckwargs) -> InverseDielectricFunction:
-        return self.get_chi0_dyson_eqs(q_c).inverse_dielectric_function(
+        return self.get_chi0_dyson_eqs(
+            q_c, truncation=self.coulomb.truncation).inverse_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
         # Used by the QEH code
-        return self.get_chi0_dyson_eqs(q_c).rpa_density_response(
+        return self.get_chi0_dyson_eqs(
+            q_c, truncation=self.coulomb.truncation).rpa_density_response(
             direction=direction, qinf_v=qinf_v)
 
 
