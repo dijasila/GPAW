@@ -10,11 +10,16 @@ Git master branch
 
 :git:`master <>`.
 
-* A new ``adjust_cell()`` function is added to replace the
-  ``Cluster.minimal_box()``, and the Cluster object will be
-  discontinued. he new  ``adjust_cell()`` function expands the ``minimal_box()``
-  unction but considers the ``pbc`` for periodic calculations and
-  only adjusts the cell in the non-periodic directions.
+* ...
+
+
+Version 24.5.0
+==============
+
+May 31, 2024: :git:`24.5.0 <../24.5.0>`
+
+* Added a constraint on our Numpy dependency: ``numpy<2``.  GPAW almost
+  works with numpy-2, but not quite.
 
 * Fixed a bug in the electron-phonon module which constructed the PAW
   corrections to the Hamiltonian with incorrect off-diagonal elements. Our
@@ -31,6 +36,13 @@ Git master branch
     $ gpaw dataset Cr -sw -r2.0 -P3s,4s,3p,4p,3d,d,F -fPBE -t 14 -b
 
   There is also an LDA version of the potential.
+
+* A new ``adjust_cell()`` function is added to replace the
+  ``Cluster.minimal_box()``, and the Cluster object will be
+  discontinued. The new  ``adjust_cell()`` function expands the
+  ``minimal_box()``
+  function but considers the ``pbc`` for periodic calculations and
+  only adjusts the cell in the non-periodic directions.
 
 
 .. _bug0:
@@ -113,6 +125,7 @@ Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
   between radial partial waves was fixed. This bug affected the calculation
   of spin magnetic moments inside PAW spheres and the Hubbard correction when
   it was applied to p-states. See :issue:`1068`.
+
 
 Version 23.9.1
 ==============
