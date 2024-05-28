@@ -19,6 +19,23 @@ class DensityXCKernel(ABC):
     def __post_init__(self):
         assert self.gs.nspins == 1
 
+    @staticmethod
+    def from_functional(gs, context, functional, **kwargs):
+        """Factory function creating DensityXCKernels.
+
+        Choose between ALDA, Bootstrap and LRalpha (long-range kernel), where
+        alpha is a user specified parameter (for example functional='LR0.25').
+        """
+        if functional[0] == 'A':
+            return AdiabaticDensityKernel(gs, context, functional, kwargs)
+        elif functional[:2] == 'LR':
+            return LRDensityKernel(gs, context, functional)
+        elif functional == 'Bootstrap':
+            return BootstrapDensityKernel(gs, context, functional)
+        raise ValueError(
+            'Invalid functional for the density-density xc kernel:'
+            f'{functional}')
+
     def __call__(self, qpd: SingleQPWDescriptor, chi0_wGG=None):
         self.context.print(f'Calculating {self}')
         return self.calculate(qpd=qpd, chi0_wGG=chi0_wGG)
@@ -94,22 +111,6 @@ class BootstrapDensityKernel(DensityXCKernel):
     def calculate(self, qpd, *, chi0_wGG):
         Kxc_sGG = get_bootstrap_kernel(qpd, chi0_wGG, self.context)
         return Kxc_sGG[0]
-
-
-def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
-                          chi0_wGG=None, **xckwargs):
-    """Density-density xc kernels.
-    Factory function that calls the relevant functions below."""
-    if functional[0] == 'A':
-        xc_kernel = AdiabaticDensityKernel(gs, context, functional, xckwargs)
-    elif functional[:2] == 'LR':
-        xc_kernel = LRDensityKernel(gs, context, functional)
-    elif functional == 'Bootstrap':
-        xc_kernel = BootstrapDensityKernel(gs, context, functional)
-    else:
-        raise ValueError('Invalid functional for the density-density '
-                         'xc kernel:', functional)
-    return xc_kernel(qpd, chi0_wGG=chi0_wGG)
 
 
 def calculate_lr_kernel(qpd, alpha=0.2):

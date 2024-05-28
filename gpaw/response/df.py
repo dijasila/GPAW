@@ -11,7 +11,7 @@ import gpaw.mpi as mpi
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.dyson import DysonEquation
-from gpaw.response.density_kernels import get_density_xc_kernel
+from gpaw.response.density_kernels import DensityXCKernel
 from gpaw.response.chi0 import Chi0Calculator, get_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context
@@ -47,6 +47,7 @@ V or V(q): The modified Coulomb interaction. Equal to V(q) for finite
 class Chi0DysonEquations:
     chi0: Chi0Data
     coulomb: CoulombKernel
+    xc_kernel: DensityXCKernel | None
     df: 'DielectricFunctionCalculator'
 
     def __post_init__(self):
@@ -83,16 +84,7 @@ class Chi0DysonEquations:
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W_w], d_v).T)
         return chi0_wGG
 
-    def get_Kxc_GG(self, *, xc, chi0_wGG, **kwargs):
-        """Get adiabatic xc kernel (TDDFT).
-
-        Choose between ALDA, Bootstrap and LRalpha (long-range kernel), where
-        alpha is a user specified parameter (for example xc='LR0.25')."""
-        return get_density_xc_kernel(
-            self.chi0.qpd, self.gs, self.context,
-            functional=xc, chi0_wGG=chi0_wGG, **kwargs)
-
-    def get_coulomb_scaled_kernel(self, xc='RPA', modified=False, **xckwargs):
+    def get_coulomb_scaled_kernel(self, modified=False, Kxc_GG=None):
         """Get the Hxc kernel rescaled by the bare Coulomb potential v(q).
 
         Calculates
@@ -118,8 +110,7 @@ class Chi0DysonEquations:
             K_GG = np.diag(V_G / v_G)
         if modified:
             K_GG[0, 0] = 0.
-        if xc != 'RPA':
-            Kxc_GG = self.get_Kxc_GG(xc=xc, **xckwargs)
+        if Kxc_GG is not None:
             sqrtv_G = v_G**0.5
             K_GG += Kxc_GG / sqrtv_G / sqrtv_G[:, np.newaxis]
         return v_G, K_GG
@@ -163,12 +154,12 @@ class Chi0DysonEquations:
         chi_wGG = self.invert_dyson_like_equation(chi0_wGG, V_GG)
         return qpd, chi_wGG, self.wblocks
 
-    def inverse_dielectric_function(self, *args, **kwargs):
+    def inverse_dielectric_function(self, direction='x'):
         """Calculate v^(1/2) χ v^(1/2), from which ε⁻¹(q,ω) is constructed."""
         return InverseDielectricFunction.from_chi0_dyson_eqs(
-            self, *self.calculate_vchi_symm(*args, **kwargs))
+            self, *self.calculate_vchi_symm(direction=direction))
 
-    def calculate_vchi_symm(self, xc='RPA', direction='x', **kwargs):
+    def calculate_vchi_symm(self, direction='x', modified=False):
         """Calculate v^(1/2) χ v^(1/2).
 
         Starting from the TDDFT Dyson equation
@@ -196,8 +187,14 @@ class Chi0DysonEquations:
         perturbation theory.
         """
         chi0_wGG = self.get_chi0_wGG(direction=direction)
+        # if self.xc_kernel:
+        #     Kxc_GG = self.xc_kernel(self.chi0.qpd, chi0_wGG=chi0_wGG)
+        # else:
+        #     Kxc_GG = None
+        Kxc_GG = self.xc_kernel(self.chi0.qpd, chi0_wGG=chi0_wGG) \
+            if self.xc_kernel else None
         v_G, K_GG = self.get_coulomb_scaled_kernel(
-            xc=xc, chi0_wGG=chi0_wGG, **kwargs)
+            modified=modified, Kxc_GG=Kxc_GG)
         # Calculate v^(1/2)(q) χ₀(q,ω) v^(1/2)(q)
         sqrtv_G = v_G**0.5
         vchi0_symm_wGG = chi0_wGG  # reuse buffer
@@ -208,10 +205,10 @@ class Chi0DysonEquations:
             vchi0_symm_wGG, K_GG, reuse_buffer=False)
         return vchi0_symm_wGG, vchi_symm_wGG
 
-    def customized_dielectric_function(self, *args, **kwargs):
+    def customized_dielectric_function(self, direction='x'):
         """Calculate Ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
-        P_wGG = self.polarizability_operator(*args, **kwargs)
+        P_wGG = self.polarizability_operator(direction=direction)
         nG = len(V_GG)
         eps_wGG = P_wGG  # reuse buffer
         for w, P_GG in enumerate(P_wGG):
@@ -219,7 +216,7 @@ class Chi0DysonEquations:
         return CustomizableDielectricFunction.from_chi0_dyson_eqs(
             self, eps_wGG)
 
-    def bare_dielectric_function(self, xc='RPA', direction='x', **ignored):
+    def bare_dielectric_function(self, direction='x'):
         """Calculate v^(1/2) ̄χ v^(1/2), from which ̄ϵ=1-v ̄χ is constructed.
 
         The unscreened susceptibility is given by the Dyson-like equation
@@ -235,17 +232,17 @@ class Chi0DysonEquations:
                                                                   ˍ
         We may thus reuse that functionality to calculate v^(1/2) χ v^(1/2).
         """
-        if xc != 'RPA':
+        if self.xc_kernel:
             raise NotImplementedError(
                 'Calculation of the bare dielectric function within TDDFT has '
                 'not yet been implemented. For TDDFT dielectric properties, '
                 'please calculate the inverse dielectric function.')
         vP_symm_wGG, vchibar_symm_wGG = self.calculate_vchi_symm(
-            xc=xc, direction=direction, modified=True)
+            direction=direction, modified=True)
         return BareDielectricFunction.from_chi0_dyson_eqs(
             self, vP_symm_wGG, vchibar_symm_wGG)
 
-    def polarizability_operator(self, xc='RPA', direction='x', **xckwargs):
+    def polarizability_operator(self, direction='x'):
         """Calculate the polarizability operator P(q,ω).
 
         Depending on the theory (RPA, TDDFT, MBPT etc.), the polarizability
@@ -259,7 +256,7 @@ class Chi0DysonEquations:
             P(q,ω) = [1 - χ₀(q,ω) K_xc(q,ω)]⁻¹ χ₀(q,ω)
         """
         chi0_wGG = self.get_chi0_wGG(direction=direction)
-        if xc == 'RPA':
+        if not self.xc_kernel:  # RPA
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
         if self.chi0.qpd.optical_limit:
@@ -279,7 +276,7 @@ class Chi0DysonEquations:
             # Dyson equation for χ, but unless we need to calculate the TDDFT
             # polarizability using truncated kernels, this isn't really
             # necessary.
-        Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
+        Kxc_GG = self.xc_kernel(self.chi0.qpd, chi0_wGG=chi0_wGG)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
 
@@ -594,47 +591,43 @@ class DielectricFunctionCalculator:
         return self._chi0cache[key]
 
     def get_chi0_dyson_eqs(self,
-                           q_c: list | np.ndarray,
-                           truncation: str | None = None
+                           q_c: list | np.ndarray = [0, 0, 0],
+                           truncation: str | None = None,
+                           xc: str = 'RPA',
+                           **xckwargs
                            ) -> Chi0DysonEquations:
         chi0 = self.get_chi0(q_c)
         coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
-        return Chi0DysonEquations(chi0, coulomb, self)
+        if xc == 'RPA':
+            xc_kernel = None
+        else:
+            xc_kernel = DensityXCKernel.from_functional(
+                self.gs, self.context, functional=xc, **xckwargs)
+        return Chi0DysonEquations(chi0, coulomb, xc_kernel, self)
 
-    def get_bare_dielectric_function(self,
-                                     q_c: list | np.ndarray = [0, 0, 0],
-                                     truncation: str | None = None,
-                                     direction='x',
-                                     **xckwargs) -> BareDielectricFunction:
+    def get_bare_dielectric_function(self, direction='x', **kwargs
+                                     ) -> BareDielectricFunction:
         return self.get_chi0_dyson_eqs(
-            q_c, truncation=truncation).bare_dielectric_function(
-            direction=direction, **xckwargs)
+            **kwargs).bare_dielectric_function(direction=direction)
 
-    def get_literal_dielectric_function(
-            self, *args, **kwargs) -> CustomizableDielectricFunction:
+    def get_literal_dielectric_function(self, direction='x', **kwargs
+                                        ) -> CustomizableDielectricFunction:
         """Calculate the dielectric function ε(q,ω) = 1 - v(q) P(q,ω)."""
-        return self.get_customized_dielectric_function(
-            truncation=None, *args, **kwargs)
+        return self.get_chi0_dyson_eqs(
+            truncation=None, **kwargs).customized_dielectric_function(
+                direction=direction)
 
-    def get_customized_dielectric_function(
-            self, *, truncation: str | None,
-            q_c=[0, 0, 0], direction='x',
-            **xckwargs) -> CustomizableDielectricFunction:
-        # NB: ignores self.coulomb while this still exists XXX
-        chi0_dyson_equation = self.get_chi0_dyson_eqs(
-            q_c, truncation=truncation)
-        return chi0_dyson_equation.customized_dielectric_function(
-            direction=direction, **xckwargs)
+    def get_customized_dielectric_function(self, direction='x', *,
+                                           truncation: str, **kwargs
+                                           ) -> CustomizableDielectricFunction:
+        return self.get_chi0_dyson_eqs(
+            truncation=truncation, **kwargs).customized_dielectric_function(
+                direction=direction)
 
-    def get_inverse_dielectric_function(self,
-                                        q_c: list | np.ndarray = [0, 0, 0],
-                                        truncation: str | None = None,
-                                        direction='x',
-                                        **xckwargs
+    def get_inverse_dielectric_function(self, direction='x', **kwargs
                                         ) -> InverseDielectricFunction:
         return self.get_chi0_dyson_eqs(
-            q_c, truncation=truncation).inverse_dielectric_function(
-            direction=direction, **xckwargs)
+            **kwargs).inverse_dielectric_function(direction=direction)
 
 
 class DielectricFunction(DielectricFunctionCalculator):
@@ -767,14 +760,14 @@ class DielectricFunction(DielectricFunctionCalculator):
             Polarizability calculated with local-field corrections.
         """
         chi0_dyson_eqs = self.get_chi0_dyson_eqs(
-            q_c, truncation=self.truncation)
+            q_c, truncation=self.truncation, **xckwargs)
         if self.truncation:
             # eps: BareDielectricFunction
             method = chi0_dyson_eqs.bare_dielectric_function
         else:
             # eps: CustomizableDielectricFunction
             method = chi0_dyson_eqs.customized_dielectric_function
-        eps = method(direction=direction, **xckwargs)
+        eps = method(direction=direction)
         pol = eps.polarizability()
         if filename:
             pol.write(filename)
