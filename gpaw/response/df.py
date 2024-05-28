@@ -187,10 +187,6 @@ class Chi0DysonEquations:
         perturbation theory.
         """
         chi0_wGG = self.get_chi0_wGG(direction=direction)
-        # if self.xc_kernel:
-        #     Kxc_GG = self.xc_kernel(self.chi0.qpd, chi0_wGG=chi0_wGG)
-        # else:
-        #     Kxc_GG = None
         Kxc_GG = self.xc_kernel(self.chi0.qpd, chi0_wGG=chi0_wGG) \
             if self.xc_kernel else None
         v_G, K_GG = self.get_coulomb_scaled_kernel(
