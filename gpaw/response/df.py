@@ -582,6 +582,7 @@ class DielectricFunctionCalculator:
         if key not in self._chi0cache:
             self._chi0cache.clear()
             self._chi0cache[key] = self.chi0calc.calculate(q_c)
+            self.context.write_timer()
         return self._chi0cache[key]
 
     def get_chi0_dyson_eqs(self,
