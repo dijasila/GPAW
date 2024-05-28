@@ -48,11 +48,9 @@ class Chi0DysonEquations:
     chi0: Chi0Data
     coulomb: CoulombKernel
     xc_kernel: DensityXCKernel | None
-    df: 'DielectricFunctionCalculator'
+    cd: CellDescriptor
 
     def __post_init__(self):
-        self.gs = self.df.gs
-        self.context = self.df.context
         if self.coulomb.truncation is None:
             self.bare_coulomb = self.coulomb
         else:
@@ -288,7 +286,7 @@ class DielectricFunctionData(ABC):
     @classmethod
     def from_chi0_dyson_eqs(cls, chi0_dyson_eqs, *args, **kwargs):
         chi0 = chi0_dyson_eqs.chi0
-        return cls(chi0_dyson_eqs.gs.cd, chi0.qpd,
+        return cls(chi0_dyson_eqs.cd, chi0.qpd,
                    chi0.wd, chi0_dyson_eqs.wblocks,
                    chi0_dyson_eqs.coulomb, chi0_dyson_eqs.bare_coulomb,
                    *args, **kwargs)
@@ -599,7 +597,7 @@ class DielectricFunctionCalculator:
         else:
             xc_kernel = DensityXCKernel.from_functional(
                 self.gs, self.context, functional=xc, **xckwargs)
-        return Chi0DysonEquations(chi0, coulomb, xc_kernel, self)
+        return Chi0DysonEquations(chi0, coulomb, xc_kernel, self.gs.cd)
 
     def get_bare_dielectric_function(self, direction='x', **kwargs
                                      ) -> BareDielectricFunction:
