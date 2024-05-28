@@ -443,7 +443,7 @@ class IBZWaveFunctions(Generic[WFT]):
                         f'    {e2:10.3f}   {f2:9.3f}')
 
         try:
-            from ase.dft.bandpath import GapInfo
+            from ase.dft.bandgap import GapInfo
         except ImportError:
             log('No gapinfo -- requires new ASE')
             return
