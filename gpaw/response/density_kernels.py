@@ -54,6 +54,21 @@ class AdiabaticDensityKernel(DensityXCKernel):
         return Kxc_GG
 
 
+@dataclass
+class LRDensityKernel(DensityXCKernel):
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.alpha = float(self.functional[2:])
+
+    def __repr__(self):
+        return f'LR kernel with alpha = {self.alpha}'
+
+    def calculate(self, qpd: SingleQPWDescriptor, **ignored):
+        Kxc_sGG = calculate_lr_kernel(qpd, alpha=self.alpha)
+        return Kxc_sGG[0]
+
+
 def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
                           chi0_wGG=None, **xckwargs):
     """Density-density xc kernels.
@@ -67,8 +82,8 @@ def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
         xc_kernel = AdiabaticDensityKernel(gs, context, functional, xckwargs)
         return xc_kernel(qpd, chi0_wGG=chi0_wGG)
     elif functional[:2] == 'LR':
-        p('Calculating LR kernel with alpha = %s' % functional[2:])
-        Kxc_sGG = calculate_lr_kernel(qpd, alpha=float(functional[2:]))
+        xc_kernel = LRDensityKernel(gs, context, functional)
+        return xc_kernel(qpd, chi0_wGG=chi0_wGG)
     elif functional == 'Bootstrap':
         p('Calculating Bootstrap kernel')
         Kxc_sGG = get_bootstrap_kernel(qpd, chi0_wGG, context)
