@@ -7,5 +7,5 @@ def workflow():
         run(script='convergence.py')
 
     with run(script='n2_on_metal.py', tmax='2h'):
-        with run(script='neb.py', tmax='1h', cores=8):
-            run(script='vibrations.py', tmax='2h', cores=8)
+        with run(script='neb.py', tmax='10h', cores=8):
+            run(script='vibrations.py', tmax='20h', cores=8)

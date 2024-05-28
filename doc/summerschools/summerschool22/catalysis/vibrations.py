@@ -235,9 +235,9 @@ constraint = FixAtoms(indices=list(range(4)))
 ts = images[1]
 ts.set_constraint(constraint)
 calc = GPAW(xc='PBE',
-            mode=PW(500),
+            mode=PW(800),
             txt='ts.txt',
-            kpts={'size': (4, 4, 1), 'gamma': True})
+            kpts={'size': (6, 6, 1), 'gamma': True})
 ts.calc = calc
 
 neb = NEB(images, k=1.0, climb=True)
@@ -252,9 +252,9 @@ write('TS.xyz', ts)
 # %%
 # teacher:
 ts.calc = GPAW(xc='PBE',
-               mode=PW(500),
+               mode=PW(800),
                txt='vibts.txt',
-               kpts={'size': (4, 4, 1), 'gamma': True},
+               kpts={'size': (6, 6, 1), 'gamma': True},
                symmetry={'point_group': False})
 vib = Vibrations(ts, name='vibts', indices=(8, 9), nfree=4, delta=0.02)
 vib.run()
