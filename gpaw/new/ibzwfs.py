@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Generator, TypeVar, Generic
 
 import numpy as np
-from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize, as_np
@@ -444,14 +443,19 @@ class IBZWaveFunctions(Generic[WFT]):
                         f'    {e2:10.3f}   {f2:9.3f}')
 
         try:
+            from ase.dft.bandgap import GapInfo
+        except ImportError:
+            log('No gapinfo -- requires new ASE')
+            return
+
+        try:
             log()
-            bandgap(eigenvalues=eig_skn,
-                    efermi=fl[0],
-                    output=log.fd,
-                    kpts=ibz.kpt_kc)
+            fermilevel = fl[0]
+            gapinfo = GapInfo(eigenvalues=eig_skn - fermilevel)
+            log(gapinfo.description(ibz_kpoints=ibz.kpt_kc))
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
-            pass
+            log('Could not find a gap')
 
     def make_sure_wfs_are_read_from_gpw_file(self):
         for wfs in self:
