@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from functools import partial
 from math import exp, log, pi, sqrt
@@ -297,6 +299,177 @@ class PAWWaves:
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
 
+    def pseudize_orthonormal(self,
+                             params: tuple | dict[int, tuple],
+                             vtr_g,
+                             rcmax):
+        """
+        P will be the number of coefficients in the polynomial,
+        polynomials are of even power with maxium of 2P
+
+        Parameters
+        ----------
+        params : tuple | dict
+        vtr_g
+        rcmax
+
+        Returns
+        -------
+
+        """
+
+        if isinstance(params, dict):
+            params = params[self.l]
+        nderiv, Gcut, extra_grid_pts, init_guess = params
+
+        nmvp = len(list(extra_grid_pts.values())[0])
+
+        P = nderiv + nmvp
+
+        rgd = self.rgd
+        r_g = rgd.r_g
+        phi_ng = self.phi_ng = np.array(self.phi_ng)
+        N = len(phi_ng)
+        assert (
+            N <= 2
+        ), "method works if you have no more than " \
+           "2 partial waves per angular momentum"
+
+        phit_ng = self.phit_ng = rgd.empty(N)
+        pt_ng = self.pt_ng = rgd.empty(N)
+        gc = rgd.ceil(self.rcut)
+        gcmax = rgd.ceil(rcmax)
+
+        l = self.l
+
+        dgdr_g = 1 / rgd.dr_g
+        d2gdr2_g = rgd.d2gdr2()
+
+        self.nt_g = rgd.zeros()
+
+        c0 = np.empty(N)
+        x0_init = []
+        phi_ng_ref = []
+        r_g = rgd.r_g
+
+        for n, phi_g in enumerate(phi_ng):
+            if init_guess == "nc":
+                phit_ng[n] = rgd.pseudize_normalized(
+                    phi_g, gc, l, nderiv)[0]  # this will return the polynom
+            elif init_guess == "poly":
+                if self.n_n[n] < 0:
+                    phit_ng[n] = rgd.pseudize(
+                        phi_g, gc, l, nderiv)[0]
+                else:
+                    phit_ng[n] = rgd.pseudize_smooth(
+                        phi_g, gc, l, nderiv, Gcut=6)[0]
+            else:
+                raise ValueError("init_guess should be nc or poly")
+            # take initial grid point and value of
+            # current approximation at this point
+            pts_val = list(extra_grid_pts.keys())[0]
+            if pts_val == "inv_gpts":
+                g_ps = [int(gc / j) for j in extra_grid_pts["inv_gpts"]]
+            elif pts_val == "rc_perc":
+                g_ps = [
+                    self.rgd.ceil(j * self.rcut)
+                    for j in extra_grid_pts["rc_perc"]
+                ]
+            else:
+                raise KeyError
+
+            x0_init += list(phit_ng[n][g_ps])
+            # take grid points at which you make interpolation
+            i = g_ps + list(range(gc, gc + nderiv))
+            r_i = r_g[i]
+            # take ref_values at these grid points
+            phi_ng_ref.append(phi_g[i])
+
+        # phi_ng_ref = np.asarray(phi_ng_ref)
+        # x0_init = np.asarray(x0_init)
+
+        # calculate the reference overlap matrix
+        Sref = rgd.integrate(phi_ng[:, None] * phi_ng)
+
+        def nlc1():
+            norm = 0
+            for n, phi in enumerate(phi_ng_ref):
+                if self.n_n[n] < 0:
+                    continue
+                # change value of reference function at gc
+                g_k, b_k = rgd.fft(phit_ng[n] * r_g, l)
+                kc = int(Gcut / g_k[1])
+                f_k = g_k[kc:] * b_k[kc:]
+                norm += f_k @ f_k
+            return np.sqrt(norm)
+
+        def f(x, addgcut=True):
+            for n, phi in enumerate(phi_ng_ref):
+                # change value of reference function at gc
+                phi[:nmvp] = x[nmvp * n: nmvp * (n + 1)]
+                # calculate polynomial approximation to a reference function
+                c_x = np.polyfit(r_i ** 2, phi / (r_i ** l), P - 1)
+                phit_ng[n][: gc + nderiv] = (
+                    np.polyval(c_x, r_g[: gc + nderiv] ** 2)
+                    * r_g[: gc + nderiv] ** l
+                )
+                c0[n] = c_x[-1]
+            # calculate overlap matrix
+            dS_nn = (
+                Sref - rgd.integrate(phit_ng[:, None] * phit_ng)
+            ) / (4 * pi)
+            if addgcut:
+                return np.linalg.norm(dS_nn) + 0.01 * nlc1()
+            else:
+                return np.linalg.norm(dS_nn)
+
+        from scipy.optimize import fmin
+
+        print("=" * 100)
+        xmin = fmin(
+            f, x0_init, ftol=1.0e-16, maxiter=5000, maxfun=5000
+        )
+        assert (
+            f(xmin, False) < 5.0e-8
+        ), f"Not orthonormal setups! The overlap is {f(xmin, False)} Abort.\n"
+        print(" " * 100)
+
+        for n in range(N):
+
+            a_g, dadg_g, d2adg2_g = rgd.zeros(3)
+            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:] ** l
+            a_g[0] = c0[n]
+            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+            q_g -= (
+                0.5 * r_g ** l
+                * (
+                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g
+                    + r_g * d2adg2_g * dgdr_g ** 2
+                )
+            )
+            q_g[gcmax:] = 0
+            rgd.cut(q_g, self.rcut)
+            q_g[1:] /= r_g[1:]
+            if l == 0:
+                q_g[0] = q_g[1]
+            pt_ng[n] = q_g
+
+            self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n] ** 2
+
+        self.dS_nn = (
+            rgd.integrate(phi_ng[:, None] * phi_ng)
+            - rgd.integrate(phit_ng[:, None] * phit_ng)
+        ) / (4 * pi)
+
+        self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
+        A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
+        self.dH_nn *= 0.5
+        self.dH_nn += self.dH_nn.T.copy()
+        pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
+
 
 class PAWSetupGenerator:
     def __init__(self, aea, projectors,
@@ -362,7 +535,7 @@ class PAWSetupGenerator:
                     (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                     aea.add(n, l, 0)
 
-        aea.initialize()
+        aea.initialize(ngpts=3000)
         aea.run()
         aea.scalar_relativistic = scalar_relativistic
         aea.refine()
@@ -555,9 +728,17 @@ class PAWSetupGenerator:
         elif type == 'nc':
             def pseudizer(a_g, gc, l=0, ecut=None, divergent=False):
                 return self.rgd.pseudize_normalized(a_g, gc, l, points=nderiv)
+        else:
+            pseudizer = None
         for waves in self.waves_l:
-            waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
-                           2.0 * self.rcmax, ecut=self.ecut)
+            if type == 'orthonormal':
+                assert isinstance(nderiv, tuple) or isinstance(nderiv, dict)
+                waves.pseudize_orthonormal(
+                    nderiv, self.vtr_g, 2.0 * self.rcmax
+                )
+            else:
+                waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
+                               2.0 * self.rcmax, ecut=self.ecut)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -1541,7 +1722,7 @@ def plot_log_derivs(gen, ld_str: str, plot: bool):
             plt.plot(energies, ld2, '--' + colors[l])
 
         error = abs(ld1 - ld2).sum() * de
-        print('Logarithmic derivative error:', l, error)
+        print('Logarithmic derivative error:', l, error, file=gen.fd)
 
     if plot:
         plt.xlabel('energy [Ha]')
