@@ -29,7 +29,23 @@ class DensityXCKernel(ABC):
 
     @abstractmethod
     def calculate(self, *args, **kwargs):
-        """Actual kernel calculation."""
+        """Calculate the xc kernel.
+
+        Since the exchange-correlation kernel is going to be rescaled according
+        to the bare Coulomb interaction,
+        ˷
+        K_xc(q) = v^(-1/2)(q) K_xc(q) v^(-1/2)(q)
+
+        and that the Coulomb interaction in the optical q→0 limit leaves the
+        long-range q-dependence out, see gpaw.response.coulomb_kernels,
+
+        v(q) = 4π/|G+q| -> 4π for G==0 and 4π/|G| otherwise if q==0,
+
+        we need to account to account for it here. That is,
+
+        For q→0, the head and wings of the returned K_xc(q) needs to be
+        rescaled according to K_xc(q) -> q K_xc(q) q
+        """
 
 
 @dataclass
