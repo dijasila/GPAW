@@ -69,29 +69,31 @@ class LRDensityKernel(DensityXCKernel):
         return Kxc_sGG[0]
 
 
+@dataclass
+class BootstrapDensityKernel(DensityXCKernel):
+
+    def __repr__(self):
+        return 'Bootstrap kernel'
+
+    def calculate(self, qpd, *, chi0_wGG):
+        Kxc_sGG = get_bootstrap_kernel(qpd, chi0_wGG, self.context)
+        return Kxc_sGG[0]
+
+
 def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
                           chi0_wGG=None, **xckwargs):
     """Density-density xc kernels.
     Factory function that calls the relevant functions below."""
-
-    p = context.print
-    nspins = len(gs.nt_sR)
-    assert nspins == 1
-
     if functional[0] == 'A':
         xc_kernel = AdiabaticDensityKernel(gs, context, functional, xckwargs)
-        return xc_kernel(qpd, chi0_wGG=chi0_wGG)
     elif functional[:2] == 'LR':
         xc_kernel = LRDensityKernel(gs, context, functional)
-        return xc_kernel(qpd, chi0_wGG=chi0_wGG)
     elif functional == 'Bootstrap':
-        p('Calculating Bootstrap kernel')
-        Kxc_sGG = get_bootstrap_kernel(qpd, chi0_wGG, context)
+        xc_kernel = BootstrapDensityKernel(gs, context, functional)
     else:
         raise ValueError('Invalid functional for the density-density '
                          'xc kernel:', functional)
-
-    return Kxc_sGG[0]
+    return xc_kernel(qpd, chi0_wGG=chi0_wGG)
 
 
 def calculate_lr_kernel(qpd, alpha=0.2):
