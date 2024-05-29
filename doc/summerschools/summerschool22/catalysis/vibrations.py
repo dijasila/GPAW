@@ -215,8 +215,8 @@ e) To make sure that your NEB is converged you should also calculate the
    vibrational energy of the transition state. Again, this requires tighter
    convergence than we have used in the NEB exercise. This takes a while to run
    so to save time, we provide the transition state geometry from a reasonably
-   converged NEB (i.e. `fmax=0.01`, a cutoff energy of 500eV and eigenstates
-   converged to 1e-8) in the file `TS.xyz`. Calculate the vibrations with these
+   converged NEB (i.e. `fmax=0.01`, a cutoff energy of 800eV and 6x6
+   k-points) in the file `TS.xyz`. Calculate the vibrations with these
    parameters. How many imaginary modes do you get and how do they look? What
    does this mean?
 """
@@ -262,15 +262,15 @@ vib.summary(log='vibts_summary.log')
 for i in range(6):
     vib.write_mode(i)
 
-# ---------------------
-#   #    meV     cm^-1
-# ---------------------
-#   0   73.7i    594.2i
-#   1    7.8      63.0
-#   2   39.6     319.6
-#   3   46.0     371.1
-#   4   67.9     547.4
-#   5   68.8     554.8
-# ---------------------
-# Zero-point energy: 0.115 eV
+#---------------------
+#  #    meV     cm^-1
+#---------------------
+#  0   72.3i    583.1i
+#  1    5.4      43.9
+#  2   41.7     336.0
+#  3   47.4     382.3
+#  4   70.1     565.7
+#  5   71.3     575.0
+#---------------------
+#Zero-point energy: 0.118 eV
 # The imaginary mode is beautifully along the reaction coordinate!
