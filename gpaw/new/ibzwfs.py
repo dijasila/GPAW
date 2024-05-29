@@ -452,7 +452,12 @@ class IBZWaveFunctions(Generic[WFT]):
             log()
             fermilevel = fl[0]
             gapinfo = GapInfo(eigenvalues=eig_skn - fermilevel)
-            log(gapinfo.description(ibz_kpoints=ibz.kpt_kc))
+            text = gapinfo.description(ibz_kpoints=ibz.kpt_kc)
+            # yamlify:
+            text = text.replace(' eV', '  # [eV]')
+            line = 'No difference between direct/indirect transitions'
+            text = text.replace(line, '# ' + line)
+            log(text)
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             log('Could not find a gap')
