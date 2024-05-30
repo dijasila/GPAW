@@ -3,7 +3,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.new import zips
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
-from gpaw.new.lcao.ibzwfs import LCAOIBZWaveFunction
+from gpaw.new.lcao.ibzwfs import LCAOIBZWaveFunctions
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.forces import TCIDerivatives
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
@@ -121,7 +121,7 @@ def create_lcao_ibzwfs(basis,
             weight=weight,
             ncomponents=ncomponents)
 
-    ibzwfs = LCAOIBZWaveFunction.create(
+    ibzwfs = LCAOIBZWaveFunctions.create(
         ibz=ibz,
         nelectrons=nelectrons,
         ncomponents=ncomponents,

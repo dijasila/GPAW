@@ -3,7 +3,7 @@ from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.density import Density
 
 
-class LCAOIBZWaveFunction(IBZWaveFunctions):
+class LCAOIBZWaveFunctions(IBZWaveFunctions):
     def move(self, fracpos_ac, atomdist):
         from gpaw.new.lcao.builder import tci_helper
 
