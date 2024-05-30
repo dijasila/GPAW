@@ -203,7 +203,7 @@ def all_gpw_files(request, gpw_files, pytestconfig):
 
 @pytest.fixture(scope='session')
 def mme_files(request, gpw_files):
-    "Reuse mme files"
+    """Reuse mme files"""
     cache = request.config.cache
     mme_cachedir = cache.mkdir('gpaw_test_mmefiles')
 

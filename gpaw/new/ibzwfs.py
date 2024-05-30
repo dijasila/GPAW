@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Generator, Generic, TypeVar
+from typing import Generator, Generic, TypeVar, TYPE_CHECKING
 
 import numpy as np
 from ase.io.ulm import Writer
@@ -12,11 +12,13 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
-from gpaw.new.density import Density
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D, Self
+
+if TYPE_CHECKING:
+    from gpaw.new.density import Density
 
 WFT = TypeVar('WFT', bound=WaveFunctions)
 
