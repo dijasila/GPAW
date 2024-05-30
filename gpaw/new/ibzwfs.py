@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Generator, TypeVar, Generic
+from typing import Generator, Generic, TypeVar
 
 import numpy as np
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-from gpaw.gpu import synchronize, as_np
+from gpaw.gpu import as_np, synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
+from gpaw.new.density import Density
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D, Self
-
 
 WFT = TypeVar('WFT', bound=WaveFunctions)
 
@@ -207,6 +207,9 @@ class IBZWaveFunctions(Generic[WFT]):
         self.kpt_comm.sum(D_asii.data)
         self.band_comm.sum(nt_sR.data)
         self.band_comm.sum(D_asii.data)
+
+    def normalize_density(self, density: Density) -> None:
+        pass  # overwritten in LCAOIBZWaveFunctions class
 
     def add_to_ked(self, taut_sR) -> None:
         for wfs in self:

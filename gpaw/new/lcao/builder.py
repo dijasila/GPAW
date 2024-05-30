@@ -129,7 +129,7 @@ def create_lcao_ibzwfs(basis,
         kpt_comm=kpt_comm,
         kpt_band_comm=kpt_band_comm,
         comm=communicators['w'])
-    ibzwfs.grid = grid  # The TCI-stuff needs cell and pbc from somwhere ...
+    ibzwfs.grid = grid  # The TCI-stuff needs cell and pbc from somewhere ...
     return ibzwfs, tciexpansions
 
 

@@ -393,7 +393,8 @@ class GPWFiles(CachedFilesHandler):
                     spinpol=True,
                     symmetry='off',
                     convergence={'energy': 100,
-                                 'density': 1e-3})
+                                 'density': 1e-3},
+                    txt=self.folder / 'co_mom.txt')
 
         atoms.calc = calc
         # Ground-state calculation
