@@ -11,7 +11,7 @@ from gpaw.mpi import world
 # are handled correctly when unprojecting/reprojecting the wavefunctions.
 
 
-@pytest.mark.later
+#@pytest.mark.later
 def test_reuse_wfs_celldisp(in_tmp_dir):
     def check(reuse):
         atoms = molecule('H2')
@@ -22,7 +22,7 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
         atoms.positions[:, 2] += dz
 
         calc = GPAW(mode='pw',
-                    txt='gpaw.txt',
+                    #txt='gpaw.txt',
                     nbands=1,
                     experimental=dict(
                         reuse_wfs_method='paw' if reuse else None),
@@ -31,25 +31,19 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
                     mixer=Mixer(0.7, 5, 50.0))
         atoms.calc = calc
 
-        first_iter_err = []
-
-        def monitor():
-            logerr = np.log10(calc.wfs.eigensolver.error)
-            n = calc.scf.niter
-            if n == 1:
-                first_iter_err.append(logerr)
-
-            if world.rank == 0:
-                print('iter', n, 'err', logerr)
-        calc.attach(monitor, 1)
-
-        atoms.get_potential_energy()
-        logerr1 = first_iter_err.pop()
-
+        for ctx in calc.icalculate(atoms):
+            print(ctx.niter, np.log10(calc.wfs.eigensolver.error))
+            if ctx.niter == 2:
+                logerr1 = np.log10(calc.wfs.eigensolver.error)
+        else:
+            atoms.get
         atoms.positions[:, 2] -= 2 * dz
-        atoms.get_potential_energy()
 
-        logerr2 = first_iter_err.pop()
+        for ctx in calc.icalculate(atoms):
+            print(ctx.niter, np.log10(calc.wfs.eigensolver.error))
+            if ctx.niter == 2:
+                logerr2 = np.log10(calc.wfs.eigensolver.error)
+                break
 
         if world.rank == 0:
             print(f'reuse={bool(reuse)}')
