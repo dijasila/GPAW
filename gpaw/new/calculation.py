@@ -34,6 +34,10 @@ class ReuseWaveFunctionsError(Exception):
     """
 
 
+class NonsenseError(Exception):
+    """Operation doesn't make sense."""
+
+
 class CalculationModeError(Exception):
     """Calculation mode does not match what is expected from a given method.
 
@@ -293,7 +297,7 @@ class DFTCalculation:
         self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
-    def stress(self):
+    def stress(self) -> None:
         if 'stress' in self.results:
             return
         stress_vv = self.pot_calc.stress(self.state)
@@ -302,10 +306,35 @@ class DFTCalculation:
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
-    def write_converged(self):
+    def write_converged(self) -> None:
         self.state.ibzwfs.write_summary(self.log)
-
+        vacuum_level = self.state.potential.get_vacuum_level()
+        if not np.isnan(vacuum_level):
+            self.log(f'vacuum-level: {vacuum_level:.3f}  # V')
+            try:
+                wf1, wf2 = self.workfunctions(vacuum_level=vacuum_level)
+            except NonsenseError:
+                pass
+            else:
+                self.log(f'Workfunctions: {wf1:.3f}, {wf2:.3f}  # eV')
         self.log.fd.flush()
+
+    def workfunctions(self,
+                      *,
+                      vacuum_level: float | None = None
+                      ) -> tuple[float, float]:
+        if vacuum_level is None:
+            vacuum_level = self.state.potential.get_vacuum_level()
+        if np.isnan(vacuum_level):
+            raise NonsenseError('No vacuum')
+        try:
+            correction = self.pot_calc.poisson_solver.dipole_layer_correction()
+        except NotImplementedError:
+            raise NonsenseError('No dipole layer')
+        correction *= Ha
+        fermi_level = self.state.ibzwfs.fermi_level * Ha
+        wf = vacuum_level - fermi_level
+        return wf - correction, wf + correction
 
     def electrostatic_potential(self) -> ElectrostaticPotential:
         return ElectrostaticPotential.from_calculation(self)

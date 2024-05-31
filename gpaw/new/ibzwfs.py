@@ -122,6 +122,12 @@ class IBZWaveFunctions(Generic[WFT]):
             return tuple(shape)
         return max(wfs.array_shape() for wfs in self)
 
+    @property
+    def fermi_level(self) -> float:
+        fl = self.fermi_levels
+        assert fl is not None and len(fl) == 1
+        return fl[0]
+
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
         wfs = self.wfs_qs[0][0]
