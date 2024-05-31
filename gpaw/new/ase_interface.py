@@ -63,9 +63,18 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     return ASECalculator(params, log=log)
 
 
+LOGO = """\
+  ___ ___ ___ _ _ _
+ |   |   |_  | | | |
+ | | | | | . | | | |
+ |__ |  _|___|_____| - {version}
+ |___|_|
+"""
+
+
 def write_header(log, params):
     from gpaw.io.logger import write_header as header
-    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
+    log(LOGO.format(version=__version__))
     header(log, log.comm)
     log('---')
     with log.indent('input parameters:'):

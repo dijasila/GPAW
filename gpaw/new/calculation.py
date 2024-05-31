@@ -5,8 +5,9 @@ from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
-from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
+
+from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
@@ -19,7 +20,6 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.new.scf import SCFLoop
-from gpaw.output import plot
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
@@ -137,7 +137,7 @@ class DFTCalculation:
 
         state = DFTState(ibzwfs, density, potential)
 
-        write_atoms(atoms, builder.initial_magmom_av, log)
+        write_atoms(atoms, builder.initial_magmom_av, builder.grid, log)
         log(state)
         log(builder.setups)
         log(scf_loop)
@@ -194,14 +194,17 @@ class DFTCalculation:
     def energies(self):
         energies = combine_energies(self.state.potential, self.state.ibzwfs)
 
-        self.log('energies:  # eV')
+        self.log('Energy contributions relative to reference atoms:',
+                 f'(reference = {self.setups.Eref * Ha:.6f})\n')
+
         for name, e in energies.items():
             if not name.startswith('total') and name != 'stress':
-                self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
+                self.log(f'{name + ":":10}   {e * Ha:14.6f}')
         total_free = energies['total_free']
         total_extrapolated = energies['total_extrapolated']
-        self.log(f'  total:       {total_free * Ha:14.6f}')
-        self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
+        self.log('----------------------------')
+        self.log(f'Free energy: {total_free * Ha:14.6f}')
+        self.log(f'Extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
         total_free = broadcast_float(total_free, self.comm)
         total_extrapolated = broadcast_float(total_extrapolated, self.comm)
@@ -384,7 +387,7 @@ class DFTCalculation:
 
         state = DFTState(ibzwfs, density, potential)
 
-        write_atoms(atoms, builder.initial_magmom_av, log)
+        write_atoms(atoms, builder.initial_magmom_av, builder.grid, log)
         log(state)
         log(builder.setups)
         log(scf_loop)
@@ -413,27 +416,8 @@ def combine_energies(potential: Potential,
 
 def write_atoms(atoms: Atoms,
                 magmom_av: Array2D,
+                grid: UGDesc,
                 log) -> None:
-    log()
-    with log.comment():
-        log(plot(atoms))
-
-    log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
-    symbols = atoms.get_chemical_symbols()
-    for a, ((x, y, z), (mx, my, mz)) in enumerate(zips(atoms.positions,
-                                                       magmom_av)):
-        symbol = symbols[a]
-        c = ']' if a == len(atoms) - 1 else ','
-        log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
-            f' [{mx:6.3f}, {my:6.3f}, {mz:6.3f}]]{c} # {a}')
-
-    log('\ncell: [  # Ang')
-    log('#     x            y            z')
-    for (x, y, z), c in zips(atoms.cell, ',,]'):
-        log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
-
-    log()
-    log(f'periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
-    a, b, c, A, B, C = cell_to_cellpar(atoms.cell)
-    log(f'lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
-    log(f'angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')
+    from gpaw.output import print_cell, print_positions
+    print_positions(atoms, log, magmom_av)
+    print_cell(grid._gd, grid.pbc, log)

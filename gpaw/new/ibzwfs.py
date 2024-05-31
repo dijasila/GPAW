@@ -399,9 +399,9 @@ class IBZWaveFunctions(Generic[WFT]):
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
         if len(fl) == 1:
-            log(f'\nFermi level: {fl[0]:.3f} eV')
+            log(f'\nFermi level: {fl[0]:.3f}')
         else:
-            log(f'\nFermi levels: {fl[0]:.3f}, {fl[1]:.3f} eV')
+            log(f'\nFermi levels: {fl[0]:.3f}, {fl[1]:.3f}')
 
         ibz = self.ibz
 
