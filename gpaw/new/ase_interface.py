@@ -361,10 +361,7 @@ class ASECalculator:
         return atoms
 
     def get_fermi_level(self) -> float:
-        state = self.dft.state
-        fl = state.ibzwfs.fermi_levels
-        assert fl is not None and len(fl) == 1
-        return fl[0] * Ha
+        return self.dft.state.ibzwfs.fermi_level * Ha
 
     def get_fermi_levels(self) -> Array1D:
         state = self.dft.state
