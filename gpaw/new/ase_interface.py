@@ -152,7 +152,6 @@ class ASECalculator:
 
         if self._dft is not None:
             changes = compare_atoms(self.atoms, atoms)
-            print(changes)
             if changes & {'numbers', 'pbc', 'cell'}:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
