@@ -35,8 +35,7 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
             print(ctx.niter, np.log10(calc.wfs.eigensolver.error))
             if ctx.niter == 2:
                 logerr1 = np.log10(calc.wfs.eigensolver.error)
-        else:
-            atoms.get
+
         atoms.positions[:, 2] -= 2 * dz
 
         for ctx in calc.icalculate(atoms):
