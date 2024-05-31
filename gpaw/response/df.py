@@ -572,8 +572,8 @@ class DielectricFunctionCalculator:
         """Get the Kohn-Sham susceptibility χ₀(q,ω) for input wave vector q.
 
         Keeps a cache of χ₀ for the latest calculated wave vector, thus
-        allowing the user to investigate multiple dielectric properties,
-        Coulomb truncations, xc kernels etc. without having to recalculate χ₀.
+        allowing for investigation of multiple dielectric properties,
+        Coulomb truncations, xc kernels etc. without recalculating χ₀.
         """
         # As cache key, we round off and use a string representation.
         # Not very elegant, but it should work almost always.
@@ -591,6 +591,19 @@ class DielectricFunctionCalculator:
                            xc: str = 'RPA',
                            **xckwargs
                            ) -> Chi0DysonEquations:
+        """Set up the Dyson equation for χ(q,ω) at given wave vector q.
+
+        Parameters
+        ----------
+        truncation : str or None
+            Truncation of the Hartree kernel.
+        xc : str
+            Exchange-correlation kernel for LR-TDDFT calculations.
+            If xc == 'RPA', the dielectric response is treated in the random
+            phase approximation.
+        **xckwargs
+            Additional parameters for the chosen xc kernel.
+        """
         chi0 = self.get_chi0(q_c)
         coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         if xc == 'RPA':
