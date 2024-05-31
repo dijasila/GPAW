@@ -634,7 +634,7 @@ class DielectricFunctionCalculator:
     def get_customized_dielectric_function(self, direction='x', *,
                                            truncation: str, **kwargs
                                            ) -> CustomizableDielectricFunction:
-        """Calculate the customized dielectric function Ε(q,ω) = 1 - V(q)P(q,ω)
+        """Calculate the customized dielectric function Ε(q,ω) = 1 -V(q)P(q,ω).
 
         In comparison with the literal dielectric function, the bare Coulomb
         interaction has here been replaced with a truncated analogue v(q)→V(q).
@@ -645,6 +645,8 @@ class DielectricFunctionCalculator:
 
     def get_inverse_dielectric_function(self, direction='x', **kwargs
                                         ) -> InverseDielectricFunction:
+        """Calculate the inverse dielectric function ε⁻¹(q,ω) = v(q) χ(q,ω).
+        """
         return self.get_chi0_dyson_eqs(
             **kwargs).inverse_dielectric_function(direction=direction)
 
