@@ -160,7 +160,7 @@ class DFTCalculation:
         self.state.move(self.fracpos_ac, atomdist)
 
         mm_av = self.results['non_collinear_magmoms']
-        write_atoms(atoms, mm_av, self.log)
+        write_atoms(atoms, mm_av, self.state.density.nt_sR.desc, self.log)
 
         self.results = {}
 

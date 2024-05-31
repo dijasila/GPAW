@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from ase.build import molecule
 
 from gpaw import GPAW, Mixer
@@ -11,7 +10,6 @@ from gpaw.mpi import world
 # are handled correctly when unprojecting/reprojecting the wavefunctions.
 
 
-#@pytest.mark.later
 def test_reuse_wfs_celldisp(in_tmp_dir):
     def check(reuse):
         atoms = molecule('H2')
@@ -22,7 +20,7 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
         atoms.positions[:, 2] += dz
 
         calc = GPAW(mode='pw',
-                    #txt='gpaw.txt',
+                    txt=f'gpaw-{reuse}.txt',
                     nbands=1,
                     experimental=dict(
                         reuse_wfs_method='paw' if reuse else None),
@@ -32,16 +30,15 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
         atoms.calc = calc
 
         for ctx in calc.icalculate(atoms):
-            print(ctx.niter, np.log10(calc.wfs.eigensolver.error))
             if ctx.niter == 2:
-                logerr1 = np.log10(calc.wfs.eigensolver.error)
+                # logerr1 = np.log10(calc.wfs.eigensolver.error)
+                logerr1 = np.log10(ctx.wfs.eigensolver.error)
 
         atoms.positions[:, 2] -= 2 * dz
 
-        for ctx in calc.icalculate(atoms):
-            print(ctx.niter, np.log10(calc.wfs.eigensolver.error))
+        for ctx in calc.icalculate(atoms, system_changes=['positions']):
             if ctx.niter == 2:
-                logerr2 = np.log10(calc.wfs.eigensolver.error)
+                logerr2 = np.log10(ctx.wfs.eigensolver.error)
                 break
 
         if world.rank == 0:
@@ -54,6 +51,6 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
 
     noreuse_logerr = check(0)
     reuse_logerr = check(1)
-    # Ref values: logerr=-3.6 without reuse_wfs and -5.0 with reuse_wfs
-    assert reuse_logerr < -4.8, reuse_logerr
+    # Ref values: logerr=-4.8 without reuse_wfs and -6.1 with reuse_wfs
+    assert reuse_logerr < -6.0, reuse_logerr
     assert reuse_logerr < noreuse_logerr - 1.2, (reuse_logerr, noreuse_logerr)
