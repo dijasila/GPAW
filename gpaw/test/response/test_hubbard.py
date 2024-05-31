@@ -12,7 +12,6 @@ reference_kn = [[0.69806561, 2.58472004, 2.58472066,
                  4.59771405, 4.59774543, 8.67625318]]
 
 
-@pytest.mark.later  # Need to implement Hubbard U first
 @pytest.mark.response
 def test_hubbard_GW(in_tmp_dir, gpw_files, needs_ase_master):
     # This tests checks the actual numerical accuracy which is asserted below

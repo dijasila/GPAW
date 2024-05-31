@@ -6,7 +6,6 @@ from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.response
-@pytest.mark.later  # new code doesn't understand interpolation keyword
 @pytest.mark.parametrize('gs', list(response_band_cutoff.keys()))
 def test_response_band_cutoff(in_tmp_dir, gpw_files, gs):
 
