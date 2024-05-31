@@ -615,6 +615,12 @@ class DielectricFunctionCalculator:
 
     def get_bare_dielectric_function(self, direction='x', **kwargs
                                      ) -> BareDielectricFunction:
+        """Calculate the bare dielectric function ̄ϵ(q,ω) = 1 - v(q) ̄χ(q,ω).
+
+        Here v(q) is the bare Coulomb potential while ̄χ is the unscreened
+        susceptibility calculated based on the modified (and possibly
+        truncated) Coulomb potential.
+        """
         return self.get_chi0_dyson_eqs(
             **kwargs).bare_dielectric_function(direction=direction)
 
