@@ -6,7 +6,6 @@ import gpaw.mpi as mpi
 from gpaw.test.gpwfile import response_band_cutoff
 
 
-@pytest.mark.later
 @pytest.mark.serial
 @pytest.mark.parametrize('gs', ['bi2i6_pw',
                                 'fancy_si_pw',
