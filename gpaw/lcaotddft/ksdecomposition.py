@@ -13,8 +13,11 @@ from gpaw.lcaotddft.utilities import distribute_nM
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import read_uX, write_uX
+from gpaw.tddft.units import eV_to_au
+from gpaw.typing import ArrayLike
 from gpaw.utilities.scalapack import \
     pblas_simple_gemm, pblas_simple_hemm, scalapack_tri2full
+from gpaw.utilities.folder import Folder
 from gpaw.utilities.tools import tri2full
 
 
@@ -406,6 +409,45 @@ class KohnShamDecomposition:
         plt.imshow(M_ia, interpolation='none')
         plt.xlabel('a')
         plt.ylabel('i')
+
+    def get_noninteracting_polarizability(self,
+                                          energies: ArrayLike, *,
+                                          folding: str,
+                                          width: float):
+        """Calculate noninteracting polarizability.
+
+        This noninteracting polarizability corresponds to
+        the Kohn-Sham DFT polarizability.
+
+        Parameters
+        ----------
+        energies
+            Energies at which the response is evaluated; in units of eV
+        folding
+            Broadening function (``Gauss`` or ``Lorentz``)
+        width
+            Width of the broadening function; in units of eV
+
+        Returns
+        -------
+        Dynamical polarizability tensor at the given energies;
+        in units of eÅ^2/V
+        """
+        assert self.only_ia
+        assert folding in ['Lorentz', 'Gauss']
+
+        # Oscillator strength tensor
+        osc_pvv = 2 * np.einsum('p,p,xp,yp->pxy',
+                                self.w_p, self.f_p,
+                                self.dm_vp, self.dm_vp,
+                                optimize=True)
+
+        # Broaden discrete spectrum to continuous energy axis
+        energy_t = np.asarray(energies) * eV_to_au
+        folder = Folder(width=width * eV_to_au, folding=f'Complex{folding}')
+        _, pol_tvv = folder.fold_values(self.w_p, osc_pvv, energy_t)
+        pol_tvv *= Bohr**2 / Hartree
+        return pol_tvv
 
     def get_dipole_moment_contributions(self, rho_up):
         assert len(rho_up) == 1, 'K-points not implemented'
