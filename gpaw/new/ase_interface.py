@@ -186,8 +186,8 @@ class ASECalculator:
             return
 
         with self.timer('SCF'):
-            for ctx in self.dft.iconverge(calculate_forces=
-                                          self._calculate_forces):
+            for ctx in self.dft.iconverge(
+                    calculate_forces=self._calculate_forces):
                 yield ctx
 
         self.log(f'Converged in {ctx.niter} steps')
