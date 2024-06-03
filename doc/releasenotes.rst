@@ -18,6 +18,8 @@ Version 24.5.0
 
 May 31, 2024: :git:`24.5.0 <../24.5.0>`
 
+* Minimum version requirements: Python 3.8, ASE 3.23.0.
+
 * Added a constraint on our Numpy dependency: ``numpy<2``.  GPAW almost
   works with numpy-2, but not quite.
 
