@@ -775,7 +775,8 @@ class G0W0Calculator:
         # Do not return paths to caller before we know they all exist:
         self.context.comm.barrier()
         return paths
-
+    
+    @timer('evaluate sigma')
     def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
@@ -791,8 +792,10 @@ class G0W0Calculator:
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
+            self.context.timer.start('get_nmG')
             n_mG = get_nmG(kpt1, kpt2, mypawcorr,
                            n, qpd, I_G, self.chi0calc.pair_calc)
+            self.context.timer.stop('get_nmG')
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()
@@ -827,7 +830,9 @@ class G0W0Calculator:
                             sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += \
                                 myn_G @ S_GG @ nc_G
 
+                    self.context.timer.start('Wmodel.get_HW')
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, f)
+                    self.context.timer.stop('Wmodel.get_HW')
                     if S_GG is None:
                         continue
 
@@ -838,8 +843,10 @@ class G0W0Calculator:
                     # * wave function, where the sigma expectation value is
                     # evaluated
                     slot = ie, kpt1.s, k, nn
+                    self.context.timer.start('n_G @ S_GG @ n_G')
                     sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
                     sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
+                    self.context.timer.stop('n_G @ S_GG @ n_G')
 
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
