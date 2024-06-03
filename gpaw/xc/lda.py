@@ -60,7 +60,6 @@ def calculate_paw_correction(expansion,
 
     e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
     et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
-
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
                             xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
@@ -94,13 +93,114 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
+        import cupy as xp
+        _D_sp = xp.asarray(D_sp)
+        if dEdD_sp is not None:
+            _dEdD_sp = xp.asarray(dEdD_sp)
+        else:
+            _dEdD_sp = None
+
+        # Reference implementation
+        from time import time
+        start = time()
         from gpaw.xc.noncollinear import NonCollinearLDAKernel
         collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
         rcalc = LDARadialCalculator(self.kernel)
         expansion = LDARadialExpansion(rcalc, collinear)
-        return calculate_paw_correction(expansion,
-                                        setup, D_sp, dEdD_sp,
-                                        addcoredensity, a)
+        E = calculate_paw_correction(expansion,
+                                     setup, D_sp, dEdD_sp,
+                                     addcoredensity, a)
+        stop = time()
+        print('Old xc correction', stop-start)
+
+        xcc = setup.xc_correction
+        rgd = xcc.rgd
+        dev_n_qg = xp.asarray(xcc.n_qg)
+        dev_nt_qg = xp.asarray(xcc.nt_qg)
+        dev_nc_g = xp.asarray(xcc.nc_g)
+        dev_nct_g = xp.asarray(xcc.nct_g)
+        dev_weight_n = xp.asarray(weight_n)
+        dev_dv_g = xp.asarray(rgd.dv_g)
+        xp.cuda.runtime.deviceSynchronize()
+        start = time()
+        B_pqL = xp.asarray(xcc.B_pqL)
+        if xcc is None:
+            return 0.0
+
+        nspins = len(_D_sp)
+
+        if addcoredensity:
+            dev_nc0_sg = xp.empty((nspins, rgd.N)) 
+            dev_nct0_sg = xp.empty((nspins, rgd.N)) 
+            dev_nc0_sg[:] = sqrt(4 * pi) / nspins * dev_nc_g
+            dev_nct0_sg[:] = sqrt(4 * pi) / nspins * dev_nct_g
+            #if xcc.nc_corehole_g is not None and nspins == 2:
+            #    nc0_sg[0] -= 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
+            #    nc0_sg[1] += 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
+        else:
+            nc0_sg = 0
+            nct0_sg = 0
+
+        D_sLq = xp.inner(_D_sp, B_pqL.T)
+
+        dEdD_SsqL = []
+        Exc = 0.0
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        for sign, n_qg, ncore0_sg in [(1.0, dev_n_qg, dev_nc0_sg),
+                                      (-1.0, dev_nt_qg, dev_nct0_sg)]:
+            n_sLg = np.dot(D_sLq, n_qg)
+            if collinear:
+                n_sLg[:, 0] += ncore0_sg
+            else:
+                n_sLg[0, 0] += 4 * ncore0_sg[0]
+
+            dEdD_sqL = xp.zeros_like(np.transpose(D_sLq, (0, 2, 1)))
+
+            Lmax = n_sLg.shape[1]
+            Esphere = 0.0
+
+            n_sng = xp.einsum('nL,sLg->sng', Y_nL[:, :Lmax], n_sLg)
+            nspins = len(n_sLg)
+            n_sx = n_sng.reshape((nspins, -1))
+            e_x = xp.zeros_like(n_sx[0])
+            dedn_sx = xp.zeros_like(n_sx)
+            dvw_ng = xp.outer(dev_weight_n, dev_dv_g)
+
+            #rs_x = (C0I / n_sx[0]) ** (1 / 3.)
+            #ex_x = C1 / rs_x
+            #dexdrs_x = -ex_x / rs_x
+            #print(e_x.shape, n_sx.shape, ex_x.shape)
+            #e_x += n_sx[0] * ex_x
+            #dedn_sx += ex_x - rs_x * dexdrs_x / 3.
+            #dedn_sx[:] = 0.0
+            #e_x[:] = 0.0
+            self.kernel.calculate(e_x, n_sx, dedn_sx)
+            dedn_sng = dedn_sx.reshape((nspins, len(Y_nL), -1))
+            dEdD_sqL = xp.einsum('ng,sng,qg,nL->sqL', dvw_ng, dedn_sng, n_qg, Y_nL[:, :Lmax], optimize=True)
+
+            Exc += sign * xp.dot(dvw_ng.ravel(), e_x) 
+            dEdD_SsqL.append(dEdD_sqL)
+
+        if _dEdD_sp is not None:
+            _dEdD_sp += xp.inner((dEdD_SsqL[0] - dEdD_SsqL[1]).reshape((nspins, -1)),
+                                 B_pqL.reshape((len(xcc.B_pqL), -1)))
+                                 
+        if addcoredensity:
+            Exc -= xcc.e_xc0
+       
+        xp.cuda.runtime.deviceSynchronize()
+        stop = time()
+        print('New xc corrections took', stop-start)
+        #print('Old', E)
+        #print('New', Exc)
+        if dEdD_sp is not None:
+            #print('Old', dEdD_sp)
+            #print('New', _dEdD_sp)
+            assert np.allclose(xp.asnumpy(_dEdD_sp), dEdD_sp)
+            pass
+        assert np.abs(E - Exc) < 1e-8
+
+        return E
 
     def calculate_radial(self, rgd, n_sLg, Y_L):
         rcalc = LDARadialCalculator(self.kernel)
@@ -125,6 +225,7 @@ class LDA(XCFunctional):
         if not skip_sum:
             stress = self.gd.comm.sum_scalar(stress)
         return np.eye(3) * stress
+
 
 
 class PurePythonLDAKernel:
@@ -173,6 +274,7 @@ def lda_x(spin, e, n, v):
     else:
         e[:] += 0.5 * n * ex
     v += ex - rs * dexdrs / 3.
+
 
 
 def lda_c(spin, e, n, v, zeta):
