@@ -372,14 +372,16 @@ class PPAHWModel(HWModel):
 
 class MPAHWModel(HWModel):
     def __init__(self, W_nGG, omegat_nGG, eta, factor):
-        self.W_nGG = W_nGG
-        self.omegat_nGG = omegat_nGG
+        self.W_nGG = np.ascontiguousarray(W_nGG)
+        self.omegat_nGG = np.ascontiguousarray(omegat_nGG)
         self.eta = eta
         self.factor = factor
 
     def get_HW(self, omega, f, derivative=True):
         # n_G HW(w)_GG n_G'
-        
+        from time import time
+        start = time() 
+
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
         x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
@@ -388,10 +390,21 @@ class MPAHWModel(HWModel):
         x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
                                           axis=0)  # Why 2 here
 
-        x2_GG = np.empty_like(x_GG)
+        stop = time()
+        took = stop - start
+        x2_GG = x_GG.copy()
+        x2_GG[:] = 1.0
         from _gpaw import evaluate_mpa_poly
+        #omegat_nGG = omegat_nGG.copy()
+        #W_nGG =W_nGG.copy()
+        start = time()
         evaluate_mpa_poly(x2_GG, omega, f, omegat_nGG, W_nGG, self.eta, self.factor)
-        assert np.all_close(x_GG, x2_GG)
+        stop = time()
+        took2 = stop-start
+        print('python', took)
+        print('C', took2)
+        print('Speedup', took / took2)
+        assert np.allclose(x_GG, x2_GG)
 
         if not derivative:
             return x_GG.conj()
