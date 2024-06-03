@@ -97,6 +97,8 @@ class Potential:
             return np.nan
         if grid.zerobc_c.any():
             return 0.0
+        if self.vHt_x is None:
+            raise ValueError('No electrostatic potential')
         if isinstance(self.vHt_x, UGArray):
             vHt_r = self.vHt_x.gather()
         elif isinstance(self.vHt_x, PWArray):
@@ -107,7 +109,7 @@ class Potential:
             else:
                 vHt_r = None
         else:
-            raise ValueError('No electrostatic potential')
+            return np.nan  # TB-mode
         vacuum_level = 0.0
         if vHt_r is not None:
             for c, periodic in enumerate(grid.pbc_c):
