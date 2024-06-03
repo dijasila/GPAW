@@ -459,7 +459,7 @@ class MPACalculator(WBaseCalculator):
 
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
-        
+       
         einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
 
         #nG1 = einv_WgG.shape[1]
@@ -481,8 +481,6 @@ class MPACalculator(WBaseCalculator):
         E_pGG = chi0.body.blockdist.distribute_as(E_pGG,
                                                   self.mpa['npoles'], 'wGG')
 
-
-
         if self.integrate_gamma == 'WS':
             from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
             wstc = WignerSeitzTruncatedCoulomb(chi0.qpd.gd.cell_cv,
@@ -490,7 +488,6 @@ class MPACalculator(WBaseCalculator):
             sqrtV_G = wstc.get_potential(chi0.qpd)**0.5
         else:
             sqrtV_G = dfc.sqrtV_G
-            V0, sqrtV0 = self.get_V0sqrtV0(chi0)
 
         W_pGG = pi * R_pGG * sqrtV_G[np.newaxis, :, np.newaxis] \
             * sqrtV_G[np.newaxis, np.newaxis, :]

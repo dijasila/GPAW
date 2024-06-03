@@ -1015,7 +1015,7 @@ class G0W0Calculator:
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
-                assert not self.mpa
+                #assert not self.mpa
 
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
