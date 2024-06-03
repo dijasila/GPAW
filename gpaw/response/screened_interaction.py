@@ -390,15 +390,23 @@ class MPAHWModel(HWModel):
         x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
                                           axis=0)  # Why 2 here
 
+        eps = 0.0001 / Ha
+        xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
+        xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
+        xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
+        xm_nGG += (1.0 - f) / (omega - eps - omegat_nGG + 1j * self.eta)
+        dx_GG = 2 * self.factor * np.sum(W_nGG * (xp_nGG - xm_nGG) / (2 * eps),
+                                         axis=0)  # Why 2 here
         stop = time()
         took = stop - start
         x2_GG = x_GG.copy()
         x2_GG[:] = 1.0
+        dx2_GG = x_GG.copy()
         from _gpaw import evaluate_mpa_poly
         #omegat_nGG = omegat_nGG.copy()
         #W_nGG =W_nGG.copy()
         start = time()
-        evaluate_mpa_poly(x2_GG, omega, f, omegat_nGG, W_nGG, self.eta, self.factor)
+        evaluate_mpa_poly(x2_GG, dx2_GG, omega, f, omegat_nGG, W_nGG, self.eta, self.factor)
         stop = time()
         took2 = stop-start
         print('python', took)
@@ -409,15 +417,10 @@ class MPAHWModel(HWModel):
         if not derivative:
             return x_GG.conj()
 
-        eps = 0.05 # XXXX Way too large! 0.1 / 27.21
-        xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
-        xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
-        xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
-        xm_nGG += (1.0 - f) / (omega - eps - omegat_nGG + 1j * self.eta)
-        dx_GG = 2 * self.factor * np.sum(W_nGG * (xp_nGG - xm_nGG) / (2 * eps),
-                                         axis=0)  # Why 2 here
 
-        return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
+        assert np.allclose(dx_GG, dx2_GG)
+
+        return x2_GG.conj(), dx2_GG.conj()  # Why do we have to do a conjugate
 
 
 class PPACalculator(WBaseCalculator):
