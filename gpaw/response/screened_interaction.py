@@ -378,6 +378,8 @@ class MPAHWModel(HWModel):
         self.factor = factor
 
     def get_HW(self, omega, f, derivative=True):
+        # n_G HW(w)_GG n_G'
+        
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
         x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
@@ -386,10 +388,15 @@ class MPAHWModel(HWModel):
         x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
                                           axis=0)  # Why 2 here
 
+        x2_GG = np.empty_like(x_GG)
+        from _gpaw import evaluate_mpa_poly
+        evaluate_mpa_poly(x2_GG, omega, f, omegat_nGG, W_nGG, self.eta, self.factor)
+        assert np.all_close(x_GG, x2_GG)
+
         if not derivative:
             return x_GG.conj()
 
-        eps = 0.05
+        eps = 0.05 # XXXX Way too large! 0.1 / 27.21
         xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
         xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
         xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
