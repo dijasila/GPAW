@@ -1,5 +1,8 @@
 #include "mpa.h"
 
+#ifdef __GNUC__
+__attribute__((optimize("-ffast-math")))
+#endif
 PyObject* evaluate_mpa_poly(PyObject *self, PyObject *args)
 {
     PyArrayObject* x_GG_obj;
@@ -77,8 +80,9 @@ PyObject* evaluate_mpa_poly(PyObject *self, PyObject *args)
                 //double complex x1 = f / (omega_eta_m + omegat);
                 //double complex x2 = (1.0-f) / (omega_eta_p - omegat);
                 double complex x1 = 1.0 / (omega_eta_m + omegat);
-                result += (x1) * W_nGG[index];
-                dresult -= x1*x1 * W_nGG[index];
+                double complex xW = x1 * W_nGG[index];
+                result += xW;
+                dresult -= x1*xW;
             }
             *x_GG++ = result * 2 * factor;
             *dx_GG++ = dresult * 2 * factor;
@@ -99,11 +103,12 @@ PyObject* evaluate_mpa_poly(PyObject *self, PyObject *args)
                 //double complex x1 = f / (omega_eta_m + omegat);
                 //double complex x2 = (1.0-f) / (omega_eta_p - omegat);
                 double complex x2 = 1.0 / (omega_eta_p - omegat);
-                result += x2 * W_nGG[index];
-                dresult -= x2 * x2 * W_nGG[index];
+                double complex xW = x2 * W_nGG[index];
+                result += xW;
+                dresult -= x2 * xW;
             }
             *x_GG++ = result * (2 * factor);
-            *dx_GG++ = dresult * 2 * factor;
+            *dx_GG++ = dresult * (2 * factor);
         }
     }
     } else
@@ -122,8 +127,10 @@ PyObject* evaluate_mpa_poly(PyObject *self, PyObject *args)
                 //double complex x2 = (1.0-f) / (omega_eta_p - omegat);
                 double complex x1 = f / (omega_eta_m + omegat);
                 double complex x2 = (1.0-f) / (omega_eta_p - omegat);
-                result += (x1 + x2) * W_nGG[index];
-                dresult -= (x1 * x1 + x2 * x2) * W_nGG[index];
+                double complex xW1 = x1 * W_nGG[index];
+                double complex xW2 = x2 * W_nGG[index];
+                result += xW1 + xW2;
+                dresult -= xW1 * x1 + xW2 * x2;
             }
             *x_GG++ = result * (2 * factor);
             *dx_GG++ = dresult * (2 * factor);
