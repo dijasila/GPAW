@@ -13,7 +13,7 @@ def test_no_cell():
 
 
 @pytest.mark.later
-def test_read_txt(in_tmp_dir, needs_ase_master):
+def test_read_txt(in_tmp_dir):
     a = 2.0
     calc = GPAW(
         mode='fd',

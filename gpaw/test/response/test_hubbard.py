@@ -14,7 +14,7 @@ reference_kn = [[0.69806561, 2.58472004, 2.58472066,
 
 @pytest.mark.later  # Need to implement Hubbard U first
 @pytest.mark.response
-def test_hubbard_GW(in_tmp_dir, gpw_files, needs_ase_master):
+def test_hubbard_GW(in_tmp_dir, gpw_files):
     # This tests checks the actual numerical accuracy which is asserted below
     gw = G0W0(gpw_files['ag_plusU_pw'], 'gw',
               integrate_gamma=0,
