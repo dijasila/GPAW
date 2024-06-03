@@ -5,6 +5,32 @@ from ase.units import Hartree as Ha
 #from gpaw.response.mpa_interpolation import mpa_cond1, pole_is_out
 
 @pytest.mark.response
+def test_mpa_WS_ecut_extrap(in_tmp_dir, gpw_files, scalapack):
+    ref_result = np.asarray([[[ 12.715556,  21.389845],
+                              [-33.660224,  16.462673],
+                              [  9.755104,  22.868525]]])
+
+    mpa_dict = {'npoles': 4, 'wrange': [0 * Ha, 2 * Ha],
+                'varpi': Ha,
+                'eta0': 0.01 * Ha,
+                'eta_rest': 0.1 * Ha,
+                'alpha': 1}
+
+    gw = G0W0(gpw_files['bn_pw'],
+              bands=(3, 5),
+              nblocks=1,
+              ecut=40,
+              ecut_extrapolation=True,
+              integrate_gamma='WS',
+              ppa=False,
+              mpa=mpa_dict)
+
+    results = gw.calculate()
+    print(results)
+    np.testing.assert_allclose(results['qp'], ref_result, rtol=1e-03)
+
+
+@pytest.mark.response
 def test_mpa_WS(in_tmp_dir, gpw_files, scalapack):
     ref_result = np.asarray([[[11.335173, 21.581602],
                    [ 5.411369, 16.046205],
@@ -20,7 +46,7 @@ def test_mpa_WS(in_tmp_dir, gpw_files, scalapack):
               bands=(3, 5),
               nbands=9,
               nblocks=1,
-              ecut=40,
+              ecut=400,
               integrate_gamma='WS',
               ppa=False,
               mpa=mpa_dict)
