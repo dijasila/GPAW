@@ -13,7 +13,7 @@ def test_no_cell():
 
 
 @pytest.mark.parametrize('name', ['h2_pw', 'bcc_li_lcao'])
-def test_read_txt(in_tmp_dir, needs_ase_master, gpw_files, name):
+def test_read_txt(in_tmp_dir, gpw_files, name):
     gpw = gpw_files[name]
     e0 = GPAW(gpw).get_atoms().get_potential_energy()
     e = read(gpw.with_suffix('.txt')).get_potential_energy()
