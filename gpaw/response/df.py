@@ -204,12 +204,6 @@ class Chi0DysonEquations:
             vchi0_symm_wGG, K_GG, reuse_buffer=False)
         return vchi0_symm_wGG, vchi_symm_wGG
 
-    def dielectric_function(self, *args, **kwargs):
-        if self.coulomb.truncation:
-            return self.bare_dielectric_function(*args, **kwargs)
-        else:
-            return self.customized_dielectric_function(*args, **kwargs)
-
     def customized_dielectric_function(self, *args, **kwargs):
         """Calculate Ε(q,ω) = 1 - V(q) P(q,ω)."""
         V_GG = self.coulomb.kernel(self.chi0.qpd)
@@ -238,7 +232,10 @@ class Chi0DysonEquations:
         We may thus reuse that functionality to calculate v^(1/2) χ v^(1/2).
         """
         if xc != 'RPA':
-            raise NotImplementedError
+            raise NotImplementedError(
+                'Calculation of the bare dielectric function within TDDFT has '
+                'not yet been implemented. For TDDFT dielectric properties, '
+                'please calculate the inverse dielectric function.')
         vP_symm_wGG, vchibar_symm_wGG = self.calculate_vchi_symm(
             xc=xc, direction=direction, modified=True)
         return BareDielectricFunction.from_chi0_dyson_eqs(
@@ -261,18 +258,29 @@ class Chi0DysonEquations:
         if xc == 'RPA':
             return chi0_wGG
         # TDDFT (in adiabatic approximations to the kernel)
-        # WARNING: The TDDFT implementation seems to be invalid in the optical
-        # limit... Namely, the Coulomb interaction V(q) is only well-defined
-        # in products of V^(1/2) χ₀ V^(1/2), why a literal evaluation of
-        # V(q) P(q,ω) does not seem sensible. Furthermore, one should use the
-        # χ₀ body when calculating P(q,ω) and not usual version with head and
-        # wings which are only well defined up to factors of V(q).
+        if self.chi0.qpd.optical_limit:
+            raise NotImplementedError(
+                'Calculation of the TDDFT dielectric function via the '
+                'polarizability operator has not been implemented for the '
+                'optical limit. Please calculate the inverse dielectric '
+                'function instead.')
+            # The TDDFT implementation here is invalid in the optical limit
+            # since the chi0_wGG variable already contains Coulomb effects,
+            # chi0_wGG ~ V^(1/2) χ₀ V^(1/2)/(4π).
+            # Furthermore, a direct evaluation of V(q) P(q,ω) does not seem
+            # sensible, since it does not account for the exact cancellation
+            # of the q-dependences of the two functions.
+            # In principle, one could treat the v(q) P(q,ω) product in
+            # perturbation theory, similar to the χ₀(q,ω) v(q) product in the
+            # Dyson equation for χ, but unless we need to calculate the TDDFT
+            # polarizability using truncated kernels, this isn't really
+            # necessary.
         Kxc_GG = self.get_Kxc_GG(xc=xc, chi0_wGG=chi0_wGG, **xckwargs)
         return self.invert_dyson_like_equation(chi0_wGG, Kxc_GG)
 
 
 @dataclass
-class DielectricFunctionBase(ABC):
+class DielectricFunctionData(ABC):
     cd: CellDescriptor
     qpd: SingleQPWDescriptor
     wd: FrequencyDescriptor
@@ -298,6 +306,9 @@ class DielectricFunctionBase(ABC):
     @abstractmethod
     def macroscopic_dielectric_function(self) -> ScalarResponseFunctionSet:
         """Get the macroscopic dielectric function ε_M(q,ω)."""
+
+    def dielectric_constant(self):
+        return self.macroscopic_dielectric_function().static_limit.real
 
     def eels_spectrum(self):
         """Get the macroscopic EELS spectrum.
@@ -348,7 +359,12 @@ class DielectricFunctionBase(ABC):
         polarizability in the relevant independent-particle approximation by
         replacing ϵ_M with ε_M^(IP).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'When using a truncated Coulomb kernel, the polarizability '
+                'cannot be calculated based on the macroscopic dielectric '
+                'function. Please calculate the bare dielectric function '
+                'instead.')
         _, eps0_W, eps_W = self.macroscopic_dielectric_function().arrays
         return self._polarizability(eps0_W, eps_W)
 
@@ -360,7 +376,7 @@ class DielectricFunctionBase(ABC):
 
 
 @dataclass
-class InverseDielectricFunction(DielectricFunctionBase):
+class InverseDielectricFunction(DielectricFunctionData):
     """Data class for the inverse dielectric function ε⁻¹(q,ω).
 
     The inverse dielectric function characterizes the longitudinal response
@@ -421,7 +437,7 @@ class InverseDielectricFunction(DielectricFunctionBase):
 
 
 @dataclass
-class CustomizableDielectricFunction(DielectricFunctionBase):
+class CustomizableDielectricFunction(DielectricFunctionData):
     """Data class for customized dielectric functions Ε(q,ω).
 
     Ε(q,ω) is customizable in the sense that bare Coulomb interaction v(q) is
@@ -465,12 +481,17 @@ class CustomizableDielectricFunction(DielectricFunctionBase):
 
         In the special case V(q) = v(q), Ε_M(q,ω) = ε_M(q,ω).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'The macroscopic dielectric function is defined in terms of '
+                'the bare Coulomb interaction. To truncate the Hartree '
+                'electron-electron correlations, please calculate the inverse '
+                'dielectric function instead.')
         return self.macroscopic_customized_dielectric_function()
 
 
 @dataclass
-class BareDielectricFunction(DielectricFunctionBase):
+class BareDielectricFunction(DielectricFunctionData):
     """Data class for the bare (unscreened) dielectric function.
 
     The bare dielectric function is defined in terms of the unscreened
@@ -520,7 +541,12 @@ class BareDielectricFunction(DielectricFunctionBase):
 
         ε_M(q,ω) = ϵ_M(q,ω).
         """
-        assert self.coulomb is self.bare_coulomb
+        if self.coulomb is not self.bare_coulomb:
+            raise ValueError(
+                'The macroscopic dielectric function cannot be obtained from '
+                'the bare dielectric function calculated based on a truncated '
+                'Coulomb interaction. Please calculate the inverse dielectric '
+                'function instead')
         return self.macroscopic_bare_dielectric_function()
 
     def polarizability(self):
@@ -549,7 +575,7 @@ class DielectricFunctionCalculator:
 
         self._chi0cache: dict = {}
 
-    def calculate_chi0(self, q_c: list | np.ndarray):
+    def calculate_chi0(self, q_c: list | np.ndarray) -> Chi0DysonEquations:
         """Calculates the response function.
 
         Calculate the response function for a specific momentum.
@@ -590,53 +616,52 @@ class DielectricFunctionCalculator:
 
         return self._chi0cache[key]
 
-    def _new_dynamic_susceptibility(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).dynamic_susceptibility()
-
-    def _new_dielectric_function(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).macroscopic_dielectric_function()
-
-    def _new_eels_spectrum(self, *args, **kwargs):
-        return self.get_inverse_dielectric_function(
-            *args, **kwargs).eels_spectrum()
-
-    def _new_polarizability(self, *args, **kwargs):
-        return self.get_dielectric_function_new(
-            *args, **kwargs).polarizability()
-
-    def get_dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
-                                    **xckwargs):
-        return self.calculate_chi0(q_c).dielectric_function(
-            direction=direction, **xckwargs)
+    def _dielectric_function_new(self, q_c=[0, 0, 0], direction='x',
+                                 **xckwargs) -> DielectricFunctionData:
+        # Temporary method until truncation becomes a method input XXX
+        chi0_dyson_eqs = self.calculate_chi0(q_c)
+        if self.coulomb.truncation:
+            # eps: BareDielectricFunction
+            method = chi0_dyson_eqs.bare_dielectric_function
+        else:
+            # eps: CustomizableDielectricFunction
+            method = chi0_dyson_eqs.customized_dielectric_function
+        eps = method(direction=direction, **xckwargs)
+        return eps
 
     def get_bare_dielectric_function(self, q_c=[0, 0, 0], direction='x',
-                                     **xckwargs):
+                                     **xckwargs) -> BareDielectricFunction:
         return self.calculate_chi0(q_c).bare_dielectric_function(
             direction=direction, **xckwargs)
 
-    def get_literal_dielectric_function(self, *args, **kwargs):
+    def get_literal_dielectric_function(
+            self, *args, **kwargs) -> CustomizableDielectricFunction:
         """Calculate the dielectric function ε(q,ω) = 1 - v(q) P(q,ω)."""
         return self.get_customized_dielectric_function(
             truncation=None, *args, **kwargs)
 
-    def get_customized_dielectric_function(self, *, truncation: str | None,
-                                           q_c=[0, 0, 0], direction='x',
-                                           **xckwargs):
+    def get_customized_dielectric_function(
+            self, *, truncation: str | None,
+            q_c=[0, 0, 0], direction='x',
+            **xckwargs) -> CustomizableDielectricFunction:
         # NB: ignores self.coulomb while this still exists XXX
         chi0_dyson_equation = self.calculate_chi0(q_c)
-        chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
-            truncation=truncation)
+        if truncation is None:
+            chi0_dyson_equation.coulomb = chi0_dyson_equation.bare_coulomb
+        else:
+            chi0_dyson_equation.coulomb = chi0_dyson_equation.coulomb.new(
+                truncation=truncation)
         return chi0_dyson_equation.customized_dielectric_function(
             direction=direction, **xckwargs)
 
-    def get_inverse_dielectric_function(self, q_c=[0, 0, 0], direction='x',
-                                        **xckwargs):
+    def get_inverse_dielectric_function(
+            self, q_c=[0, 0, 0], direction='x',
+            **xckwargs) -> InverseDielectricFunction:
         return self.calculate_chi0(q_c).inverse_dielectric_function(
             direction=direction, **xckwargs)
 
     def get_rpa_density_response(self, q_c, *, direction, qinf_v=None):
+        # Used by the QEH code
         return self.calculate_chi0(q_c).rpa_density_response(
             direction=direction, qinf_v=qinf_v)
 
@@ -713,7 +738,8 @@ class DielectricFunction(DielectricFunctionCalculator):
     def get_dynamic_susceptibility(self, *args, xc='ALDA',
                                    filename='chiM_w.csv',
                                    **kwargs):
-        dynsus = self._new_dynamic_susceptibility(*args, xc=xc, **kwargs)
+        dynsus = self.get_inverse_dielectric_function(
+            *args, xc=xc, **kwargs).dynamic_susceptibility()
         if filename:
             dynsus.write(filename)
         return dynsus.unpack()
@@ -730,7 +756,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         df_LFC_w: np.ndarray
             Dielectric functio with local field corrections.
         """
-        df = self._new_dielectric_function(*args, **kwargs)
+        df = self.get_inverse_dielectric_function(
+            *args, **kwargs).macroscopic_dielectric_function()
         if filename:
             df.write(filename)
         return df.unpack()
@@ -747,7 +774,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         eels_w: np.ndarray
             Fully screened EELS spectrum.
         """
-        eels = self._new_eels_spectrum(*args, **kwargs)
+        eels = self.get_inverse_dielectric_function(
+            *args, **kwargs).eels_spectrum()
         if filename:
             eels.write(filename)
         return eels.unpack()
@@ -765,7 +793,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         alpha_w: np.ndarray
             Polarizability calculated with local-field corrections.
         """
-        pol = self._new_polarizability(*args, **kwargs)
+        pol = self._dielectric_function_new(
+            *args, **kwargs).polarizability()
         if filename:
             pol.write(filename)
         return pol.unpack()
@@ -783,8 +812,8 @@ class DielectricFunction(DielectricFunctionCalculator):
         eps: float
             Dielectric constant with local field correction. (RPA, ALDA)
         """
-        df = self._new_dielectric_function(xc=xc, direction=direction)
-        return df.static_limit.real
+        return self.get_inverse_dielectric_function(
+            xc=xc, direction=direction).dielectric_constant()
 
 
 # ----- Serialized dataclasses and IO ----- #
