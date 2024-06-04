@@ -1573,7 +1573,7 @@ class GPWFiles(CachedFilesHandler):
             occupations=FermiDirac(occw),
             convergence=conv,
             parallel={'domain': 1},
-            txt=self.folder / 'ag_pw.txt')
+            txt=self.folder / 'ag_plusU_pw.txt')
 
         atoms.get_potential_energy()
 
