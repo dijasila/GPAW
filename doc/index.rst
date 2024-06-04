@@ -47,7 +47,7 @@ Force: -0.639 eV/Å
 News
 ====
 
-* :ref:`GPAW version 24.5.0 <releasenotes>` released (May 31, 2024).
+* :ref:`GPAW version 24.6.0 <releasenotes>` released (Jun 7, 2024).
 
 * `Psi-k highlight of the month
   <https://psi-k.net/download/highlights/Highlight_157.pdf>`__ (Apr 1, 2024)

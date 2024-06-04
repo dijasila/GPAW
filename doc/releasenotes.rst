@@ -13,10 +13,10 @@ Git master branch
 * ...
 
 
-Version 24.5.0
+Version 24.6.0
 ==============
 
-May 31, 2024: :git:`24.5.0 <../24.5.0>`
+May 31, 2024: :git:`24.6.0 <../24.6.0>`
 
 * Minimum version requirements: Python 3.8, ASE 3.23.0.
 
