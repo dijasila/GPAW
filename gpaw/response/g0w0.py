@@ -1036,7 +1036,14 @@ class G0W0Calculator:
 
         return rqpd, Wdict, blocks1d, chi0calc.chi0_body_calc.pawcorr
 
-    @timer('calcualte_vxc_and_exx')
+    @timer('calculate_fxc')
+    def calculate_fxc(self):
+        if self.wcalc.xckernel is None:
+            return
+        qpd = SingleQPWDescriptor.from_q(np.array([0.0, 0.0, 0.0]), self.ecut_e[-1], self.chi0calc.gs.gd)
+        self.wcalc.xckernel.calculate(qpd) 
+
+    @timer('calculate_vxc_and_exx')
     def calculate_vxc_and_exx(self):
         return self.exx_vxc_calculator.calculate(
             n1=self.bands[0], n2=self.bands[1],
