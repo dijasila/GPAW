@@ -13,7 +13,7 @@ reference_kn = [[0.69806561, 2.58472004, 2.58472066,
 
 
 @pytest.mark.response
-def test_hubbard_GW(in_tmp_dir, gpw_files, needs_ase_master, gpaw_new):
+def test_hubbard_GW(in_tmp_dir, gpw_files, gpaw_new):
     # This tests checks the actual numerical accuracy which is asserted below
     if gpaw_new and world.size > 1:
         pytest.skip('Parallelization bug for new-gpaw')
