@@ -1,3 +1,4 @@
+from __future__ import annotations
 import warnings
 
 import numpy as np
@@ -10,10 +11,10 @@ from gpaw.wavefunctions.fd import FD
 
 
 def get_number_of_grid_points(cell_cv,
-                              h=None,
+                              h: float | None = None,
                               mode=None,
                               realspace=None,
-                              symmetry=None):
+                              symmetry=None) -> np.ndarray:
     if mode is None:
         mode = FD()
 
@@ -72,5 +73,9 @@ def get_number_of_grid_points(cell_cv,
             ok = symmetry.check_grid(N_c)
             assert ok, ('Grid still not constistent with symmetries '
                         '({},{},{})'.format(*N_c))
+
+    dv = abs(np.linalg.det(cell_cv)) / N_c.prod()
+    if not (0.4 < dv / h**3 < 2):
+        raise ValueError(f'Bad unit cell: {cell_cv}, {N_c}, {h}, {dv / h**3}')
 
     return N_c
