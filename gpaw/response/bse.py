@@ -362,7 +362,7 @@ class BSEBackend:
                     epsc_n = e_mk[mci:mcf, iKq]
                     deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
                 else:
-                    deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
+                    deps_ksmn[ik, s] = -pair.get_transition_energies()
 
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
@@ -374,7 +374,7 @@ class BSEBackend:
                     v0_kmn = v_kmn[:, :, ::2]
                     v1_kmn = v_kmn[:, :, 1::2]
                     if optical_limit:
-                        deps0_mn = -pair.get_transition_energies(m_m, n_n)
+                        deps0_mn = -pair.get_transition_energies()
                         rho_mnG[:, :, 0] *= deps0_mn
 
                     # This recreates the old behaviour of
