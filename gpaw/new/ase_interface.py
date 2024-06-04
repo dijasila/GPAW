@@ -432,7 +432,8 @@ class ASECalculator:
                            broadcast=True) -> Array3D:
         assert spin is None
         nt_sr = self.dft.densities().pseudo_densities(
-            grid_refinement=gridrefinement)
+            grid_refinement=gridrefinement,
+            add_compensation_charges=False)
         return nt_sr.gather(broadcast=broadcast).data.sum(0)
 
     def get_all_electron_density(self,
