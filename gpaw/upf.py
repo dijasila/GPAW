@@ -291,7 +291,7 @@ class UPFSetupData:
         #                              default_spline_points=100)
 
         from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
-        rgd = EquidistantRadialGridDescriptor(0.02)
+        rgd = EquidistantRadialGridDescriptor(0.005, default_spline_points=999)
         self.rgd = rgd
 
         # Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy???

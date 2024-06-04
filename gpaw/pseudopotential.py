@@ -71,7 +71,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     if rcut is None:
         err = 0.0
         i = len(vr)
-        while err < 1e-4:
+        while err < 1e-6:
             # Things can be a bit sensitive to the threshold.  The O.pz-mt
             # setup gets 20-30 Bohr long compensation charges if it's 1e-6.
             i -= 1
@@ -82,6 +82,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     else:
         icut = np.searchsorted(r, rcut)
     rcut = r[icut]
+    print('rcut', rcut)
     rshort = r[:icut].copy()
     if rshort[0] < 1e-16:
         rshort[0] = 1e-10

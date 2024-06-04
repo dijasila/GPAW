@@ -528,14 +528,16 @@ class RadialGridDescriptor(ABC):
 
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
-    def __init__(self, h, N=1000, h0=0.0):
+    def __init__(self, h, N=1000, h0=0.0, default_spline_points=25):
         """Equidistant radial grid descriptor.
 
         The radial grid is r(g) = h0 + g*h,  g = 0, 1, ..., N - 1."""
 
-        RadialGridDescriptor.__init__(self,
-                                      h * np.arange(N) + h0,
-                                      h + np.zeros(N))
+        RadialGridDescriptor.__init__(
+            self,
+            h * np.arange(N) + h0,
+            h + np.zeros(N),
+            default_spline_points=default_spline_points)
 
     def r2g(self, r):
         return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
