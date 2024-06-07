@@ -123,9 +123,9 @@ class BuildingBlock:
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
                 assert Nk % 2 == 0
-                i = Nk / 2.0
+                i = Nk // 2
                 while q < qmax:
-                    if i == Nk:  # omit BZ edge
+                    if not i % Nk:  # omit BZ edge
                         i += 1
                         continue
                     q_c = np.zeros([3])
