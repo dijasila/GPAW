@@ -389,12 +389,13 @@ We obtain the following transition contributions for the resonances
    :scale: 70%
 
 
-Induced density
----------------
+Induced density and field enhancement
+-------------------------------------
 
 The density matrix gives access to any other quantities.
 For instance, the induced density can be conveniently obtained
-from the density matrix:
+from the density matrix and then used for calculating
+:ref:`electric field enhancement <inducedfield>`:
 
 .. literalinclude:: lcaotddft_Na8/fdm_ind.py
 
@@ -403,10 +404,12 @@ The resulting cube files can be visualized, for example, with
 the figures:
 
 .. image:: lcaotddft_Na8/ind_1.12.png
-   :scale: 70%
 
 .. image:: lcaotddft_Na8/ind_2.48.png
-   :scale: 70%
+
+.. image:: lcaotddft_Na8/fe_1.12.png
+
+.. image:: lcaotddft_Na8/fe_2.48.png
 
 
 Advanced tutorials
