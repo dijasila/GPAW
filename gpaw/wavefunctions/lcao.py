@@ -527,6 +527,7 @@ class LCAOforces:
         else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
+            self.initialize_arbitrary_things()  # XXX refactor!
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
 
@@ -860,9 +861,7 @@ class LCAOforces:
 
         return Fpot_av
 
-    def get_kin_and_den_term_blacs(self):
-        Fkin_av_sum = np.zeros_like(self.Fref_av)
-        Ftheta_av_sum = np.zeros_like(self.Fref_av)
+    def initialize_arbitrary_things(self):
         # pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
         #              for setup in self.setups]
         # phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
@@ -887,8 +886,6 @@ class LCAOforces:
         # from gpaw.lcao.overlap import TwoCenterIntegralCalculator
         self.timer.start('Prepare TCI loop')
         self.M_a = self.bfs.M_a
-        Fkin2_av = np.zeros_like(self.Fref_av)
-        Ftheta2_av = np.zeros_like(self.Fref_av)
         self.atompairs = self.newtci.a1a2.get_atompairs()
         self.timer.start('broadcast dH')
         self.alldH_asp = {}
@@ -903,6 +900,13 @@ class LCAOforces:
             # okay, now everyone gets copies of dH_sp
             self.alldH_asp[a] = dH_sp
         self.timer.stop('broadcast dH')
+
+    def get_kin_and_den_term_blacs(self):
+        Fkin2_av = np.zeros_like(self.Fref_av)
+        Ftheta2_av = np.zeros_like(self.Fref_av)
+
+        Fkin_av_sum = np.zeros_like(self.Fref_av)
+        Ftheta_av_sum = np.zeros_like(self.Fref_av)
         # This will get sort of hairy.  We need to account for some
         # three-center overlaps, such as:
         #
