@@ -1,6 +1,14 @@
 import gpaw.cgpaw as cgpaw
+import warnings
 from gpaw.xc.kernel import XCKernel
 from gpaw import debug
+
+
+class FunctionalNeedsLaplacianError(Exception):
+    """(MGGA) Functional needs laplacian.
+
+    """
+
 
 short_names = {
     'LDA': 'LDA_X+LDA_C_PW',
@@ -61,6 +69,13 @@ class LibXC(XCKernel):
 
         if self.xc.is_mgga():
             self.type = 'MGGA'
+            if not self.xc.disable_fhc():
+                warnings.warn('libxc should compiled with --disable-fhc' +
+                              ' otherwise SCF won\'t converge.')
+            if self.xc.needs_laplacian():
+                msg = 'Functional "%s" needs laplacian' % name
+                msg += ' (unsupported)'
+                raise FunctionalNeedsLaplacianError(msg, self.xc)
         elif self.xc.is_gga():
             self.type = 'GGA'
         else:
