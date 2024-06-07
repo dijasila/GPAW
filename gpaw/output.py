@@ -4,6 +4,7 @@ from ase import Atoms
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr
+from typing import Tuple
 
 
 def print_cell(gd, pbc_c, log):
@@ -27,15 +28,60 @@ def print_cell(gd, pbc_c, log):
 
 
 def print_positions(atoms, log, magmom_av):
+    """Print out the atomic symbols, positions, constraints, and magmoms
+       at each ionic step"""
+
+    # ASCII plot of unit cell
     log(plot(atoms))
-    log('\nPositions:')
+
+    # Header
+    log('\n' + ' ' * 23 + 'Positions' + ' ' * 13 +
+        'Constr' + ' ' * 11 + '(Magmoms)')
+
+    # Print the table
     symbols = atoms.get_chemical_symbols()
+    constraints = get_constraint_details(atoms)[1]
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}'
-            '    ({3[0]:7.4f}, {3[1]:7.4f}, {3[2]:7.4f})'
-            .format(a, symbol, pos_v, magmom_av[a]))
+        const = constraints[a]
+
+        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f} '
+            '{3:^7}({4[0]:7.4f}, {4[1]:7.4f}, {4[2]:7.4f})'
+            .format(a, symbol, pos_v, const, magmom_av[a]))
+
     log()
+
+
+def get_constraint_details(atoms: Atoms) -> Tuple[str, list]:
+    """
+    Get the constraints on the atoms object a tuple containing
+    [0] A string listing the constraints and their kwargs for the gpaw logfile
+        preamble.
+    [1] A list of the constraint initials on the specific atoms
+    """
+
+    const_legend = 'ASE contraints:\n'
+    const_a = [''] * len(atoms)
+
+    for const in atoms.constraints:
+        const_label = [i for i in const.todict()['name']
+                       if i.lstrip('F').isupper()][0]
+        indices = []
+        const_legend += f'  {const}'
+        for key, value in const.todict()['kwargs'].items():
+            # Since the indices in the varying constraints are labeled
+            # differently we have to search for all the labels
+            if (key in ['a', 'a1', 'a3', 'a4', 'index', 'pairs', 'indices',
+                'triples'] or (key == 'a2' and isinstance(value, int))):
+                indices.extend(np.unique(np.array(value).reshape(-1)))
+                if const_legend.split('\n')[-1] == f'  {const}':
+                    const_legend += f' ({const_label})'
+        const_legend += '\n'
+
+        for index in indices:
+            const_a[index] += const_label
+
+    return const_legend, const_a
 
 
 def print_parallelization_details(wfs, ham, log):
