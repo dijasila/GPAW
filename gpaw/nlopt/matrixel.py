@@ -192,9 +192,13 @@ def make_nlodata(calc: ASECalculator | str | Path,
     timer = Timer()
 
     # Get the energy and Fermi-Dirac occupations (data is only in master)
-    with timer('Get energies and fermi levels'):
+    with timer('Get energies wrt. Fermi level and occupations'):
+        E_F = ibzwfs.fermi_levels
+        assert E_F is not None and len(E_F) == 1
+        E_F = E_F[0]
 
         E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
+        E_skn -= E_F
 
         w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndensities)])
         w_sk *= gs.bzvol * ibzwfs.spin_degeneracy
@@ -224,7 +228,7 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
     Parameters
     ----------
     E_n
-        Band energies.
+        Band energies wrt. Fermi level.
     p_vnn
         Momentum matrix elements.
     pol_v
@@ -238,7 +242,6 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
         Position matrix elements.
     D_vnn
         Velocity difference matrix elements.
-
     """
 
     # Useful variables
@@ -267,7 +270,7 @@ def get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
     Parameters
     ----------
     E_n
-        Band energies.
+        Band energies wrt. Fermi level.
     r_vnn
         Momentum matrix elements.
     D_vnn
