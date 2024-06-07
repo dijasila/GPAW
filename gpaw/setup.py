@@ -76,6 +76,9 @@ def create_setup(symbol, xc='LDA', lmax=0,
                 raise ValueError('SG15 pseudopotentials support only the PBE '
                                  'functional.  This calculation would use '
                                  'the %s functional.' % xc.get_setup_name())
+        elif type.upper().endswith('.UPF'):
+            from gpaw.upf import UPFSetupData
+            setupdata = UPFSetupData(type)
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
