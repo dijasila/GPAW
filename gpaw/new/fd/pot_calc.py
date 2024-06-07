@@ -101,7 +101,8 @@ class FDPotentialCalculator(PotentialCalculator):
                                           for ccc_L in ccc_aL.values())
         comp_charge = ccc_aL.layout.atomdist.comm.sum_scalar(comp_charge)
         pseudo_charge = charge_r.integrate()
-        charge_r.data *= -(comp_charge + density.charge) / pseudo_charge
+        if abs(pseudo_charge) > 1e-10:
+            charge_r.data *= -(comp_charge + density.charge) / pseudo_charge
 
         self.ghat_aLr.add_to(charge_r, ccc_aL)
 
@@ -139,7 +140,7 @@ class FDPotentialCalculator(PotentialCalculator):
             Ftauct_av = None
 
         nt_r = self.interpolate(nt_R)
-        if not nt_r.desc.pbc_c.all():
+        if 0:#not nt_r.desc.pbc_c.all():
             scale = nt_R.integrate() / nt_r.integrate()
             nt_r.data *= scale
 

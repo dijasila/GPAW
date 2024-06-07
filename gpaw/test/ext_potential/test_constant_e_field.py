@@ -16,7 +16,8 @@ def test_ext_potential_constant_e_field(in_tmp_dir):
     h.calc = GPAW(mode='fd',
                   external=ConstantElectricField(1.0),  # 1 V / Ang
                   charge=1,
-                  txt='h.txt')
+                  symmetry='off',
+                  )#txt='h.txt')
     e = h.get_potential_energy()
     f1 = h.get_forces()[0, 2]
     h[0].z += 0.001

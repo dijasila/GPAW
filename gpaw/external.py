@@ -162,7 +162,6 @@ class ConstantElectricField(ExternalPotential):
 
         L = L_c.sum()
         f_g[abs(abs(f_g) - L / 2) < 1e-5] = 0.0
-
         self.vext_g = f_g * self.strength
 
     def todict(self):
