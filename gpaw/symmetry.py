@@ -5,6 +5,7 @@
 from typing import Tuple
 
 from ase.utils import gcd
+from ase.parallel import parprint
 import numpy as np
 
 import gpaw.cgpaw as cgpaw
@@ -177,6 +178,9 @@ class Symmetry:
             for ft_c in ftrans_sc:
                 a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ij)
                 if a_a is not None:
+                    msg = ('Found supercell, deactivating fractional '
+                           'translations.')
+                    parprint(msg)
                     self.symmorphic = True
                     break
 
