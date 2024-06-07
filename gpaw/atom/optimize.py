@@ -293,8 +293,9 @@ class DatasetOptimizer:
             return x**0.25
 
         for ec in range(800, 200, -100):
-            atoms.calc.set(mode=PW(ec))
-            atoms.calc.set(eigensolver='rmm-diis')
+            atoms.calc = atoms.calc.new(mode=PW(ec),
+                                        eigensolver='rmm-diis',
+                                        txt=fd)
             de = atoms.get_potential_energy() - e0
             energies.append(de)
             # print(ec, de)

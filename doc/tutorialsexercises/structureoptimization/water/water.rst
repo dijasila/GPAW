@@ -95,13 +95,13 @@ direction.  Use a loop structure like::
 
       for ngridpoints in [24, 28, ...]:
           h = a / ngridpoints
-          calc.set(h=h)
+          calc = system.calc = calc.new(h=h, txt=...)
           energy = system.get_potential_energy()
           ...
 
 
-The ``set`` method can be used to change the parameters of a
-calculator without creating a new one.  Make sure that the numbers of
+The ``new`` method can be used to create a new calculator based on
+the settings of an existing one.  Make sure that the numbers of
 grid points are chosen to cover `0.15<h<0.25`.  While performing
 this convergence check, the other parameters do not need to be
 converged - you can reduce the cell size to e.g. ``a = 6.0`` to
