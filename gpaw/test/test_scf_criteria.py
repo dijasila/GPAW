@@ -32,11 +32,12 @@ class FourIterations(Criterion):
 @pytest.mark.later
 def test_scf_criterion(in_tmp_dir, gpaw_new):
     """Tests different ways of setting SCF convergence criteria,
-    and that it behaves consistenly with regard to the work function."""
+    and that it behaves consistently with regard to the work function."""
     convergence = {'eigenstates': 1.0,
                    'density': 1.0,
                    'energy': 1.0,
-                   'work function': 1.0}
+                   'work function': 1.0,
+                   'bands': 'all'}
     atoms = Atoms('HF', [(0., 0.5, 0.5),
                          (0., 0.4, -0.4)],
                   cell=(5., 5., 9.),
